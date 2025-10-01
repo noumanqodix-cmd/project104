@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Route, Switch, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,31 +17,20 @@ import WorkoutSession from "./components/WorkoutSession";
 import WorkoutSummary from "./components/WorkoutSummary";
 import WorkoutHistory from "./components/WorkoutHistory";
 import ProgressView from "./components/ProgressView";
+import Home from "./pages/Home";
+import History from "./pages/History";
+import Body from "./pages/Body";
+import BottomNavigation from "./components/BottomNavigation";
 
-type Screen =
-  | "welcome"
-  | "questionnaire"
-  | "fitnessTest"
-  | "nutrition"
-  | "equipment"
-  | "availability"
-  | "signup"
-  | "dashboard"
-  | "program"
-  | "workout"
-  | "summary"
-  | "history"
-  | "progress";
-
-function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>("welcome");
+function OnboardingFlow() {
+  const [, setLocation] = useLocation();
+  const [currentStep, setCurrentStep] = useState<string>("welcome");
   const [questionnaireData, setQuestionnaireData] = useState<any>({});
-  const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
-  const renderScreen = () => {
-    switch (currentScreen) {
+  const renderStep = () => {
+    switch (currentStep) {
       case "welcome":
-        return <WelcomePage onGetStarted={() => setCurrentScreen("questionnaire")} />;
+        return <WelcomePage onGetStarted={() => setCurrentStep("questionnaire")} />;
 
       case "questionnaire":
         return (
@@ -48,12 +38,12 @@ function App() {
             onComplete={(data) => {
               setQuestionnaireData(data);
               if (data.experienceLevel === "unknown") {
-                setCurrentScreen("fitnessTest");
+                setCurrentStep("fitnessTest");
               } else {
-                setCurrentScreen("nutrition");
+                setCurrentStep("nutrition");
               }
             }}
-            onBack={() => setCurrentScreen("welcome")}
+            onBack={() => setCurrentStep("welcome")}
           />
         );
 
@@ -62,7 +52,7 @@ function App() {
           <FitnessTestForm
             onComplete={(results) => {
               setQuestionnaireData({ ...questionnaireData, fitnessTest: results });
-              setCurrentScreen("nutrition");
+              setCurrentStep("nutrition");
             }}
           />
         );
@@ -72,7 +62,7 @@ function App() {
           <NutritionAssessment
             onComplete={(data) => {
               setQuestionnaireData({ ...questionnaireData, nutrition: data });
-              setCurrentScreen("equipment");
+              setCurrentStep("equipment");
             }}
           />
         );
@@ -82,7 +72,7 @@ function App() {
           <EquipmentSelector
             onComplete={(equipment) => {
               setQuestionnaireData({ ...questionnaireData, equipment });
-              setCurrentScreen("availability");
+              setCurrentStep("availability");
             }}
           />
         );
@@ -92,7 +82,7 @@ function App() {
           <AvailabilityForm
             onComplete={(data) => {
               setQuestionnaireData({ ...questionnaireData, availability: data });
-              setCurrentScreen("signup");
+              setCurrentStep("signup");
             }}
           />
         );
@@ -102,68 +92,100 @@ function App() {
           <SignUpPage
             onSignUp={(email, password) => {
               console.log("User signed up:", email, questionnaireData);
-              setCurrentScreen("dashboard");
+              setLocation("/");
             }}
           />
         );
-
-      case "dashboard":
-        return (
-          <Dashboard
-            onStartWorkout={() => setCurrentScreen("workout")}
-            onViewProgram={() => setCurrentScreen("program")}
-            onViewHistory={() => setCurrentScreen("history")}
-            onViewProgress={() => setCurrentScreen("progress")}
-          />
-        );
-
-      case "program":
-        return (
-          <WorkoutProgramView
-            onBack={() => setCurrentScreen("dashboard")}
-            onSave={(exercises) => {
-              console.log("Program saved:", exercises);
-              setCurrentScreen("dashboard");
-            }}
-          />
-        );
-
-      case "workout":
-        return (
-          <WorkoutSession
-            onComplete={(summary) => {
-              setWorkoutSummaryData(summary);
-              setCurrentScreen("summary");
-            }}
-          />
-        );
-
-      case "summary":
-        return (
-          <WorkoutSummary
-            {...workoutSummaryData}
-            onFinish={(difficulty) => {
-              console.log("Workout difficulty:", difficulty);
-              setCurrentScreen("dashboard");
-            }}
-          />
-        );
-
-      case "history":
-        return <WorkoutHistory onBack={() => setCurrentScreen("dashboard")} />;
-
-      case "progress":
-        return <ProgressView onBack={() => setCurrentScreen("dashboard")} />;
 
       default:
-        return <WelcomePage onGetStarted={() => setCurrentScreen("questionnaire")} />;
+        return <WelcomePage onGetStarted={() => setCurrentStep("questionnaire")} />;
     }
   };
+
+  return renderStep();
+}
+
+function App() {
+  const [location, setLocation] = useLocation();
+  const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
+
+  const showBottomNav = !location.startsWith("/onboarding") && 
+                        !location.startsWith("/workout") && 
+                        !location.startsWith("/summary") &&
+                        !location.startsWith("/program");
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {renderScreen()}
+        <Switch>
+          <Route path="/onboarding">
+            <OnboardingFlow />
+          </Route>
+
+          <Route path="/">
+            <Home />
+          </Route>
+
+          <Route path="/history">
+            <History />
+          </Route>
+
+          <Route path="/body">
+            <Body />
+          </Route>
+
+          <Route path="/dashboard">
+            <Dashboard
+              onStartWorkout={() => setLocation("/workout")}
+              onViewProgram={() => setLocation("/program")}
+              onViewHistory={() => setLocation("/history")}
+              onViewProgress={() => setLocation("/progress")}
+            />
+          </Route>
+
+          <Route path="/program">
+            <WorkoutProgramView
+              onBack={() => setLocation("/")}
+              onSave={(exercises) => {
+                console.log("Program saved:", exercises);
+                setLocation("/");
+              }}
+            />
+          </Route>
+
+          <Route path="/workout">
+            <WorkoutSession
+              onComplete={(summary) => {
+                setWorkoutSummaryData(summary);
+                setLocation("/summary");
+              }}
+            />
+          </Route>
+
+          <Route path="/summary">
+            <WorkoutSummary
+              {...workoutSummaryData}
+              onFinish={(difficulty) => {
+                console.log("Workout difficulty:", difficulty);
+                setLocation("/");
+              }}
+            />
+          </Route>
+
+          <Route path="/workout-history">
+            <WorkoutHistory onBack={() => setLocation("/")} />
+          </Route>
+
+          <Route path="/progress">
+            <ProgressView onBack={() => setLocation("/")} />
+          </Route>
+
+          <Route>
+            <OnboardingFlow />
+          </Route>
+        </Switch>
+        
+        {showBottomNav && <BottomNavigation />}
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
