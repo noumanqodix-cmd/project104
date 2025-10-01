@@ -5,7 +5,7 @@ export default function BottomNavigation() {
   const [location] = useLocation();
 
   const tabs = [
-    { path: "/", label: "Home", icon: Home, testId: "nav-home" },
+    { path: "/home", label: "Home", icon: Home, testId: "nav-home" },
     { path: "/history", label: "History", icon: History, testId: "nav-history" },
     { path: "/fitness-test", label: "Test", icon: TrendingUp, testId: "nav-fitness-test" },
     { path: "/body", label: "Body", icon: Activity, testId: "nav-body" },

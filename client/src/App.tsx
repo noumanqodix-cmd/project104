@@ -94,7 +94,7 @@ function OnboardingFlow() {
           <SignUpPage
             onSignUp={(email, password) => {
               console.log("User signed up:", email, questionnaireData);
-              setLocation("/");
+              setLocation("/home");
             }}
           />
         );
@@ -111,21 +111,16 @@ function App() {
   const [location, setLocation] = useLocation();
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
-  const showBottomNav = !location.startsWith("/onboarding") && 
-                        !location.startsWith("/workout") && 
-                        !location.startsWith("/summary") &&
-                        !location.startsWith("/program") &&
-                        !location.startsWith("/test/");
+  const showBottomNav = location.startsWith("/home") || 
+                        location.startsWith("/history") || 
+                        location.startsWith("/fitness-test") || 
+                        location.startsWith("/body");
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Switch>
-          <Route path="/onboarding">
-            <OnboardingFlow />
-          </Route>
-
-          <Route path="/">
+          <Route path="/home">
             <Home />
           </Route>
 
@@ -172,10 +167,10 @@ function App() {
 
           <Route path="/program">
             <WorkoutProgramView
-              onBack={() => setLocation("/")}
+              onBack={() => setLocation("/home")}
               onSave={(exercises) => {
                 console.log("Program saved:", exercises);
-                setLocation("/");
+                setLocation("/home");
               }}
             />
           </Route>
@@ -194,20 +189,20 @@ function App() {
               {...workoutSummaryData}
               onFinish={(difficulty) => {
                 console.log("Workout difficulty:", difficulty);
-                setLocation("/");
+                setLocation("/home");
               }}
             />
           </Route>
 
           <Route path="/workout-history">
-            <WorkoutHistory onBack={() => setLocation("/")} />
+            <WorkoutHistory onBack={() => setLocation("/home")} />
           </Route>
 
           <Route path="/progress">
-            <ProgressView onBack={() => setLocation("/")} />
+            <ProgressView onBack={() => setLocation("/home")} />
           </Route>
 
-          <Route>
+          <Route path="/">
             <OnboardingFlow />
           </Route>
         </Switch>

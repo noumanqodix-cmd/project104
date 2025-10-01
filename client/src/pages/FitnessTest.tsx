@@ -25,7 +25,6 @@ interface TestResult {
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
-  const [selectedType, setSelectedType] = useState<"bodyweight" | "weights" | null>(null);
 
   const testHistory: TestResult[] = [
     {
@@ -200,11 +199,6 @@ export default function FitnessTest() {
     );
   };
 
-  if (selectedType) {
-    setLocation(`/test/${selectedType}`);
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="p-6 space-y-6">
@@ -222,7 +216,7 @@ export default function FitnessTest() {
             <Button 
               variant="outline" 
               className="w-full justify-start h-auto py-4"
-              onClick={() => setSelectedType("bodyweight")}
+              onClick={() => setLocation("/test/bodyweight")}
               data-testid="button-bodyweight-test"
             >
               <div className="flex items-start gap-3 text-left">
@@ -239,7 +233,7 @@ export default function FitnessTest() {
             <Button 
               variant="outline" 
               className="w-full justify-start h-auto py-4"
-              onClick={() => setSelectedType("weights")}
+              onClick={() => setLocation("/test/weights")}
               data-testid="button-weights-test"
             >
               <div className="flex items-start gap-3 text-left">
