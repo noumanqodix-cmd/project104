@@ -1,4 +1,4 @@
-import { Home, History, Activity } from "lucide-react";
+import { Home, History, Activity, TrendingUp } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export default function BottomNavigation() {
@@ -7,6 +7,7 @@ export default function BottomNavigation() {
   const tabs = [
     { path: "/", label: "Home", icon: Home, testId: "nav-home" },
     { path: "/history", label: "History", icon: History, testId: "nav-history" },
+    { path: "/fitness-test", label: "Test", icon: TrendingUp, testId: "nav-fitness-test" },
     { path: "/body", label: "Body", icon: Activity, testId: "nav-body" },
   ];
 

@@ -20,6 +20,8 @@ import ProgressView from "./components/ProgressView";
 import Home from "./pages/Home";
 import History from "./pages/History";
 import Body from "./pages/Body";
+import FitnessTest from "./pages/FitnessTest";
+import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 
 function OnboardingFlow() {
@@ -112,7 +114,8 @@ function App() {
   const showBottomNav = !location.startsWith("/onboarding") && 
                         !location.startsWith("/workout") && 
                         !location.startsWith("/summary") &&
-                        !location.startsWith("/program");
+                        !location.startsWith("/program") &&
+                        !location.startsWith("/test/");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -132,6 +135,29 @@ function App() {
 
           <Route path="/body">
             <Body />
+          </Route>
+
+          <Route path="/fitness-test">
+            <FitnessTest />
+          </Route>
+
+          <Route path="/test/bodyweight">
+            <FitnessTestForm
+              onComplete={(results) => {
+                console.log("Bodyweight test completed:", results);
+                setLocation("/fitness-test");
+              }}
+            />
+          </Route>
+
+          <Route path="/test/weights">
+            <WeightsTestForm
+              onComplete={(results) => {
+                console.log("Weights test completed:", results);
+                setLocation("/fitness-test");
+              }}
+              onBack={() => setLocation("/fitness-test")}
+            />
           </Route>
 
           <Route path="/dashboard">
