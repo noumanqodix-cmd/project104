@@ -3,9 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ArrowLeft } from "lucide-react";
 
 interface FitnessTestFormProps {
   onComplete: (results: FitnessTestResults) => void;
+  onBack?: () => void;
 }
 
 export interface FitnessTestResults {
@@ -22,7 +24,7 @@ const exercises = [
   { id: "mileTime", label: "Mile Run Time", unit: "minutes" },
 ];
 
-export default function FitnessTestForm({ onComplete }: FitnessTestFormProps) {
+export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormProps) {
   const [currentExercise, setCurrentExercise] = useState(0);
   const [results, setResults] = useState<Partial<FitnessTestResults>>({});
   const [value, setValue] = useState("");
@@ -44,9 +46,31 @@ export default function FitnessTestForm({ onComplete }: FitnessTestFormProps) {
     }
   };
 
+  const handleBack = () => {
+    if (currentExercise > 0) {
+      setCurrentExercise(currentExercise - 1);
+      setValue("");
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <Card className="p-8 max-w-lg w-full">
+        {onBack && (
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold mb-2">{exercise.label}</h2>
           <p className="text-muted-foreground">

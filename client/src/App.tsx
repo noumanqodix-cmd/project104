@@ -147,6 +147,7 @@ function App() {
                 console.log("Bodyweight test completed:", results);
                 setLocation("/fitness-test");
               }}
+              onBack={() => setLocation("/fitness-test")}
             />
           </Route>
 
