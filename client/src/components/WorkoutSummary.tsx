@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock, Dumbbell, TrendingUp } from "lucide-react";
+import { Trophy, Clock, Dumbbell, TrendingUp, AlertCircle } from "lucide-react";
 import { Smile, Meh, Frown } from "lucide-react";
 
 interface WorkoutSummaryProps {
@@ -9,6 +9,8 @@ interface WorkoutSummaryProps {
   exercises: number;
   totalVolume: number;
   onFinish: (difficulty: number) => void;
+  incomplete?: boolean;
+  completedExercises?: number;
 }
 
 export default function WorkoutSummary({
@@ -16,6 +18,8 @@ export default function WorkoutSummary({
   exercises,
   totalVolume,
   onFinish,
+  incomplete = false,
+  completedExercises = 0,
 }: WorkoutSummaryProps) {
   const [difficulty, setDifficulty] = useState<number | null>(null);
 
@@ -37,12 +41,22 @@ export default function WorkoutSummary({
       <Card className="p-8 max-w-2xl w-full">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-primary/20 p-6 rounded-full">
-              <Trophy className="h-16 w-16 text-primary" />
+            <div className={`${incomplete ? "bg-muted" : "bg-primary/20"} p-6 rounded-full`}>
+              {incomplete ? (
+                <AlertCircle className="h-16 w-16 text-muted-foreground" />
+              ) : (
+                <Trophy className="h-16 w-16 text-primary" />
+              )}
             </div>
           </div>
-          <h2 className="text-4xl font-bold mb-2">Workout Complete!</h2>
-          <p className="text-lg text-muted-foreground">Great job crushing it today</p>
+          <h2 className="text-4xl font-bold mb-2">
+            {incomplete ? "Workout Ended Early" : "Workout Complete!"}
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            {incomplete 
+              ? `Completed ${completedExercises} of ${exercises} exercises` 
+              : "Great job crushing it today"}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-8">

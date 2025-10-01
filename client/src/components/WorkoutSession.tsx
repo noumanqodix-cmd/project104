@@ -27,6 +27,8 @@ export interface WorkoutSummary {
   duration: number;
   exercises: number;
   totalVolume: number;
+  incomplete?: boolean;
+  completedExercises?: number;
 }
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
@@ -106,6 +108,16 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       prev.map(ex => ex.id === currentExercise.id ? { ...newExercise, id: currentExercise.id } : ex)
     );
     setSwapExercise(null);
+  };
+
+  const handleEndEarly = () => {
+    onComplete({
+      duration: workoutTime,
+      exercises: exercises.length,
+      totalVolume: 2100, //todo: remove mock functionality
+      incomplete: true,
+      completedExercises: currentExerciseIndex,
+    });
   };
 
   const progressPercent = ((currentExerciseIndex * currentExercise.sets + currentSet) / 
@@ -209,6 +221,15 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               data-testid="button-next-set"
             >
               {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Next Set"}
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={handleEndEarly}
+              data-testid="button-end-early"
+            >
+              End Workout Early
             </Button>
           </div>
         </Card>
