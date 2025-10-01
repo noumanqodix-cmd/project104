@@ -1,18 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Heart, Play } from "lucide-react";
+import { Heart, Play, Pause, PlayCircle, Repeat } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
+import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 
 interface Exercise {
   id: string;
   name: string;
+  equipment: string;
   sets: number;
   reps: string;
   weight: string;
+  tempo: string;
   formVideoUrl: string;
 }
 
@@ -28,11 +31,11 @@ export interface WorkoutSummary {
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   //todo: remove mock functionality
-  const exercises: Exercise[] = [
-    { id: "1", name: "Barbell Bench Press", sets: 4, reps: "8-10", weight: "135 lbs", formVideoUrl: "#" },
-    { id: "2", name: "Dumbbell Shoulder Press", sets: 3, reps: "10-12", weight: "30 lbs", formVideoUrl: "#" },
-    { id: "3", name: "Cable Tricep Pushdown", sets: 3, reps: "12-15", weight: "60 lbs", formVideoUrl: "#" },
-  ];
+  const [exercises, setExercises] = useState<Exercise[]>([
+    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: "135 lbs", tempo: "1-2-1-1", formVideoUrl: "#" },
+    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: "30 lbs", tempo: "1-1-1-1", formVideoUrl: "#" },
+    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: "60 lbs", tempo: "1-2-1-0", formVideoUrl: "#" },
+  ]);
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
@@ -41,13 +44,29 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(0);
   const [heartRate] = useState(120); //todo: remove mock functionality
+  const [isPaused, setIsPaused] = useState(false);
+  const [swapExercise, setSwapExercise] = useState<Exercise | null>(null);
+  const isPausedRef = useRef(false);
+  const isSwappingRef = useRef(false);
 
   const currentExercise = exercises[currentExerciseIndex];
   const isLastSet = currentSet === currentExercise.sets;
   const isLastExercise = currentExerciseIndex === exercises.length - 1;
 
   useEffect(() => {
-    const timer = setInterval(() => setWorkoutTime(prev => prev + 1), 1000);
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  useEffect(() => {
+    isSwappingRef.current = !!swapExercise;
+  }, [swapExercise]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!isPausedRef.current && !isSwappingRef.current) {
+        setWorkoutTime(prev => prev + 1);
+      }
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -82,6 +101,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   };
 
+  const handleSwap = (newExercise: Exercise) => {
+    setExercises(prev =>
+      prev.map(ex => ex.id === currentExercise.id ? { ...newExercise, id: currentExercise.id } : ex)
+    );
+    setSwapExercise(null);
+  };
+
   const progressPercent = ((currentExerciseIndex * currentExercise.sets + currentSet) / 
     (exercises.reduce((acc, ex) => acc + ex.sets, 0))) * 100;
 
@@ -104,12 +130,31 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                 </div>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsPaused(!isPaused)}
+              data-testid="button-pause-resume"
+            >
+              {isPaused ? <PlayCircle className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+            </Button>
           </div>
           <Progress value={progressPercent} className="h-2" />
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-4">{currentExercise.name}</h2>
+          <div className="flex items-start justify-between mb-4">
+            <h2 className="text-2xl font-bold">{currentExercise.name}</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSwapExercise(currentExercise)}
+              data-testid="button-swap-exercise"
+            >
+              <Repeat className="h-4 w-4 mr-2" />
+              Swap
+            </Button>
+          </div>
           
           <div className="aspect-video bg-muted rounded-lg mb-6 flex items-center justify-center">
             <Button variant="outline" size="lg" data-testid="button-play-video">
@@ -174,6 +219,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           duration={90}
           onComplete={() => setShowRestTimer(false)}
           onSkip={() => setShowRestTimer(false)}
+        />
+      )}
+
+      {swapExercise && (
+        <ExerciseSwapDialog
+          exercise={swapExercise}
+          onSwap={handleSwap}
+          onClose={() => setSwapExercise(null)}
         />
       )}
     </div>
