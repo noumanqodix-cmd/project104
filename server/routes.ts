@@ -427,6 +427,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/workout-sets", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const exerciseId = req.query.exerciseId as string;
+      if (!exerciseId) {
+        return res.status(400).json({ error: "exerciseId query parameter required" });
+      }
+
+      const sets = await storage.getUserRecentSets((req as any).session.userId, exerciseId, 10);
+      res.json(sets);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch workout sets" });
+    }
+  });
+
   // AI Recommendation routes
   app.post("/api/ai/progression-recommendation", async (req: Request, res: Response) => {
     try {

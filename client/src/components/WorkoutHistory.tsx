@@ -1,54 +1,68 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Clock, Dumbbell } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, CheckCircle2, FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { WorkoutSession } from "@shared/schema";
 
 interface WorkoutHistoryProps {
   onBack: () => void;
 }
 
 export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
-  //todo: remove mock functionality
-  const workouts = [
-    {
-      id: "1",
-      name: "Upper Body Power",
-      date: "2025-09-28",
-      duration: 45,
-      exercises: 6,
-      volume: 5420,
-      difficulty: 3,
-    },
-    {
-      id: "2",
-      name: "Lower Body Strength",
-      date: "2025-09-26",
-      duration: 52,
-      exercises: 5,
-      volume: 6200,
-      difficulty: 4,
-    },
-    {
-      id: "3",
-      name: "Full Body Circuit",
-      date: "2025-09-24",
-      duration: 38,
-      exercises: 8,
-      volume: 4100,
-      difficulty: 2,
-    },
-  ];
+  const { data: sessions, isLoading } = useQuery<WorkoutSession[]>({
+    queryKey: ["/api/workout-sessions"],
+  });
 
-  const getDifficultyColor = (difficulty: number) => {
-    if (difficulty <= 2) return "success";
-    if (difficulty === 3) return "secondary";
-    return "destructive";
-  };
+  const completedSessions = sessions?.filter(s => s.completed) || [];
 
-  const getDifficultyLabel = (difficulty: number) => {
-    const labels = ["", "Very Easy", "Easy", "Moderate", "Hard", "Very Hard"];
-    return labels[difficulty] || "Moderate";
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b p-4">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-bold">Workout History</h1>
+          </div>
+        </header>
+        <main className="max-w-4xl mx-auto p-6">
+          <p className="text-center text-muted-foreground" data-testid="loading-state">Loading workout history...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!completedSessions.length) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b p-4">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-bold">Workout History</h1>
+          </div>
+        </header>
+        <main className="max-w-4xl mx-auto p-6">
+          <Card className="p-12">
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-2">No Workout History Yet</h3>
+                <p className="text-sm text-muted-foreground" data-testid="empty-state">
+                  Complete your first workout to see your history here.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,47 +76,42 @@ export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
       </header>
 
       <main className="max-w-4xl mx-auto p-6 space-y-4">
-        {workouts.map((workout) => (
-          <Card key={workout.id} className="p-6 hover-elevate" data-testid={`workout-${workout.id}`}>
+        {completedSessions.map((session) => (
+          <Card key={session.id} className="p-6 hover-elevate" data-testid={`workout-${session.id}`}>
             <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-semibold mb-1">{workout.name}</h3>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <Calendar className="h-4 w-4" />
-                  {new Date(workout.date).toLocaleDateString('en-US', { 
+                  {new Date(session.sessionDate).toLocaleDateString('en-US', { 
                     month: 'long', 
                     day: 'numeric', 
                     year: 'numeric' 
                   })}
                 </div>
               </div>
-              <Badge variant={getDifficultyColor(workout.difficulty) as any}>
-                {getDifficultyLabel(workout.difficulty)}
+              <Badge variant="default">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Completed
               </Badge>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Duration</p>
-                  <p className="font-semibold">{workout.duration} min</p>
+                  <p className="font-semibold">{session.durationMinutes ? `${session.durationMinutes} min` : 'N/A'}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Exercises</p>
-                  <p className="font-semibold">{workout.exercises}</p>
+              {session.notes && (
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Notes</p>
+                    <p className="font-semibold text-sm truncate">{session.notes}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Volume</p>
-                  <p className="font-semibold">{workout.volume.toLocaleString()} lbs</p>
-                </div>
-              </div>
+              )}
             </div>
           </Card>
         ))}

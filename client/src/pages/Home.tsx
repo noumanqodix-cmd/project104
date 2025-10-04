@@ -6,15 +6,16 @@ import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import type { WorkoutProgram, WorkoutSession } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
 
-  const { data: activeProgram, isLoading: programLoading } = useQuery({
+  const { data: activeProgram, isLoading: programLoading } = useQuery<WorkoutProgram>({
     queryKey: ["/api/programs/active"],
   });
 
-  const { data: sessions } = useQuery({
+  const { data: sessions } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
   });
 
@@ -38,12 +39,35 @@ export default function Home() {
     },
   });
 
-  const completedWorkouts = sessions?.filter((s: any) => s.completed)?.length || 0;
+  const completedSessions = sessions?.filter((s: any) => s.completed) || [];
+  const completedWorkouts = completedSessions.length;
+  
+  const getStartOfWeek = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    return startOfWeek;
+  };
+
+  const workoutsThisWeek = completedSessions.filter((s: any) => {
+    const sessionDate = new Date(s.sessionDate);
+    return sessionDate >= getStartOfWeek();
+  }).length;
+
+  const avgDuration = completedSessions.length > 0
+    ? Math.round(
+        completedSessions.reduce((sum: number, s: any) => sum + (s.durationMinutes || 0), 0) / 
+        completedSessions.length
+      )
+    : 0;
   
   const stats = [
-    { label: "Workouts This Week", value: "0", icon: Dumbbell },
+    { label: "Workouts This Week", value: workoutsThisWeek.toString(), icon: Dumbbell },
     { label: "Total Workouts", value: completedWorkouts.toString(), icon: Target },
-    { label: "Avg Duration", value: "N/A", icon: Calendar },
+    { label: "Avg Duration", value: avgDuration > 0 ? `${avgDuration}m` : "N/A", icon: Calendar },
     { label: "Streak", value: "0 days", icon: TrendingUp },
   ];
 

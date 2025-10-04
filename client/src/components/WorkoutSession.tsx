@@ -4,20 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { useQuery } from "@tanstack/react-query";
+import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise } from "@shared/schema";
 
-interface Exercise {
+interface ExerciseData {
   id: string;
   name: string;
-  equipment: string;
+  equipment: string[];
   sets: number;
   reps: string;
   weight: string;
   tempo: string;
   rpe?: number;
+  rir?: number;
   formVideoUrl: string;
 }
 
@@ -41,30 +44,58 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     queryKey: ["/api/auth/user"],
   });
   
+  const { data: activeProgram, isLoading: loadingProgram } = useQuery<WorkoutProgram>({
+    queryKey: ["/api/programs/active"],
+  });
+
+  const { data: programDetails, isLoading: loadingDetails } = useQuery<{
+    workouts: (ProgramWorkout & { exercises: (ProgramExercise & { exercise: Exercise })[] })[];
+  }>({
+    queryKey: ["/api/programs", activeProgram?.id],
+    enabled: !!activeProgram?.id,
+  });
+
   const showAds = user?.subscriptionTier === "free" || !user?.subscriptionTier;
   
-  //todo: remove mock functionality
-  const [exercises, setExercises] = useState<Exercise[]>([
-    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: `135 ${weightUnit}`, tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
-    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: `30 ${weightUnit}`, tempo: "1-1-1-1", rpe: 7, formVideoUrl: "#" },
-    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: `60 ${weightUnit}`, tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
-  ]);
-
+  const [exercises, setExercises] = useState<ExerciseData[]>([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
   const [actualReps, setActualReps] = useState("");
   const [actualWeight, setActualWeight] = useState("");
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(0);
-  const [heartRate] = useState(120); //todo: remove mock functionality
+  const [heartRate] = useState(120);
   const [isPaused, setIsPaused] = useState(false);
-  const [swapExercise, setSwapExercise] = useState<Exercise | null>(null);
+  const [swapExercise, setSwapExercise] = useState<ExerciseData | null>(null);
   const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
 
+  useEffect(() => {
+    if (programDetails?.workouts) {
+      const today = new Date().getDay();
+      const todayWorkout = programDetails.workouts.find(w => w.dayOfWeek === today);
+      
+      if (todayWorkout && todayWorkout.exercises) {
+        const mappedExercises: ExerciseData[] = todayWorkout.exercises.map(pe => ({
+          id: pe.id,
+          name: pe.exercise.name,
+          equipment: pe.exercise.equipment || [],
+          sets: pe.sets,
+          reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
+          weight: '0',
+          tempo: '2-0-2-0',
+          rpe: pe.targetRPE || undefined,
+          rir: pe.targetRIR || undefined,
+          formVideoUrl: pe.exercise.videoUrl || '#',
+        }));
+        setExercises(mappedExercises);
+      }
+    }
+  }, [programDetails]);
+
   const currentExercise = exercises[currentExerciseIndex];
-  const isLastSet = currentSet === currentExercise.sets;
+  const isLastSet = currentExercise && currentSet === currentExercise.sets;
   const isLastExercise = currentExerciseIndex === exercises.length - 1;
 
   useEffect(() => {
@@ -116,10 +147,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
     if (isLastSet) {
       if (isLastExercise) {
+        const totalVolume = exercises.reduce((total, ex) => {
+          return total + (ex.sets * parseFloat(ex.weight || '0'));
+        }, 0);
+        
         onComplete({
           duration: workoutTime,
           exercises: exercises.length,
-          totalVolume: 5420, //todo: remove mock functionality
+          totalVolume: Math.round(totalVolume),
         });
       } else {
         setCurrentExerciseIndex(prev => prev + 1);
@@ -136,7 +171,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   };
 
-  const handleSwap = (newExercise: Exercise) => {
+  const handleSwap = (newExercise: any) => {
     setExercises(prev =>
       prev.map(ex => ex.id === currentExercise.id ? { ...newExercise, id: currentExercise.id } : ex)
     );
@@ -144,14 +179,52 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleEndEarly = () => {
+    const completedVolume = exercises.slice(0, currentExerciseIndex).reduce((total, ex) => {
+      return total + (ex.sets * parseFloat(ex.weight || '0'));
+    }, 0);
+
     onComplete({
       duration: workoutTime,
       exercises: exercises.length,
-      totalVolume: 2100, //todo: remove mock functionality
+      totalVolume: Math.round(completedVolume),
       incomplete: true,
       completedExercises: currentExerciseIndex,
     });
   };
+
+  if (loadingProgram || loadingDetails) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-6">
+            <Skeleton className="h-24 w-full" />
+          </Card>
+          <Card className="p-6">
+            <Skeleton className="h-96 w-full" />
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProgram || !programDetails || exercises.length === 0) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-12 text-center">
+            <AlertCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-bold mb-2">No Workout Scheduled</h2>
+            <p className="text-muted-foreground mb-6">
+              There's no workout scheduled for today. Check your program or create a new one.
+            </p>
+            <Button onClick={() => window.location.href = '/home'} data-testid="button-back-home">
+              Back to Home
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   const completedSets = exercises.slice(0, currentExerciseIndex).reduce((acc, ex) => acc + ex.sets, 0);
   const progressPercent = ((completedSets + (currentSet - 1)) / 
@@ -236,7 +309,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               <div className="space-y-2">
                 <p className="text-lg">
                   <span className="text-muted-foreground">Recommended: </span>
-                  <span className="font-bold">{currentExercise.reps} reps × {currentExercise.weight}</span>
+                  <span className="font-bold">{currentExercise.reps} reps</span>
                 </p>
                 <div className="flex items-center justify-center gap-6 mt-4">
                   <div className="text-center">
@@ -247,6 +320,12 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Suggested RPE</p>
                       <p className="text-lg font-mono font-bold" data-testid="text-rpe">{currentExercise.rpe}/10</p>
+                    </div>
+                  )}
+                  {currentExercise.rir && (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Target RIR</p>
+                      <p className="text-lg font-mono font-bold" data-testid="text-rir">{currentExercise.rir}</p>
                     </div>
                   )}
                 </div>
@@ -313,7 +392,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
       {swapExercise && (
         <ExerciseSwapDialog
-          exercise={swapExercise}
+          exercise={swapExercise as any}
           onSwap={handleSwap}
           onClose={() => setSwapExercise(null)}
         />

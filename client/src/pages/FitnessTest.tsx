@@ -5,23 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Dumbbell, Award, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-
-interface TestResult {
-  id: number;
-  date: Date;
-  type: "bodyweight" | "weights";
-  results: {
-    pushups?: number;
-    pullups?: number;
-    squats?: number;
-    mileTime?: number;
-    squat?: number;
-    deadlift?: number;
-    benchPress?: number;
-    overheadPress?: number;
-    row?: number;
-  };
-}
+import { useQuery } from "@tanstack/react-query";
+import type { FitnessAssessment } from "@shared/schema";
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
@@ -29,45 +14,17 @@ export default function FitnessTest() {
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
-  const testHistory: TestResult[] = [
-    {
-      id: 1,
-      date: new Date(2025, 9, 1),
-      type: "bodyweight",
-      results: {
-        pushups: 35,
-        pullups: 12,
-        squats: 50,
-        mileTime: 7.5,
-      }
-    },
-    {
-      id: 2,
-      date: new Date(2025, 8, 15),
-      type: "weights",
-      results: {
-        squat: 225,
-        deadlift: 275,
-        benchPress: 185,
-        overheadPress: 115,
-        row: 155,
-      }
-    },
-    {
-      id: 3,
-      date: new Date(2025, 8, 1),
-      type: "bodyweight",
-      results: {
-        pushups: 30,
-        pullups: 10,
-        squats: 45,
-        mileTime: 8.2,
-      }
-    },
-  ];
+  const { data: assessments, isLoading } = useQuery<FitnessAssessment[]>({
+    queryKey: ["/api/fitness-assessments"],
+  });
 
-  const bodyweightTests = testHistory.filter(t => t.type === "bodyweight");
-  const weightsTests = testHistory.filter(t => t.type === "weights");
+  const bodyweightTests = assessments?.filter(a => 
+    a.pushups || a.pullups || a.squats || a.mileTime
+  ) || [];
+  
+  const weightsTests = assessments?.filter(a => 
+    a.squat1rm || a.deadlift1rm || a.benchPress1rm || a.overheadPress1rm || a.barbellRow1rm
+  ) || [];
 
   const getImprovement = (current: number, previous: number, lowerIsBetter = false) => {
     const diff = current - previous;
@@ -96,57 +53,65 @@ export default function FitnessTest() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Push-ups</p>
-              <p className="text-2xl font-bold" data-testid="stat-pushups">
-                {latest.results.pushups}
-              </p>
-              {previous && (
-                <p className={`text-xs ${getImprovement(latest.results.pushups!, previous.results.pushups!).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                  {getImprovement(latest.results.pushups!, previous.results.pushups!).diff > 0 ? "+" : ""}
-                  {getImprovement(latest.results.pushups!, previous.results.pushups!).diff} ({getImprovement(latest.results.pushups!, previous.results.pushups!).percent}%)
+            {latest.pushups !== null && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Push-ups</p>
+                <p className="text-2xl font-bold" data-testid="stat-pushups">
+                  {latest.pushups}
                 </p>
-              )}
-            </div>
+                {previous?.pushups && (
+                  <p className={`text-xs ${getImprovement(latest.pushups, previous.pushups).isImprovement ? "text-green-500" : "text-red-500"}`}>
+                    {getImprovement(latest.pushups, previous.pushups).diff > 0 ? "+" : ""}
+                    {getImprovement(latest.pushups, previous.pushups).diff} ({getImprovement(latest.pushups, previous.pushups).percent}%)
+                  </p>
+                )}
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Pull-ups</p>
-              <p className="text-2xl font-bold" data-testid="stat-pullups">
-                {latest.results.pullups}
-              </p>
-              {previous && (
-                <p className={`text-xs ${getImprovement(latest.results.pullups!, previous.results.pullups!).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                  {getImprovement(latest.results.pullups!, previous.results.pullups!).diff > 0 ? "+" : ""}
-                  {getImprovement(latest.results.pullups!, previous.results.pullups!).diff} ({getImprovement(latest.results.pullups!, previous.results.pullups!).percent}%)
+            {latest.pullups !== null && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Pull-ups</p>
+                <p className="text-2xl font-bold" data-testid="stat-pullups">
+                  {latest.pullups}
                 </p>
-              )}
-            </div>
+                {previous?.pullups && (
+                  <p className={`text-xs ${getImprovement(latest.pullups, previous.pullups).isImprovement ? "text-green-500" : "text-red-500"}`}>
+                    {getImprovement(latest.pullups, previous.pullups).diff > 0 ? "+" : ""}
+                    {getImprovement(latest.pullups, previous.pullups).diff} ({getImprovement(latest.pullups, previous.pullups).percent}%)
+                  </p>
+                )}
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Air Squats</p>
-              <p className="text-2xl font-bold" data-testid="stat-squats">
-                {latest.results.squats}
-              </p>
-              {previous && (
-                <p className={`text-xs ${getImprovement(latest.results.squats!, previous.results.squats!).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                  {getImprovement(latest.results.squats!, previous.results.squats!).diff > 0 ? "+" : ""}
-                  {getImprovement(latest.results.squats!, previous.results.squats!).diff} ({getImprovement(latest.results.squats!, previous.results.squats!).percent}%)
+            {latest.squats !== null && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Air Squats</p>
+                <p className="text-2xl font-bold" data-testid="stat-squats">
+                  {latest.squats}
                 </p>
-              )}
-            </div>
+                {previous?.squats && (
+                  <p className={`text-xs ${getImprovement(latest.squats, previous.squats).isImprovement ? "text-green-500" : "text-red-500"}`}>
+                    {getImprovement(latest.squats, previous.squats).diff > 0 ? "+" : ""}
+                    {getImprovement(latest.squats, previous.squats).diff} ({getImprovement(latest.squats, previous.squats).percent}%)
+                  </p>
+                )}
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Mile Time</p>
-              <p className="text-2xl font-bold" data-testid="stat-mile-time">
-                {latest.results.mileTime} min
-              </p>
-              {previous && (
-                <p className={`text-xs ${getImprovement(latest.results.mileTime!, previous.results.mileTime!, true).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                  {getImprovement(latest.results.mileTime!, previous.results.mileTime!, true).diff > 0 ? "+" : ""}
-                  {getImprovement(latest.results.mileTime!, previous.results.mileTime!, true).diff} min
+            {latest.mileTime !== null && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Mile Time</p>
+                <p className="text-2xl font-bold" data-testid="stat-mile-time">
+                  {latest.mileTime} min
                 </p>
-              )}
-            </div>
+                {previous?.mileTime && (
+                  <p className={`text-xs ${getImprovement(latest.mileTime, previous.mileTime, true).isImprovement ? "text-green-500" : "text-red-500"}`}>
+                    {getImprovement(latest.mileTime, previous.mileTime, true).diff > 0 ? "+" : ""}
+                    {getImprovement(latest.mileTime, previous.mileTime, true).diff} min
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -159,11 +124,11 @@ export default function FitnessTest() {
     const previous = weightsTests[1];
 
     const lifts = [
-      { key: "squat", label: "Squat" },
-      { key: "deadlift", label: "Deadlift" },
-      { key: "benchPress", label: "Bench Press" },
-      { key: "overheadPress", label: "Overhead Press" },
-      { key: "row", label: "Row" },
+      { key: "squat1rm" as const, label: "Squat", testId: "squat" },
+      { key: "deadlift1rm" as const, label: "Deadlift", testId: "deadlift" },
+      { key: "benchPress1rm" as const, label: "Bench Press", testId: "benchPress" },
+      { key: "overheadPress1rm" as const, label: "Overhead Press", testId: "overheadPress" },
+      { key: "barbellRow1rm" as const, label: "Barbell Row", testId: "row" },
     ];
 
     return (
@@ -178,13 +143,15 @@ export default function FitnessTest() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             {lifts.map(lift => {
-              const current = latest.results[lift.key as keyof typeof latest.results] as number;
-              const prev = previous?.results[lift.key as keyof typeof previous.results] as number;
+              const current = latest[lift.key];
+              const prev = previous?.[lift.key];
+              
+              if (!current) return null;
               
               return (
                 <div key={lift.key} className="space-y-2">
                   <p className="text-sm text-muted-foreground">{lift.label}</p>
-                  <p className="text-2xl font-bold" data-testid={`stat-${lift.key}`}>
+                  <p className="text-2xl font-bold" data-testid={`stat-${lift.testId}`}>
                     {current} {weightUnit}
                   </p>
                   {prev && (
@@ -201,6 +168,20 @@ export default function FitnessTest() {
       </Card>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="p-6 space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Fitness Test</h1>
+            <p className="text-muted-foreground">Track your progress and test your limits</p>
+          </div>
+          <p className="text-center text-muted-foreground" data-testid="loading-state">Loading fitness assessments...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -261,33 +242,49 @@ export default function FitnessTest() {
             <CardDescription>All previous fitness assessments</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {testHistory.map((test) => (
-              <div 
-                key={test.id} 
-                className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
-                data-testid={`test-result-${test.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  {test.type === "bodyweight" ? (
-                    <Award className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Dumbbell className="h-4 w-4 text-primary" />
-                  )}
-                  <div>
-                    <p className="font-medium">
-                      {test.type === "bodyweight" ? "Bodyweight Test" : "Weights Test"}
-                    </p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(test.date, "MMM d, yyyy")}
-                    </p>
+            {!assessments || assessments.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8" data-testid="empty-state">
+                No fitness assessments yet. Complete your first test to track your progress.
+              </p>
+            ) : (
+              assessments.map((assessment) => {
+                const isBodyweight = assessment.pushups || assessment.pullups || assessment.squats || assessment.mileTime;
+                const isWeights = assessment.squat1rm || assessment.deadlift1rm || assessment.benchPress1rm || assessment.overheadPress1rm || assessment.barbellRow1rm;
+                const metricsCount = [
+                  assessment.pushups, assessment.pullups, assessment.squats, assessment.mileTime,
+                  assessment.squat1rm, assessment.deadlift1rm, assessment.benchPress1rm, 
+                  assessment.overheadPress1rm, assessment.barbellRow1rm
+                ].filter(Boolean).length;
+
+                return (
+                  <div 
+                    key={assessment.id} 
+                    className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
+                    data-testid={`test-result-${assessment.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isBodyweight ? (
+                        <Award className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Dumbbell className="h-4 w-4 text-primary" />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {isBodyweight && isWeights ? "Combined Test" : isBodyweight ? "Bodyweight Test" : "Weights Test"}
+                        </p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(assessment.testDate), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline">
+                      {metricsCount} metrics
+                    </Badge>
                   </div>
-                </div>
-                <Badge variant="outline">
-                  {Object.keys(test.results).length} metrics
-                </Badge>
-              </div>
-            ))}
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Repeat, TrendingUp, Info } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, Repeat, TrendingUp, Info, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQuery } from "@tanstack/react-query";
+import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession, WorkoutSet } from "@shared/schema";
 
-interface Exercise {
+interface ExerciseWithProgression {
   id: string;
   name: string;
-  equipment: string;
+  equipment: string[];
   sets: number;
   reps: string;
   weight: string;
@@ -26,65 +28,165 @@ export default function WorkoutPreview() {
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   
-  const [exercises, setExercises] = useState<Exercise[]>([
-    { 
-      id: "1", 
-      name: "Barbell Bench Press", 
-      equipment: "barbell", 
-      sets: 4, 
-      reps: "8-10", 
-      weight: `135 ${weightUnit}`, 
-      tempo: "1-1-1-1", 
-      rpe: 8, 
-      formVideoUrl: "#",
-      lastRir: 4,
-      weightIncrease: 5
-    },
-    { 
-      id: "2", 
-      name: "Dumbbell Shoulder Press", 
-      equipment: "dumbbells", 
-      sets: 3, 
-      reps: "10-12", 
-      weight: `30 ${weightUnit}`, 
-      tempo: "1-1-1-1", 
-      rpe: 7, 
-      formVideoUrl: "#",
-      lastRir: 6,
-      weightIncrease: 10
-    },
-    { 
-      id: "3", 
-      name: "Cable Tricep Pushdown", 
-      equipment: "cable", 
-      sets: 3, 
-      reps: "12-15", 
-      weight: `60 ${weightUnit}`, 
-      tempo: "1-1-1-1", 
-      rpe: 8, 
-      formVideoUrl: "#",
-      lastRir: 2,
-      weightIncrease: 0
-    },
-  ]);
+  const { data: activeProgram, isLoading: loadingProgram } = useQuery<WorkoutProgram>({
+    queryKey: ["/api/programs/active"],
+  });
 
-  const [swapExercise, setSwapExercise] = useState<Exercise | null>(null);
+  const { data: programDetails, isLoading: loadingDetails } = useQuery<{
+    workouts: (ProgramWorkout & { exercises: (ProgramExercise & { exercise: Exercise })[] })[];
+  }>({
+    queryKey: ["/api/programs", activeProgram?.id],
+    enabled: !!activeProgram?.id,
+  });
 
-  const handleSwap = (newExercise: Exercise) => {
+  const { data: workoutSessions } = useQuery<WorkoutSession[]>({
+    queryKey: ["/api/workout-sessions"],
+  });
+
+  const [exercises, setExercises] = useState<ExerciseWithProgression[]>([]);
+  const [workoutName, setWorkoutName] = useState<string>("");
+  const [swapExercise, setSwapExercise] = useState<ExerciseWithProgression | null>(null);
+  const [exerciseIdForQuery, setExerciseIdForQuery] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (programDetails?.workouts) {
+      const today = new Date().getDay();
+      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= today);
+      
+      if (!nextWorkout) {
+        nextWorkout = programDetails.workouts[0];
+      }
+      
+      if (nextWorkout && nextWorkout.exercises) {
+        setWorkoutName(nextWorkout.workoutName);
+        
+        const mappedExercises: ExerciseWithProgression[] = nextWorkout.exercises.map(pe => {
+          return {
+            id: pe.id,
+            name: pe.exercise.name,
+            equipment: pe.exercise.equipment || [],
+            sets: pe.sets,
+            reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
+            weight: '0',
+            tempo: '2-0-2-0',
+            rpe: pe.targetRPE || undefined,
+            formVideoUrl: pe.exercise.videoUrl || '#',
+            lastRir: undefined,
+          };
+        });
+        setExercises(mappedExercises);
+      }
+    }
+  }, [programDetails]);
+
+  useEffect(() => {
+    if (programDetails?.workouts && exercises.length > 0) {
+      const today = new Date().getDay();
+      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= today);
+      
+      if (!nextWorkout) {
+        nextWorkout = programDetails.workouts[0];
+      }
+
+      if (nextWorkout && nextWorkout.exercises) {
+        nextWorkout.exercises.forEach(async (pe, index) => {
+          try {
+            const response = await fetch(`/api/workout-sets?exerciseId=${pe.exercise.id}`);
+            if (response.ok) {
+              const sets: WorkoutSet[] = await response.json();
+              
+              if (sets.length > 0) {
+                const rirValues = sets
+                  .filter(s => s.rir !== null && s.rir !== undefined)
+                  .map(s => s.rir as number);
+                
+                if (rirValues.length > 0) {
+                  const avgRir = rirValues.reduce((sum, val) => sum + val, 0) / rirValues.length;
+                  
+                  setExercises(prev => {
+                    const newExercises = [...prev];
+                    if (newExercises[index]) {
+                      newExercises[index] = {
+                        ...newExercises[index],
+                        lastRir: avgRir
+                      };
+                    }
+                    return newExercises;
+                  });
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to fetch sets for exercise ${pe.exercise.id}`, error);
+          }
+        });
+      }
+    }
+  }, [programDetails]);
+
+  const handleSwap = (newExercise: any) => {
     setExercises(prev =>
       prev.map(ex => ex.id === swapExercise?.id ? { ...newExercise, id: swapExercise.id } : ex)
     );
     setSwapExercise(null);
   };
 
-  const getWeightIncreaseRecommendation = (rir?: number) => {
-    if (!rir) return 0;
-    if (rir >= 5) return 10;
-    if (rir >= 3) return 5;
-    return 0;
+  const getWeightIncreaseRecommendation = (avgRir?: number) => {
+    if (avgRir === undefined) return 0;
+    if (avgRir > 3) return 5;
+    if (avgRir < 2) return 0;
+    return 5;
   };
 
-  const hasWeightIncreases = exercises.some(ex => ex.weightIncrease && ex.weightIncrease > 0);
+  if (loadingProgram || loadingDetails) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="p-6 space-y-6">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProgram || !programDetails || exercises.length === 0) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="p-6 space-y-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation("/home")}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Workout Preview</h1>
+            </div>
+          </div>
+
+          <Card className="p-12 text-center">
+            <AlertCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-bold mb-2">No Workout Available</h2>
+            <p className="text-muted-foreground mb-6">
+              There's no workout preview available. Create a workout program to get started.
+            </p>
+            <Button onClick={() => setLocation("/home")} data-testid="button-create-program">
+              Back to Home
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const hasWeightIncreases = exercises.some(ex => {
+    const increase = getWeightIncreaseRecommendation(ex.lastRir);
+    return increase > 0;
+  });
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -100,7 +202,7 @@ export default function WorkoutPreview() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Next Workout</h1>
-            <p className="text-muted-foreground">Push Day A - Review and edit</p>
+            <p className="text-muted-foreground">{workoutName} - Review and edit</p>
           </div>
         </div>
 
@@ -141,14 +243,16 @@ export default function WorkoutPreview() {
                 <CardContent className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Recommended Weight</p>
+                      <p className="text-sm text-muted-foreground">Recommended Reps</p>
                       <p className="text-lg font-bold" data-testid={`weight-${index}`}>
-                        {exercise.weight}
+                        {exercise.reps}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Equipment</p>
-                      <p className="text-lg font-medium capitalize">{exercise.equipment}</p>
+                      <p className="text-lg font-medium capitalize">
+                        {exercise.equipment.length > 0 ? exercise.equipment[0] : 'bodyweight'}
+                      </p>
                     </div>
                   </div>
 
@@ -165,14 +269,39 @@ export default function WorkoutPreview() {
                     )}
                   </div>
 
-                  {recommendedIncrease > 0 && (
-                    <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  {exercise.lastRir !== undefined ? (
+                    recommendedIncrease > 0 ? (
+                      <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <TrendingUp className="h-4 w-4 text-primary mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-primary">Weight Increase Recommended</p>
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`recommendation-${index}`}>
+                              Average RIR: {exercise.lastRir.toFixed(1)}. Add {recommendedIncrease} {weightUnit} for progressive overload.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 bg-muted border rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold">Maintain Current Weight</p>
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`recommendation-${index}`}>
+                              Average RIR: {exercise.lastRir.toFixed(1)}. Keep the same weight and focus on form.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="mt-3 p-3 bg-muted border rounded-lg">
                       <div className="flex items-start gap-2">
-                        <TrendingUp className="h-4 w-4 text-primary mt-0.5" />
+                        <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-primary">Weight Increase Recommended</p>
-                          <p className="text-sm text-muted-foreground mt-1" data-testid={`recommendation-${index}`}>
-                            Last workout: {exercise.lastRir} reps in reserve. Add {recommendedIncrease} {weightUnit} for progressive overload.
+                          <p className="text-sm text-muted-foreground" data-testid={`recommendation-${index}`}>
+                            No data available. Complete a workout to get personalized recommendations.
                           </p>
                         </div>
                       </div>
@@ -219,7 +348,7 @@ export default function WorkoutPreview() {
 
       {swapExercise && (
         <ExerciseSwapDialog
-          exercise={swapExercise}
+          exercise={swapExercise as any}
           onSwap={handleSwap}
           onClose={() => setSwapExercise(null)}
         />
