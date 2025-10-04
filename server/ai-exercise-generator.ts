@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { Exercise } from "@shared/schema";
+import type { InsertExercise } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -21,7 +21,7 @@ interface GeneratedExerciseData {
 
 export async function generateExercisesForEquipment(
   equipment: string
-): Promise<Omit<Exercise, "id" | "videoUrl">[]> {
+): Promise<InsertExercise[]> {
   const prompt = `You are an expert strength and conditioning coach specializing in functional fitness. Generate 10-15 diverse exercises specifically for ${equipment}.
 
 **Requirements:**
@@ -118,8 +118,8 @@ export async function generateExercisesForEquipment(
 
 export async function generateComprehensiveExerciseLibrary(
   equipmentList: string[]
-): Promise<Omit<Exercise, "id" | "videoUrl">[]> {
-  const allExercises: Omit<Exercise, "id" | "videoUrl">[] = [];
+): Promise<InsertExercise[]> {
+  const allExercises: InsertExercise[] = [];
 
   for (const equipment of equipmentList) {
     const exercises = await generateExercisesForEquipment(equipment);

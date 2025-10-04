@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
-import { seedExercises } from "./exercise-seed";
+import { generateComprehensiveExerciseLibrary } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -147,13 +147,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ count: existingExercises.length, exercises: existingExercises, message: "Exercises already seeded" });
       }
 
+      const equipmentList = [
+        "bodyweight",
+        "dumbbells",
+        "kettlebell",
+        "barbell",
+        "bands",
+        "rack",
+        "cable",
+        "pullupbar",
+        "medicineball",
+        "trx",
+        "slamball",
+        "sandbag",
+        "battleropes",
+        "plyobox",
+        "rower",
+        "assaultbike"
+      ];
+
+      console.log("Generating comprehensive exercise library with AI...");
+      const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
+      console.log(`Generated ${generatedExercises.length} exercises`);
+
       const exercises = await Promise.all(
-        seedExercises.map(ex => storage.createExercise(ex))
+        generatedExercises.map(ex => storage.createExercise(ex))
       );
+      
       res.json({ count: exercises.length, exercises });
     } catch (error) {
       console.error("Seed exercises error:", error);
-      res.status(500).json({ error: "Failed to seed exercises" });
+      if (error instanceof Error && error.message.includes("API key")) {
+        return res.status(500).json({ error: "AI API configuration error. Please check OpenAI API key." });
+      }
+      res.status(500).json({ error: "Failed to seed exercises. Please try again or contact support." });
     }
   });
 
