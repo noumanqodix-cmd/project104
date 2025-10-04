@@ -45,11 +45,7 @@ function OnboardingFlow() {
               if (data.unitPreference) {
                 localStorage.setItem('unitPreference', data.unitPreference);
               }
-              if (data.experienceLevel === "unknown") {
-                setCurrentStep("fitnessTest");
-              } else {
-                setCurrentStep("nutrition");
-              }
+              setCurrentStep("fitnessTest");
             }}
             onBack={() => setCurrentStep("welcome")}
           />

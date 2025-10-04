@@ -20,10 +20,7 @@ export default function Home() {
 
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/programs/generate", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
+      return await apiRequest("POST", "/api/programs/generate", {});
     },
     onSuccess: () => {
       toast({
