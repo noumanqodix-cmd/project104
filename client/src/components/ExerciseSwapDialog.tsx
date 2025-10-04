@@ -7,20 +7,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
-
-interface Exercise {
-  id: string;
-  name: string;
-  equipment: string;
-  sets: number;
-  reps: string;
-  weight: string;
-  tempo: string;
-  formVideoUrl: string;
-}
+import type { ProgramExercise, Exercise } from "@shared/schema";
 
 interface ExerciseSwapDialogProps {
-  exercise: Exercise;
+  exercise: ProgramExercise & { exercise: Exercise };
   onSwap: (newExercise: Exercise) => void;
   onClose: () => void;
 }
@@ -34,28 +24,36 @@ export default function ExerciseSwapDialog({
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   
   //todo: remove mock functionality
-  const suggestions = [
+  const suggestions: Exercise[] = [
     {
       id: "alt1",
-      name: "Dumbbell Bench Press",
-      equipment: "dumbbells",
-      sets: exercise.sets,
-      reps: exercise.reps,
-      weight: `50 ${weightUnit}`,
-      tempo: exercise.tempo,
-      formVideoUrl: "#",
-      reason: "Same muscle groups, uses dumbbells",
+      name: "Alternative Exercise 1",
+      description: "Similar movement pattern",
+      movementPattern: exercise.exercise.movementPattern,
+      equipment: exercise.exercise.equipment || [],
+      difficulty: exercise.exercise.difficulty,
+      primaryMuscles: exercise.exercise.primaryMuscles,
+      secondaryMuscles: exercise.exercise.secondaryMuscles || null,
+      isFunctional: exercise.exercise.isFunctional,
+      isCorrective: 0,
+      exerciseType: exercise.exercise.exerciseType,
+      videoUrl: null,
+      formTips: null,
     },
     {
       id: "alt2",
-      name: "Push-ups",
-      equipment: "bodyweight",
-      sets: exercise.sets,
-      reps: "12-15",
-      weight: "bodyweight",
-      tempo: exercise.tempo,
-      formVideoUrl: "#",
-      reason: "No equipment needed",
+      name: "Alternative Exercise 2",
+      description: "Bodyweight alternative",
+      movementPattern: exercise.exercise.movementPattern,
+      equipment: ["bodyweight"],
+      difficulty: exercise.exercise.difficulty,
+      primaryMuscles: exercise.exercise.primaryMuscles,
+      secondaryMuscles: exercise.exercise.secondaryMuscles || null,
+      isFunctional: exercise.exercise.isFunctional,
+      isCorrective: 0,
+      exerciseType: exercise.exercise.exerciseType,
+      videoUrl: null,
+      formTips: null,
     },
   ];
 
@@ -65,7 +63,7 @@ export default function ExerciseSwapDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Swap Exercise: {exercise.name}
+            Swap Exercise: {exercise.exercise.name}
           </DialogTitle>
         </DialogHeader>
 
@@ -82,7 +80,11 @@ export default function ExerciseSwapDialog({
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-semibold mb-1">{suggestion.name}</h3>
-                  <Badge variant="secondary">{suggestion.equipment}</Badge>
+                  <div className="flex gap-2 flex-wrap">
+                    {suggestion.equipment?.map((eq, idx) => (
+                      <Badge key={idx} variant="secondary">{eq}</Badge>
+                    ))}
+                  </div>
                 </div>
                 <Button
                   onClick={() => onSwap(suggestion)}
@@ -91,7 +93,9 @@ export default function ExerciseSwapDialog({
                   Select
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">{suggestion.reason}</p>
+              {suggestion.description && (
+                <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+              )}
             </div>
           ))}
         </div>

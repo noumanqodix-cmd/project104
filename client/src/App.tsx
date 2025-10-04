@@ -247,8 +247,8 @@ function App() {
           <Route path="/program">
             <WorkoutProgramView
               onBack={() => setLocation("/home")}
-              onSave={(exercises) => {
-                console.log("Program saved:", exercises);
+              onSave={() => {
+                console.log("Program saved");
                 setLocation("/home");
               }}
             />

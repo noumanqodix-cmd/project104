@@ -163,6 +163,7 @@ export class MemStorage implements IStorage {
       secondaryMuscles: insertExercise.secondaryMuscles || null,
       isFunctional: insertExercise.isFunctional !== undefined ? insertExercise.isFunctional : 1,
       isCorrective: insertExercise.isCorrective !== undefined ? insertExercise.isCorrective : 0,
+      exerciseType: insertExercise.exerciseType || "main",
       videoUrl: insertExercise.videoUrl || null,
       formTips: insertExercise.formTips || null,
     };
@@ -244,6 +245,8 @@ export class MemStorage implements IStorage {
       repsMin: insertExercise.repsMin || null,
       repsMax: insertExercise.repsMax || null,
       durationSeconds: insertExercise.durationSeconds || null,
+      targetRPE: insertExercise.targetRPE ?? null,
+      targetRIR: insertExercise.targetRIR ?? null,
       notes: insertExercise.notes || null,
     };
     this.programExercises.set(id, exercise);
