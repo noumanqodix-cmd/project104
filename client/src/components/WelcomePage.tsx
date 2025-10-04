@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dumbbell } from "lucide-react";
-import heroImage from "@assets/stock_images/person_exercising_wo_b21d5a6e.jpg";
+import heroImage from "@assets/stock_images/female_athlete_worki_2ba03690.jpg";
 
 interface WelcomePageProps {
   onGetStarted: () => void;
