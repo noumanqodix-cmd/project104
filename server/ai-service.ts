@@ -32,7 +32,10 @@ export interface GeneratedExercise {
   repsMax?: number;
   durationSeconds?: number;
   restSeconds: number;
+  targetRPE?: number;  // Rate of Perceived Exertion (1-10)
+  targetRIR?: number;  // Reps in Reserve (0-5)
   notes?: string;
+  isWarmup?: boolean;  // Flag to identify warmup exercises
 }
 
 export async function generateWorkoutProgram(
@@ -57,14 +60,27 @@ ${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.
 ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
   `.trim();
 
+  // Include both functional main exercises AND warmup exercises
   const functionalExercises = availableExercises
     .filter((ex) => 
-      ex.isFunctional && 
+      (ex.isFunctional || ex.exerciseType === "warmup") && 
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
     )
-    .slice(0, 50);
+    .slice(0, 80); // Increase to 80 to include warmups
+
+  // Separate warmup exercises for explicit reference
+  const warmupExercises = availableExercises
+    .filter((ex) => 
+      ex.exerciseType === "warmup" &&
+      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
+    )
+    .slice(0, 30);
 
   const exerciseList = functionalExercises
+    .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
+    .join("\n");
+
+  const warmupList = warmupExercises
     .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
     .join("\n");
 
@@ -79,8 +95,11 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
 
 ${assessmentSummary}
 
-**Exercise Database (prioritize functional movements):**
+**Main Exercise Database (prioritize functional movements):**
 ${exerciseList}
+
+**Warmup Exercise Database:**
+${warmupList}
 
 **Program Requirements:**
 1. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
@@ -90,6 +109,21 @@ ${exerciseList}
 5. Appropriate for ${workoutDuration}-minute sessions
 6. Match the user's current fitness level based on assessment results
 7. Use available equipment: ${equipmentList}
+
+**WARMUP REQUIREMENTS (CRITICAL):**
+- Each workout MUST include 2-3 dynamic warmup exercises at the beginning that specifically prepare for that day's movement patterns
+- Different workouts need different warmups (lower body vs upper body vs full body)
+- Warmup exercises should prime the nervous system and mobilize the joints used in the main workout
+- Set isWarmup: true for all warmup exercises
+- Warmup exercises typically use 2 sets with higher reps (10-15) and shorter rest (30 seconds)
+
+**INTENSITY CONTROL:**
+- For each main exercise (not warmups), specify targetRPE (1-10, where 10 is maximal effort) and targetRIR (0-5, reps left in reserve)
+- RPE/RIR targets help users understand intended intensity
+- You have full control over sets, reps, rest periods, and intensity targets
+- Beginners: RPE 6-7, RIR 3-4
+- Intermediate: RPE 7-8, RIR 2-3
+- Advanced: RPE 8-9, RIR 1-2
 
 **Response Format (JSON):**
 {
@@ -103,19 +137,51 @@ ${exerciseList}
       "movementFocus": ["push", "pull", "hinge"],
       "exercises": [
         {
-          "exerciseName": "exact name from exercise list",
+          "exerciseName": "Cat-Cow Stretch",
+          "sets": 2,
+          "repsMin": 10,
+          "repsMax": 15,
+          "restSeconds": 30,
+          "isWarmup": true,
+          "notes": "Focus on spinal mobility"
+        },
+        {
+          "exerciseName": "Arm Circles",
+          "sets": 2,
+          "repsMin": 10,
+          "repsMax": 15,
+          "restSeconds": 30,
+          "isWarmup": true,
+          "notes": "Prepare shoulders for pressing"
+        },
+        {
+          "exerciseName": "Goblet Squat",
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
           "restSeconds": 90,
-          "notes": "Focus on controlled movement"
+          "targetRPE": 7,
+          "targetRIR": 3,
+          "isWarmup": false,
+          "notes": "Control the descent"
+        },
+        {
+          "exerciseName": "Dumbbell Bench Press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 12,
+          "restSeconds": 120,
+          "targetRPE": 8,
+          "targetRIR": 2,
+          "isWarmup": false,
+          "notes": "Full range of motion"
         }
       ]
     }
   ]
 }
 
-Create a complete program with 3-5 workout days per week. Ensure variety, balance, and functional movement emphasis.`;
+Create a complete program with 3-5 workout days per week. Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
