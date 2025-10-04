@@ -110,14 +110,13 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds
             type="number"
             value={rir}
             onChange={(e) => setRir(e.target.value)}
-            placeholder="Enter RIR (0-5)"
+            placeholder="Enter RIR"
             className="text-center text-xl h-12"
             min="0"
-            max="10"
             data-testid="input-rir"
           />
           <p className="text-sm text-muted-foreground mt-2" data-testid="text-rir-helper">
-            RIR (Reps in Reserve): 0 = failure, 1-2 = very hard, 3-5 = moderate effort
+            RIR (Reps in Reserve): How many more reps you could have done with perfect form
           </p>
         </div>
 

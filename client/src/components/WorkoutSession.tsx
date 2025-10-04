@@ -91,8 +91,10 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const getWeightIncreaseRecommendation = (rir: number) => {
-    if (rir >= 5) return 10;
-    if (rir >= 3) return 5;
+    if (rir > 2) {
+      if (rir >= 5) return 10;
+      return 5;
+    }
     return 0;
   };
 
