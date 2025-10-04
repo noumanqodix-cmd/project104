@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import type { Subscription } from "@shared/schema";
 import Landing from "./pages/Landing";
+import SubscriptionSelection from "./pages/SubscriptionSelection";
 import FitnessTestForm from "./components/FitnessTestForm";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
@@ -25,17 +27,39 @@ import BottomNavigation from "./components/BottomNavigation";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
+  const { data: subscription, isLoading: isLoadingSubscription } = useQuery<Subscription>({ 
+    queryKey: ["/api/subscription"],
+    enabled: isAuthenticated,
+    retry: false,
+  });
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
-  const showBottomNav = location.startsWith("/home") || 
+  const showBottomNav = !location.startsWith("/subscription-selection") &&
+                        (location.startsWith("/home") || 
                         location.startsWith("/history") || 
                         location.startsWith("/fitness-test") || 
                         location.startsWith("/body") ||
                         location.startsWith("/workout-preview") ||
                         location.startsWith("/program") ||
-                        location.startsWith("/test/");
+                        location.startsWith("/test/"));
 
-  if (isLoading) {
+  useEffect(() => {
+    if (isAuthenticated && !isLoadingSubscription) {
+      const needsTier = !subscription || (!subscription.tier && subscription.tier !== 'free');
+      
+      if (location === "/") {
+        if (needsTier) {
+          setLocation("/subscription-selection");
+        } else {
+          setLocation("/home");
+        }
+      } else if (needsTier && location !== "/subscription-selection") {
+        setLocation("/subscription-selection");
+      }
+    }
+  }, [isAuthenticated, isLoadingSubscription, subscription, location, setLocation]);
+
+  if (isLoading || (isAuthenticated && isLoadingSubscription)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -75,6 +99,10 @@ function Router() {
 
             <Route path="/settings">
               <Settings />
+            </Route>
+
+            <Route path="/subscription-selection">
+              <SubscriptionSelection />
             </Route>
 
             <Route path="/test/bodyweight">
