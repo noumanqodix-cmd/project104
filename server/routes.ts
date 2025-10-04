@@ -147,26 +147,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ count: existingExercises.length, exercises: existingExercises, message: "Exercises already seeded" });
       }
 
-      const equipmentList = [
-        "bodyweight",
-        "dumbbells",
-        "kettlebell",
-        "barbell",
-        "bands",
-        "rack",
-        "cable",
-        "pullupbar",
-        "medicineball",
-        "trx",
-        "slamball",
-        "sandbag",
-        "battleropes",
-        "plyobox",
-        "rower",
-        "assaultbike"
-      ];
+      const userId = (req as any).session.userId;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
-      console.log("Generating comprehensive exercise library with AI...");
+      let equipmentList = user.equipment || [];
+      
+      if (!equipmentList.includes("bodyweight")) {
+        equipmentList = ["bodyweight", ...equipmentList];
+      }
+
+      if (equipmentList.length === 0 || (equipmentList.length === 1 && equipmentList[0] === "bodyweight")) {
+        equipmentList = ["bodyweight"];
+      }
+
+      console.log(`Generating exercises for ${equipmentList.length} equipment types: ${equipmentList.join(", ")}`);
       const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
       console.log(`Generated ${generatedExercises.length} exercises`);
 

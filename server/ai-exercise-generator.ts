@@ -78,7 +78,7 @@ export async function generateExercisesForEquipment(
 - Form tips should be practical coaching cues`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
