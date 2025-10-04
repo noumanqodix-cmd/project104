@@ -4,12 +4,21 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertUserProfileSchema, insertSubscriptionSchema } from "@shared/schema";
 
-// Helper to get user ID in development or production
-function getUserId(req: any): string {
-  if (process.env.SKIP_AUTH === 'true') {
-    return 'dev-user-123';
+const DEFAULT_USER_ID = 'user-1';
+
+async function ensureDefaultUser() {
+  let user = await storage.getUser(DEFAULT_USER_ID);
+  if (!user) {
+    await storage.upsertUser({
+      id: DEFAULT_USER_ID,
+      email: 'user@fitforge.app',
+      firstName: 'FitForge',
+      lastName: 'User',
+      profileImageUrl: null,
+    });
+    user = await storage.getUser(DEFAULT_USER_ID);
   }
-  return req.user.claims.sub;
+  return user;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -17,26 +26,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      
-      // In dev mode, create a mock user if it doesn't exist
-      if (process.env.SKIP_AUTH === 'true') {
-        let user = await storage.getUser(userId);
-        if (!user) {
-          await storage.upsertUser({
-            id: userId,
-            email: 'dev@example.com',
-            firstName: 'Dev',
-            lastName: 'User',
-            profileImageUrl: null,
-          });
-          user = await storage.getUser(userId);
-        }
-        res.json(user);
-      } else {
-        const user = await storage.getUser(userId);
-        res.json(user);
-      }
+      const user = await ensureDefaultUser();
+      res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -44,24 +35,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/profile", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    const profile = await storage.getUserProfile(userId);
+    const profile = await storage.getUserProfile(DEFAULT_USER_ID);
     res.json(profile || {});
   });
 
   app.post("/api/profile", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-
     try {
       const data = insertUserProfileSchema.parse({
         ...req.body,
-        userId,
+        userId: DEFAULT_USER_ID,
       });
 
-      const existingProfile = await storage.getUserProfile(userId);
+      const existingProfile = await storage.getUserProfile(DEFAULT_USER_ID);
       
       if (existingProfile) {
-        const updated = await storage.updateUserProfile(userId, data);
+        const updated = await storage.updateUserProfile(DEFAULT_USER_ID, data);
         res.json(updated);
       } else {
         const created = await storage.createUserProfile(data);
@@ -73,24 +61,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-    const subscription = await storage.getUserSubscription(userId);
-    res.json(subscription || { tier: 'free', isActive: 1 });
+    const subscription = await storage.getUserSubscription(DEFAULT_USER_ID);
+    res.json(subscription || null);
   });
 
   app.post("/api/subscription", isAuthenticated, async (req: any, res) => {
-    const userId = getUserId(req);
-
     try {
       const data = insertSubscriptionSchema.parse({
         ...req.body,
-        userId,
+        userId: DEFAULT_USER_ID,
       });
 
-      const existingSubscription = await storage.getUserSubscription(userId);
+      const existingSubscription = await storage.getUserSubscription(DEFAULT_USER_ID);
       
       if (existingSubscription) {
-        const updated = await storage.updateSubscription(userId, data);
+        const updated = await storage.updateSubscription(DEFAULT_USER_ID, data);
         res.json(updated);
       } else {
         const created = await storage.createSubscription(data);
