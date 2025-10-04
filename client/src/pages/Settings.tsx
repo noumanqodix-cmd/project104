@@ -68,7 +68,7 @@ export default function Settings() {
       icon: User,
       action: () => toast({
         title: "Profile Management",
-        description: "Profile editing coming soon! Your information is synced from your Replit account.",
+        description: "Profile editing coming soon!",
       }),
       testId: "button-profile",
     },
@@ -229,21 +229,6 @@ export default function Settings() {
           })}
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-destructive hover:text-destructive"
-              onClick={() => {
-                window.location.href = "/api/logout";
-              }}
-              data-testid="button-logout"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Log Out
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

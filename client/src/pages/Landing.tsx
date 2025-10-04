@@ -1,16 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Dumbbell } from "lucide-react";
+import { useLocation } from "wouter";
 import heroImage from "@assets/stock_images/person_exercising_wo_b21d5a6e.jpg";
 
 export default function Landing() {
-  const handleGetStarted = () => {
-    localStorage.setItem('isNewUser', 'true');
-    window.location.href = "/api/login";
-  };
+  const [, setLocation] = useLocation();
 
-  const handleLogin = () => {
-    localStorage.removeItem('isNewUser');
-    window.location.href = "/api/login";
+  const handleGetStarted = () => {
+    setLocation("/subscription-selection");
   };
 
   return (
@@ -38,25 +35,14 @@ export default function Landing() {
           Get custom workout programs tailored to your fitness level, available equipment, and goals. Track your progress and achieve results with AI-powered recommendations.
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button
-            size="lg"
-            onClick={handleGetStarted}
-            className="text-lg px-8 py-6 h-auto"
-            data-testid="button-get-started"
-          >
-            Get Started
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={handleLogin}
-            className="text-lg px-8 py-6 h-auto bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
-            data-testid="button-login"
-          >
-            Login
-          </Button>
-        </div>
+        <Button
+          size="lg"
+          onClick={handleGetStarted}
+          className="text-lg px-8 py-6 h-auto"
+          data-testid="button-get-started"
+        >
+          Get Started
+        </Button>
       </div>
     </div>
   );

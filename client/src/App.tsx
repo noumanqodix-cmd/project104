@@ -4,7 +4,6 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/useAuth";
 import type { Subscription } from "@shared/schema";
 import Landing from "./pages/Landing";
 import SubscriptionSelection from "./pages/SubscriptionSelection";
@@ -25,16 +24,15 @@ import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
   const { data: subscription, isLoading: isLoadingSubscription } = useQuery<Subscription>({ 
     queryKey: ["/api/subscription"],
-    enabled: isAuthenticated,
     retry: false,
   });
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
   const showBottomNav = !location.startsWith("/subscription-selection") &&
+                        !location.startsWith("/") &&
                         (location.startsWith("/home") || 
                         location.startsWith("/history") || 
                         location.startsWith("/fitness-test") || 
@@ -44,22 +42,16 @@ function Router() {
                         location.startsWith("/test/"));
 
   useEffect(() => {
-    if (isAuthenticated && !isLoadingSubscription) {
+    if (!isLoadingSubscription && location !== "/" && location !== "/subscription-selection") {
       const needsTier = !subscription || (!subscription.tier && subscription.tier !== 'free');
       
-      if (location === "/") {
-        if (needsTier) {
-          setLocation("/subscription-selection");
-        } else {
-          setLocation("/home");
-        }
-      } else if (needsTier && location !== "/subscription-selection") {
+      if (needsTier) {
         setLocation("/subscription-selection");
       }
     }
-  }, [isAuthenticated, isLoadingSubscription, subscription, location, setLocation]);
+  }, [isLoadingSubscription, subscription, location, setLocation]);
 
-  if (isLoading || (isAuthenticated && isLoadingSubscription)) {
+  if (isLoadingSubscription && location !== "/" && location !== "/subscription-selection") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -73,117 +65,111 @@ function Router() {
   return (
     <>
       <Switch>
-        {!isAuthenticated ? (
-          <Route path="/" component={Landing} />
-        ) : (
-          <>
-            <Route path="/home">
-              <Home />
-            </Route>
+        <Route path="/" component={Landing} />
+        
+        <Route path="/subscription-selection">
+          <SubscriptionSelection />
+        </Route>
 
-            <Route path="/history">
-              <History />
-            </Route>
+        <Route path="/home">
+          <Home />
+        </Route>
 
-            <Route path="/body">
-              <Body />
-            </Route>
+        <Route path="/history">
+          <History />
+        </Route>
 
-            <Route path="/fitness-test">
-              <FitnessTest />
-            </Route>
+        <Route path="/body">
+          <Body />
+        </Route>
 
-            <Route path="/workout-preview">
-              <WorkoutPreview />
-            </Route>
+        <Route path="/fitness-test">
+          <FitnessTest />
+        </Route>
 
-            <Route path="/settings">
-              <Settings />
-            </Route>
+        <Route path="/workout-preview">
+          <WorkoutPreview />
+        </Route>
 
-            <Route path="/subscription-selection">
-              <SubscriptionSelection />
-            </Route>
+        <Route path="/settings">
+          <Settings />
+        </Route>
 
-            <Route path="/test/bodyweight">
-              <FitnessTestForm
-                onComplete={(results) => {
-                  console.log("Bodyweight test completed:", results);
-                  setLocation("/fitness-test");
-                }}
-                onBack={() => setLocation("/fitness-test")}
-              />
-            </Route>
+        <Route path="/test/bodyweight">
+          <FitnessTestForm
+            onComplete={(results) => {
+              console.log("Bodyweight test completed:", results);
+              setLocation("/fitness-test");
+            }}
+            onBack={() => setLocation("/fitness-test")}
+          />
+        </Route>
 
-            <Route path="/test/weights">
-              <WeightsTestForm
-                onComplete={(results) => {
-                  console.log("Weights test completed:", results);
-                  setLocation("/fitness-test");
-                }}
-                onBack={() => setLocation("/fitness-test")}
-              />
-            </Route>
+        <Route path="/test/weights">
+          <WeightsTestForm
+            onComplete={(results) => {
+              console.log("Weights test completed:", results);
+              setLocation("/fitness-test");
+            }}
+            onBack={() => setLocation("/fitness-test")}
+          />
+        </Route>
 
-            <Route path="/dashboard">
-              <Dashboard
-                onStartWorkout={() => setLocation("/workout")}
-                onViewProgram={() => setLocation("/program")}
-                onViewHistory={() => setLocation("/history")}
-                onViewProgress={() => setLocation("/progress")}
-              />
-            </Route>
+        <Route path="/dashboard">
+          <Dashboard
+            onStartWorkout={() => setLocation("/workout")}
+            onViewProgram={() => setLocation("/program")}
+            onViewHistory={() => setLocation("/history")}
+            onViewProgress={() => setLocation("/progress")}
+          />
+        </Route>
 
-            <Route path="/program">
-              <WorkoutProgramView
-                onBack={() => setLocation("/home")}
-                onSave={(exercises) => {
-                  console.log("Program saved:", exercises);
-                  setLocation("/home");
-                }}
-              />
-            </Route>
+        <Route path="/program">
+          <WorkoutProgramView
+            onBack={() => setLocation("/home")}
+            onSave={(exercises) => {
+              console.log("Program saved:", exercises);
+              setLocation("/home");
+            }}
+          />
+        </Route>
 
-            <Route path="/workout">
-              <WorkoutSession
-                onComplete={(summary) => {
-                  setWorkoutSummaryData(summary);
-                  setLocation("/summary");
-                }}
-              />
-            </Route>
+        <Route path="/workout">
+          <WorkoutSession
+            onComplete={(summary) => {
+              setWorkoutSummaryData(summary);
+              setLocation("/summary");
+            }}
+          />
+        </Route>
 
-            <Route path="/summary">
-              <WorkoutSummary
-                {...workoutSummaryData}
-                onFinish={(difficulty) => {
-                  console.log("Workout difficulty:", difficulty);
-                  setLocation("/home");
-                }}
-              />
-            </Route>
+        <Route path="/summary">
+          {workoutSummaryData && (
+            <WorkoutSummary
+              duration={workoutSummaryData.duration}
+              exercises={workoutSummaryData.exercises}
+              totalVolume={workoutSummaryData.totalVolume}
+              onFinish={() => setLocation("/home")}
+              incomplete={workoutSummaryData.incomplete}
+              completedExercises={workoutSummaryData.completedExercises}
+            />
+          )}
+        </Route>
 
-            <Route path="/workout-history">
-              <WorkoutHistory onBack={() => setLocation("/home")} />
-            </Route>
+        <Route path="/workout-history">
+          <WorkoutHistory onBack={() => setLocation("/home")} />
+        </Route>
 
-            <Route path="/progress">
-              <ProgressView onBack={() => setLocation("/home")} />
-            </Route>
-
-            <Route path="/">
-              <Home />
-            </Route>
-          </>
-        )}
+        <Route path="/progress">
+          <ProgressView onBack={() => setLocation("/home")} />
+        </Route>
       </Switch>
-      
-      {showBottomNav && isAuthenticated && <BottomNavigation />}
+      {showBottomNav && <BottomNavigation />}
     </>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -193,5 +179,3 @@ function App() {
     </QueryClientProvider>
   );
 }
-
-export default App;
