@@ -271,6 +271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               repsMax: exercise.repsMax,
               durationSeconds: exercise.durationSeconds,
               restSeconds: exercise.restSeconds,
+              targetRPE: exercise.targetRPE,
+              targetRIR: exercise.targetRIR,
               notes: exercise.notes,
             });
           }
