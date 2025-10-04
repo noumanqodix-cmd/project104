@@ -90,12 +90,51 @@ Preferred communication style: Simple, everyday language.
 - PostCSS with Tailwind and Autoprefixer
 - Path aliases configured (@/, @shared/, @assets/)
 
-**External Services (Planned)**
-- Health data integration placeholders for Apple Health and Google Fit
-- Video content for exercise form demonstrations (URLs configured in exercise data)
-- AI-powered workout program generation (referenced in design and component structure)
+**External Services**
+- OpenAI API integration for AI-powered workout program generation
+  - GPT-4 model used for personalized program creation
+  - GPT-4-mini for exercise swap suggestions and progression recommendations
+  - JSON-structured responses for reliable parsing
+- Health data integration placeholders for Apple Health and Google Fit (planned)
+- Video content for exercise form demonstrations (planned)
 
 **Asset Management**
 - Stock images stored in attached_assets directory
 - Google Fonts integration (Inter for UI, Roboto Mono for stats/numbers)
 - Font preloading for performance optimization
+
+## AI-Powered Adaptive Training System
+
+FitForge now features a comprehensive AI-powered workout program generation system that creates personalized training plans and adapts based on user performance.
+
+**Core Features:**
+- **Intelligent Program Generation**: OpenAI GPT-4 creates customized workout programs based on:
+  - User fitness level (from assessment test results)
+  - Available equipment (dumbbells, barbell, kettlebell, resistance bands, etc.)
+  - Workout duration preferences (30-90 minutes per session)
+  - Nutrition goals (gain muscle, maintain weight, lose weight)
+  - Emphasis on functional movement patterns (push, pull, hinge, squat, carry, rotation)
+  - Corrective exercises to address movement imbalances
+
+**Database Schema:**
+- **Fitness Assessments**: Timestamped records of bodyweight tests (pushups, pullups, squats, mile run) and strength tests (1RM for major lifts)
+- **Exercise Database**: 20+ functional exercises with movement pattern categorization, equipment requirements, difficulty levels, and form tips
+- **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure and duration
+- **Performance Tracking**: Workout sessions and individual set tracking with weight, reps, and RIR (Reps in Reserve) data for progressive overload analysis
+
+**API Endpoints:**
+- POST `/api/programs/generate` - Generate new AI workout program
+- GET `/api/programs/active` - Fetch user's active program
+- GET `/api/programs/:id` - Get full program details with nested workouts and exercises
+- POST `/api/fitness-assessments` - Save fitness test results
+- GET `/api/fitness-assessments/latest` - Retrieve most recent assessment
+- POST `/api/workout-sessions` - Create new workout session
+- POST `/api/workout-sets` - Log individual set performance
+- POST `/api/ai/progression-recommendation` - Get AI-powered weight/rep progression advice
+- POST `/api/ai/exercise-swap` - Get alternative exercise suggestions
+
+**Adaptive Features (Planned):**
+- Automatic program regeneration when user completes new fitness assessment
+- Progressive overload recommendations based on RIR data from completed workouts
+- Intelligent exercise swaps based on available equipment and movement patterns
+- Real-time workout adjustments based on performance fatigue

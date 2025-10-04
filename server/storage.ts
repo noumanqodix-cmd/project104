@@ -40,6 +40,7 @@ export interface IStorage {
   getWorkoutProgram(id: string): Promise<WorkoutProgram | undefined>;
   getUserActiveProgram(userId: string): Promise<WorkoutProgram | undefined>;
   getUserPrograms(userId: string): Promise<WorkoutProgram[]>;
+  updateWorkoutProgram(id: string, updates: Partial<WorkoutProgram>): Promise<WorkoutProgram | undefined>;
   
   createProgramWorkout(workout: InsertProgramWorkout): Promise<ProgramWorkout>;
   getProgramWorkouts(programId: string): Promise<ProgramWorkout[]>;
@@ -210,6 +211,16 @@ export class MemStorage implements IStorage {
     return Array.from(this.workoutPrograms.values())
       .filter((p) => p.userId === userId)
       .sort((a, b) => b.createdDate.getTime() - a.createdDate.getTime());
+  }
+
+  async updateWorkoutProgram(id: string, updates: Partial<WorkoutProgram>): Promise<WorkoutProgram | undefined> {
+    const program = this.workoutPrograms.get(id);
+    if (!program) {
+      return undefined;
+    }
+    const updatedProgram = { ...program, ...updates, id };
+    this.workoutPrograms.set(id, updatedProgram);
+    return updatedProgram;
   }
 
   async createProgramWorkout(insertWorkout: InsertProgramWorkout): Promise<ProgramWorkout> {

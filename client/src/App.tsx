@@ -113,6 +113,7 @@ function OnboardingFlow() {
                 const response = await fetch("/api/auth/signup", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
+                  credentials: "include",
                   body: JSON.stringify({
                     email,
                     password,
@@ -123,11 +124,39 @@ function OnboardingFlow() {
                     targetCalories: questionnaireData.nutrition?.calories,
                     nutritionGoal: questionnaireData.nutrition?.goal,
                     unitPreference: questionnaireData.unitPreference || "imperial",
+                    equipment: questionnaireData.equipment || [],
+                    workoutDuration: questionnaireData.availability?.minutesPerSession,
+                    fitnessLevel: questionnaireData.experienceLevel,
                   }),
                 });
 
                 if (response.ok) {
                   console.log("User signed up:", email, questionnaireData);
+                  
+                  if (questionnaireData.fitnessTest) {
+                    try {
+                      await fetch("/api/fitness-assessments", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({
+                          experienceLevel: questionnaireData.experienceLevel,
+                          pushups: questionnaireData.fitnessTest.pushups,
+                          pullups: questionnaireData.fitnessTest.pullups,
+                          squats: questionnaireData.fitnessTest.squats,
+                          mileTime: questionnaireData.fitnessTest.mileTime,
+                        }),
+                      });
+                    } catch (error) {
+                      console.error("Failed to save fitness assessment:", error);
+                    }
+                  }
+                  
+                  await fetch("/api/exercises/seed", { 
+                    method: "POST",
+                    credentials: "include",
+                  });
+                  
                   setLocation("/home");
                 } else {
                   const error = await response.json();

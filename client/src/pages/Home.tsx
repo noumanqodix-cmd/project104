@@ -1,29 +1,62 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
-  const currentProgram = {
-    name: "Upper Body Strength",
-    week: 3,
-    totalWeeks: 8,
-    nextWorkout: "Push Day A",
-    nextWorkoutDate: "Today",
-    completedWorkouts: 16,
-    totalWorkouts: 48,
-  };
+  const { toast } = useToast();
 
-  const weekProgress = (currentProgram.week / currentProgram.totalWeeks) * 100;
-  const workoutProgress = (currentProgram.completedWorkouts / currentProgram.totalWorkouts) * 100;
+  const { data: activeProgram, isLoading: programLoading } = useQuery({
+    queryKey: ["/api/programs/active"],
+  });
 
+  const { data: sessions } = useQuery({
+    queryKey: ["/api/workout-sessions"],
+  });
+
+  const generateProgramMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/programs/generate", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "AI Program Generated!",
+        description: "Your personalized workout program is ready.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate workout program",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const completedWorkouts = sessions?.filter((s: any) => s.completed)?.length || 0;
+  
   const stats = [
-    { label: "Workouts This Week", value: "3", icon: Dumbbell },
-    { label: "Total Workouts", value: currentProgram.completedWorkouts.toString(), icon: Target },
-    { label: "Avg Duration", value: "45 min", icon: Calendar },
-    { label: "Streak", value: "7 days", icon: TrendingUp },
+    { label: "Workouts This Week", value: "0", icon: Dumbbell },
+    { label: "Total Workouts", value: completedWorkouts.toString(), icon: Target },
+    { label: "Avg Duration", value: "N/A", icon: Calendar },
+    { label: "Streak", value: "0 days", icon: TrendingUp },
   ];
+
+  if (programLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -40,51 +73,56 @@ export default function Home() {
           </Link>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{currentProgram.name}</CardTitle>
-            <CardDescription>Week {currentProgram.week} of {currentProgram.totalWeeks}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Program Progress</span>
-                <span className="font-medium">{currentProgram.week}/{currentProgram.totalWeeks} weeks</span>
-              </div>
-              <Progress value={weekProgress} className="h-2" />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Workouts Complete</span>
-                <span className="font-medium">{currentProgram.completedWorkouts}/{currentProgram.totalWorkouts}</span>
-              </div>
-              <Progress value={workoutProgress} className="h-2" />
-            </div>
-
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Next Workout</p>
-                  <p className="font-semibold text-lg">{currentProgram.nextWorkout}</p>
-                  <p className="text-sm text-muted-foreground">{currentProgram.nextWorkoutDate}</p>
+        {!activeProgram ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Active Program</CardTitle>
+              <CardDescription>Generate a personalized AI-powered workout program tailored to your fitness level, equipment, and goals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full" 
+                size="lg"
+                onClick={() => generateProgramMutation.mutate()}
+                disabled={generateProgramMutation.isPending}
+                data-testid="button-generate-program"
+              >
+                <Sparkles className="h-5 w-5 mr-2" />
+                {generateProgramMutation.isPending ? "Generating..." : "Generate AI Workout Program"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{activeProgram.programType}</CardTitle>
+              <CardDescription>{activeProgram.weeklyStructure}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Program Duration</span>
+                  <span className="font-medium">{activeProgram.durationWeeks} weeks</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Link href="/workout-preview">
-                  <Button variant="outline" className="w-full" data-testid="button-view-edit-workout">
-                    View and Edit Workout
-                  </Button>
-                </Link>
-                <Link href="/workout">
-                  <Button className="w-full" size="lg" data-testid="button-start-workout">
-                    Start Workout
-                  </Button>
-                </Link>
+
+              <div className="pt-4 border-t">
+                <div className="space-y-2">
+                  <Link href="/program">
+                    <Button variant="outline" className="w-full" data-testid="button-view-program-details">
+                      View Program Details
+                    </Button>
+                  </Link>
+                  <Link href="/workout">
+                    <Button className="w-full" size="lg" data-testid="button-start-workout">
+                      Start Workout
+                    </Button>
+                  </Link>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           {stats.map((stat) => {
