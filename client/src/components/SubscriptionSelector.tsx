@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Crown } from "lucide-react";
+import { Check, Zap, Crown, Circle, CheckCircle2 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
@@ -47,11 +47,11 @@ export default function SubscriptionSelector({ onSelect }: SubscriptionSelectorP
                 <Zap className="h-6 w-6 text-primary" />
                 <h3 className="text-2xl font-bold">Free</h3>
               </div>
-              <RadioGroupItem
-                value="free"
-                checked={selectedTier === "free"}
-                data-testid="radio-free"
-              />
+              {selectedTier === "free" ? (
+                <CheckCircle2 className="h-6 w-6 text-primary" data-testid="icon-selected-free" />
+              ) : (
+                <Circle className="h-6 w-6 text-muted-foreground" data-testid="icon-unselected-free" />
+              )}
             </div>
 
             <div className="mb-6">
@@ -104,11 +104,11 @@ export default function SubscriptionSelector({ onSelect }: SubscriptionSelectorP
                 <Crown className="h-6 w-6 text-primary" />
                 <h3 className="text-2xl font-bold">Premium</h3>
               </div>
-              <RadioGroupItem
-                value="paid"
-                checked={selectedTier === "paid"}
-                data-testid="radio-paid"
-              />
+              {selectedTier === "paid" ? (
+                <CheckCircle2 className="h-6 w-6 text-primary" data-testid="icon-selected-paid" />
+              ) : (
+                <Circle className="h-6 w-6 text-muted-foreground" data-testid="icon-unselected-paid" />
+              )}
             </div>
 
             {selectedTier === "paid" && (
