@@ -26,6 +26,7 @@ import WorkoutPreview from "./pages/WorkoutPreview";
 import Settings from "./pages/Settings";
 import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
+import TestTypeSelector from "./components/TestTypeSelector";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -45,9 +46,24 @@ function OnboardingFlow() {
               if (data.unitPreference) {
                 localStorage.setItem('unitPreference', data.unitPreference);
               }
-              setCurrentStep("fitnessTest");
+              setCurrentStep("testSelection");
             }}
             onBack={() => setCurrentStep("welcome")}
+          />
+        );
+
+      case "testSelection":
+        return (
+          <TestTypeSelector
+            onSelect={(testType) => {
+              setQuestionnaireData({ ...questionnaireData, testType });
+              if (testType === "bodyweight") {
+                setCurrentStep("fitnessTest");
+              } else {
+                setCurrentStep("weightsTest");
+              }
+            }}
+            onBack={() => setCurrentStep("questionnaire")}
           />
         );
 
@@ -58,6 +74,18 @@ function OnboardingFlow() {
               setQuestionnaireData({ ...questionnaireData, fitnessTest: results });
               setCurrentStep("nutrition");
             }}
+            onBack={() => setCurrentStep("testSelection")}
+          />
+        );
+
+      case "weightsTest":
+        return (
+          <WeightsTestForm
+            onComplete={(results) => {
+              setQuestionnaireData({ ...questionnaireData, weightsTest: results });
+              setCurrentStep("nutrition");
+            }}
+            onBack={() => setCurrentStep("testSelection")}
           />
         );
 
@@ -126,42 +154,42 @@ function OnboardingFlow() {
                   }),
                 });
 
-                if (response.ok) {
-                  console.log("User signed up:", email, questionnaireData);
-                  
-                  await new Promise(resolve => setTimeout(resolve, 100));
-                  
-                  if (questionnaireData.fitnessTest) {
-                    try {
-                      await fetch("/api/fitness-assessments", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({
-                          experienceLevel: questionnaireData.experienceLevel,
-                          pushups: questionnaireData.fitnessTest.pushups,
-                          pullups: questionnaireData.fitnessTest.pullups,
-                          squats: questionnaireData.fitnessTest.squats,
-                          mileTime: questionnaireData.fitnessTest.mileTime,
-                        }),
-                      });
-                    } catch (error) {
-                      console.error("Failed to save fitness assessment:", error);
-                    }
-                  }
-                  
-                  await fetch("/api/exercises/seed", { 
-                    method: "POST",
-                    credentials: "include",
-                  });
-                  
-                  setLocation("/home");
-                } else {
+                if (!response.ok) {
                   const error = await response.json();
                   console.error("Signup failed:", error);
+                  throw new Error(error.error || "Signup failed");
                 }
+
+                console.log("User signed up:", email, questionnaireData);
+                
+                // Wait 2 seconds for session cookie to be fully set in browser
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Try to save fitness assessment (non-blocking)
+                if (questionnaireData.fitnessTest || questionnaireData.weightsTest) {
+                  fetch("/api/fitness-assessments", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                      experienceLevel: questionnaireData.experienceLevel,
+                      ...questionnaireData.fitnessTest,
+                      ...questionnaireData.weightsTest,
+                    }),
+                  }).catch(error => console.error("Failed to save fitness assessment:", error));
+                }
+                
+                // Try to seed exercises (non-blocking)
+                fetch("/api/exercises/seed", { 
+                  method: "POST",
+                  credentials: "include",
+                }).catch(error => console.error("Failed to seed exercises:", error));
+                
+                // Navigate to home immediately (don't wait for background requests)
+                setLocation("/home");
               } catch (error) {
                 console.error("Signup error:", error);
+                throw error; // Re-throw so SignUpPage can handle it
               }
             }}
           />

@@ -6,17 +6,24 @@ import { Label } from "@/components/ui/label";
 import { Dumbbell } from "lucide-react";
 
 interface SignUpPageProps {
-  onSignUp: (email: string, password: string) => void;
+  onSignUp: (email: string, password: string) => Promise<void>;
 }
 
 export default function SignUpPage({ onSignUp }: SignUpPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && password) {
-      onSignUp(email, password);
+    if (email && password && !isSubmitting) {
+      setIsSubmitting(true);
+      try {
+        await onSignUp(email, password);
+      } catch (error) {
+        console.error("Signup error:", error);
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -65,10 +72,10 @@ export default function SignUpPage({ onSignUp }: SignUpPageProps) {
             type="submit"
             size="lg"
             className="w-full"
-            disabled={!email || !password}
+            disabled={!email || !password || isSubmitting}
             data-testid="button-create-account"
           >
-            Create Account
+            {isSubmitting ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
       </Card>
