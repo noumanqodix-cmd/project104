@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 
 interface RestTimerOverlayProps {
   duration: number;
-  onComplete: () => void;
+  onComplete: (rir?: number) => void;
   onSkip: () => void;
   showAds?: boolean;
 }
@@ -22,7 +22,7 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds
           clearInterval(timer);
           playBeep();
           vibrate();
-          setTimeout(onComplete, 500);
+          setTimeout(() => onComplete(rir ? parseInt(rir) : undefined), 500);
           return 0;
         }
         return prev - 1;
@@ -30,7 +30,7 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, [onComplete, rir]);
 
   const playBeep = () => {
     if (!audioContextRef.current) {

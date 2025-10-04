@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Heart, Play, Pause, PlayCircle, Repeat } from "lucide-react";
+import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +59,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [heartRate] = useState(120); //todo: remove mock functionality
   const [isPaused, setIsPaused] = useState(false);
   const [swapExercise, setSwapExercise] = useState<Exercise | null>(null);
+  const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
 
@@ -89,8 +90,27 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getWeightIncreaseRecommendation = (rir: number) => {
+    if (rir >= 5) return 10;
+    if (rir >= 3) return 5;
+    return 0;
+  };
+
+  const handleRestComplete = (rir?: number) => {
+    setShowRestTimer(false);
+    
+    if (rir !== undefined && !isLastSet) {
+      const increase = getWeightIncreaseRecommendation(rir);
+      setRecommendedWeightIncrease(increase);
+    } else {
+      setRecommendedWeightIncrease(0);
+    }
+  };
+
   const handleSetComplete = () => {
     if (!actualReps || !actualWeight) return;
+
+    setRecommendedWeightIncrease(0);
 
     if (isLastSet) {
       if (isLastExercise) {
@@ -195,6 +215,20 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           </div>
 
           <div className="space-y-6">
+            {recommendedWeightIncrease > 0 && (
+              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg" data-testid="weight-increase-banner">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">Weight Increase Recommended</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Based on your last set, consider adding <span className="font-bold text-primary">{recommendedWeightIncrease} {weightUnit}</span> for this set.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Set {currentSet} of {currentExercise.sets}</p>
               <div className="space-y-2">
@@ -269,7 +303,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       {showRestTimer && (
         <RestTimerOverlay
           duration={90}
-          onComplete={() => setShowRestTimer(false)}
+          onComplete={handleRestComplete}
           onSkip={() => setShowRestTimer(false)}
           showAds={showAds}
         />
