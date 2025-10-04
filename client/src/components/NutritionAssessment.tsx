@@ -131,7 +131,7 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
               >
                 <RadioGroupItem value="lose" id="lose" />
                 <div>
-                  <div className="font-semibold">Lose Fat</div>
+                  <div className="font-semibold">Lose weight and gain muscle</div>
                   <div className="text-sm text-muted-foreground">-500 calories deficit</div>
                 </div>
               </Label>
