@@ -67,21 +67,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/subscription", isAuthenticated, async (req: any, res) => {
     try {
+      console.log("POST /api/subscription - Request body:", req.body);
+      
+      await ensureDefaultUser();
+      
       const data = insertSubscriptionSchema.parse({
         ...req.body,
         userId: DEFAULT_USER_ID,
       });
+      console.log("Parsed data:", data);
 
       const existingSubscription = await storage.getUserSubscription(DEFAULT_USER_ID);
       
       if (existingSubscription) {
+        console.log("Updating existing subscription");
         const updated = await storage.updateSubscription(DEFAULT_USER_ID, data);
         res.json(updated);
       } else {
+        console.log("Creating new subscription");
         const created = await storage.createSubscription(data);
         res.json(created);
       }
     } catch (error: any) {
+      console.error("POST /api/subscription - Error:", error);
       res.status(400).send(error.message);
     }
   });

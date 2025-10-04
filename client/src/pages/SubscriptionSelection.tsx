@@ -10,17 +10,26 @@ export default function SubscriptionSelection() {
 
   const selectPlanMutation = useMutation({
     mutationFn: async (tier: 'free' | 'paid') => {
-      await apiRequest("POST", "/api/subscription", {
+      console.log("Mutation started for tier:", tier);
+      const response = await apiRequest("POST", "/api/subscription", {
         tier,
         billingCycle: tier === 'paid' ? 'monthly' : null,
         isActive: 1,
       });
+      console.log("Mutation response:", response);
+      return response;
     },
     onSuccess: () => {
+      console.log("Mutation successful, navigating to /home");
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
       setLocation("/home");
     },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+    },
   });
+
+  console.log("SubscriptionSelection render - isPending:", selectPlanMutation.isPending);
 
   const freeTierFeatures = [
     "Personalized workout programs",
