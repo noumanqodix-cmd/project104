@@ -15,7 +15,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.createUser({ username: email, password });
       
-      if (profileData.subscriptionTier || profileData.height || profileData.weight) {
+      if (Object.keys(profileData).length > 0) {
         await storage.updateUser(user.id, profileData);
       }
 
@@ -24,6 +24,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedUser);
     } catch (error) {
+      console.error("Signup error:", error);
       res.status(500).json({ error: "Failed to create user" });
     }
   });
