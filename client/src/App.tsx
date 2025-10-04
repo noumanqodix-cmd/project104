@@ -21,6 +21,7 @@ import Home from "./pages/Home";
 import History from "./pages/History";
 import Body from "./pages/Body";
 import FitnessTest from "./pages/FitnessTest";
+import WorkoutPreview from "./pages/WorkoutPreview";
 import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 
@@ -39,6 +40,9 @@ function OnboardingFlow() {
           <QuestionnaireFlow
             onComplete={(data) => {
               setQuestionnaireData(data);
+              if (data.unitPreference) {
+                localStorage.setItem('unitPreference', data.unitPreference);
+              }
               if (data.experienceLevel === "unknown") {
                 setCurrentStep("fitnessTest");
               } else {
@@ -114,7 +118,10 @@ function App() {
   const showBottomNav = location.startsWith("/home") || 
                         location.startsWith("/history") || 
                         location.startsWith("/fitness-test") || 
-                        location.startsWith("/body");
+                        location.startsWith("/body") ||
+                        location.startsWith("/workout-preview") ||
+                        location.startsWith("/program") ||
+                        location.startsWith("/test/");
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -134,6 +141,10 @@ function App() {
 
           <Route path="/fitness-test">
             <FitnessTest />
+          </Route>
+
+          <Route path="/workout-preview">
+            <WorkoutPreview />
           </Route>
 
           <Route path="/test/bodyweight">

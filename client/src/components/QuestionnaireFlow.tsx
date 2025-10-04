@@ -13,6 +13,7 @@ interface QuestionnaireFlowProps {
 
 export interface QuestionnaireData {
   experienceLevel?: string;
+  unitPreference?: string;
   fitnessTest?: {
     pushups: number;
     pullups: number;
@@ -33,15 +34,16 @@ export interface QuestionnaireData {
 
 export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireFlowProps) {
   const [experienceLevel, setExperienceLevel] = useState<string>("");
+  const [unitPreference, setUnitPreference] = useState<string>("");
 
   const handleNext = () => {
-    if (experienceLevel) {
-      onComplete({ experienceLevel } as QuestionnaireData);
+    if (experienceLevel && unitPreference) {
+      onComplete({ experienceLevel, unitPreference } as QuestionnaireData);
     }
   };
 
   const canProceed = () => {
-    return !!experienceLevel;
+    return !!experienceLevel && !!unitPreference;
   };
 
   return (
@@ -117,6 +119,41 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
               </div>
             </Label>
           </RadioGroup>
+
+          <div className="mt-8 pt-8 border-t">
+            <h3 className="text-xl font-bold mb-3">Unit Preference</h3>
+            <p className="text-muted-foreground mb-6">Choose your preferred measurement system</p>
+            
+            <RadioGroup
+              value={unitPreference}
+              onValueChange={(value) => setUnitPreference(value)}
+              className="space-y-4"
+            >
+              <Label
+                htmlFor="imperial"
+                className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover-elevate"
+                data-testid="option-imperial"
+              >
+                <RadioGroupItem value="imperial" id="imperial" />
+                <div>
+                  <div className="font-semibold">Imperial (lbs, ft, in)</div>
+                  <div className="text-sm text-muted-foreground">Pounds, feet, inches</div>
+                </div>
+              </Label>
+
+              <Label
+                htmlFor="metric"
+                className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover-elevate"
+                data-testid="option-metric"
+              >
+                <RadioGroupItem value="metric" id="metric" />
+                <div>
+                  <div className="font-semibold">Metric (kg, cm)</div>
+                  <div className="text-sm text-muted-foreground">Kilograms, centimeters</div>
+                </div>
+              </Label>
+            </RadioGroup>
+          </div>
         </Card>
 
         <div className="mt-6 flex justify-end">

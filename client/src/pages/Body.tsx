@@ -8,6 +8,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 
 export default function Body() {
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
+  
   const healthStats = {
     weight: 180,
     height: 72,
@@ -38,8 +42,8 @@ export default function Body() {
   };
 
   const vitals = [
-    { label: "Weight", value: `${healthStats.weight} lbs`, icon: Weight, change: "-2 lbs this week" },
-    { label: "Height", value: `${healthStats.height} in`, icon: Ruler, change: null },
+    { label: "Weight", value: `${healthStats.weight} ${weightUnit}`, icon: Weight, change: `-2 ${weightUnit} this week` },
+    { label: "Height", value: `${healthStats.height} ${heightUnit}`, icon: Ruler, change: null },
     { label: "BMI", value: healthStats.bmi.toFixed(1), icon: Activity, change: "Normal range" },
     { label: "BMR", value: `${healthStats.bmr} cal`, icon: Flame, change: "Daily baseline" },
   ];

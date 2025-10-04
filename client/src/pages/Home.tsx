@@ -63,11 +63,18 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground">{currentProgram.nextWorkoutDate}</p>
                 </div>
               </div>
-              <Link href="/workout">
-                <Button className="w-full" size="lg" data-testid="button-start-workout">
-                  Start Workout
-                </Button>
-              </Link>
+              <div className="space-y-2">
+                <Link href="/workout-preview">
+                  <Button variant="outline" className="w-full" data-testid="button-view-edit-workout">
+                    View and Edit Workout
+                  </Button>
+                </Link>
+                <Link href="/workout">
+                  <Button className="w-full" size="lg" data-testid="button-start-workout">
+                    Start Workout
+                  </Button>
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>

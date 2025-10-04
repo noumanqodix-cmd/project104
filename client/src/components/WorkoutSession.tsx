@@ -33,11 +33,14 @@ export interface WorkoutSummary {
 }
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  
   //todo: remove mock functionality
   const [exercises, setExercises] = useState<Exercise[]>([
-    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: "135 lbs", tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
-    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: "30 lbs", tempo: "1-1-1-1", rpe: 7, formVideoUrl: "#" },
-    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: "60 lbs", tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
+    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: `135 ${weightUnit}`, tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
+    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: `30 ${weightUnit}`, tempo: "1-1-1-1", rpe: 7, formVideoUrl: "#" },
+    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: `60 ${weightUnit}`, tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
   ]);
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -213,7 +216,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="actual-weight">Actual Weight (lbs)</Label>
+                <Label htmlFor="actual-weight">Actual Weight ({weightUnit})</Label>
                 <Input
                   id="actual-weight"
                   type="number"

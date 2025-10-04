@@ -30,6 +30,9 @@ export default function ExerciseSwapDialog({
   onSwap,
   onClose,
 }: ExerciseSwapDialogProps) {
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  
   //todo: remove mock functionality
   const suggestions = [
     {
@@ -38,7 +41,7 @@ export default function ExerciseSwapDialog({
       equipment: "dumbbells",
       sets: exercise.sets,
       reps: exercise.reps,
-      weight: "50 lbs",
+      weight: `50 ${weightUnit}`,
       tempo: exercise.tempo,
       formVideoUrl: "#",
       reason: "Same muscle groups, uses dumbbells",
