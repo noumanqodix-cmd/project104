@@ -12,6 +12,7 @@ const MemoryStore = createMemoryStore(session);
 
 app.use(
   session({
+    name: 'fitforge.sid',
     secret: process.env.SESSION_SECRET || "fitness-app-secret-key",
     resave: false,
     saveUninitialized: false,
@@ -19,13 +20,21 @@ app.use(
       checkPeriod: 86400000, // prune expired entries every 24h
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Always false in development
       httpOnly: true,
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     },
   })
 );
+
+// Debug middleware to log session info
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    console.log(`${req.method} ${req.path} - Session ID: ${(req as any).session?.id}, User ID: ${(req as any).session?.userId}, Cookie: ${req.headers.cookie ? 'present' : 'none'}`);
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

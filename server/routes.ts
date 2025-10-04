@@ -219,9 +219,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
       }
 
-      const availableExercises = await storage.getAllExercises();
+      let availableExercises = await storage.getAllExercises();
       if (availableExercises.length === 0) {
-        return res.status(400).json({ error: "No exercises in database. Please seed exercises first." });
+        console.log("No exercises found, auto-seeding for user:", userId);
+        try {
+          await generateComprehensiveExerciseLibrary(userId);
+          availableExercises = await storage.getAllExercises();
+          console.log(`Auto-seeded ${availableExercises.length} exercises`);
+        } catch (seedError) {
+          console.error("Auto-seed failed:", seedError);
+          return res.status(400).json({ error: "Failed to generate exercise library. Please try again." });
+        }
       }
 
       const generatedProgram = await generateWorkoutProgram({

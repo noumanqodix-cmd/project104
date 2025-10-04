@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 - Material Design-inspired color system with fitness-focused palette (vibrant green for progress, energetic orange for CTAs)
 
 **Application Structure**
-- Multi-step onboarding flow: Welcome → Questionnaire → Fitness Assessment → Nutrition → Equipment → Availability → Sign Up
+- Multi-step onboarding flow: Welcome → Questionnaire → **Test Type Selection** → Fitness Assessment (Bodyweight or Weights) → Nutrition → Equipment → Availability → Sign Up
 - Main application views: Home dashboard, Workout session, History tracking, Body metrics, Progress visualization
 - Bottom navigation pattern for primary mobile navigation
 - Component-based architecture with reusable UI elements in `/components` directory
@@ -66,9 +66,12 @@ Preferred communication style: Simple, everyday language.
 - Migration system configured via drizzle-kit
 
 **Session Management**
-- Session storage configured for PostgreSQL via connect-pg-simple
-- Cookie-based session handling with credentials included in fetch requests
-- Session data persistence across application restarts
+- In-memory session storage using memorystore with 24-hour cleanup cycle
+- Explicit cookie configuration: name 'fitforge.sid', secure=false for development
+- Cookie-based authentication with 7-day maxAge, httpOnly, sameSite='lax'
+- Session debugging middleware logs session ID, user ID, and cookie presence for all API requests
+- Client includes credentials in all fetch requests for session cookie transmission
+- 2-second post-signup delay ensures session cookie propagates to browser before navigation
 
 ### External Dependencies
 
@@ -108,6 +111,7 @@ Preferred communication style: Simple, everyday language.
 FitForge now features a comprehensive AI-powered workout program generation system that creates personalized training plans and adapts based on user performance.
 
 **Core Features:**
+- **Test Type Selection**: Users choose between Bodyweight Test (pushups, pullups, squats, mile run) or Weights Test (1RM for major lifts) during onboarding
 - **Intelligent Program Generation**: OpenAI GPT-4 creates customized workout programs based on:
   - User fitness level (from assessment test results)
   - Available equipment (dumbbells, barbell, kettlebell, resistance bands, etc.)
@@ -115,6 +119,7 @@ FitForge now features a comprehensive AI-powered workout program generation syst
   - Nutrition goals (gain muscle, maintain weight, lose weight)
   - Emphasis on functional movement patterns (push, pull, hinge, squat, carry, rotation)
   - Corrective exercises to address movement imbalances
+- **Automatic Exercise Seeding**: If no exercises exist when generating a program, the system automatically seeds a comprehensive exercise library (150-200+ exercises) using GPT-4o-mini based on user's equipment
 
 **Database Schema:**
 - **Fitness Assessments**: Timestamped records of bodyweight tests (pushups, pullups, squats, mile run) and strength tests (1RM for major lifts)
