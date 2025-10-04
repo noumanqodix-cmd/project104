@@ -26,8 +26,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await new Promise<void>((resolve, reject) => {
         (req as any).session.save((err: any) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            console.error("Session save error:", err);
+            reject(err);
+          } else {
+            console.log("Session saved successfully. SessionID:", (req as any).session.id, "UserID:", user.id);
+            resolve();
+          }
         });
       });
       
@@ -86,6 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fitness Assessment routes
   app.post("/api/fitness-assessments", async (req: Request, res: Response) => {
     try {
+      console.log("Fitness assessment request. SessionID:", (req as any).session?.id, "UserID:", (req as any).session?.userId);
       if (!(req as any).session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }

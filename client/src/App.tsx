@@ -129,6 +129,8 @@ function OnboardingFlow() {
                 if (response.ok) {
                   console.log("User signed up:", email, questionnaireData);
                   
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  
                   if (questionnaireData.fitnessTest) {
                     try {
                       await fetch("/api/fitness-assessments", {
