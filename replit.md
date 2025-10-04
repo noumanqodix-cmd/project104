@@ -26,18 +26,10 @@ Preferred communication style: Simple, everyday language.
 - Material Design-inspired color system with fitness-focused palette (vibrant green for progress, energetic orange for CTAs)
 
 **Application Structure**
-- Landing page with subscription tier selection (Free vs Premium)
-- Replit Auth integration for secure authentication
 - Multi-step onboarding flow: Welcome → Questionnaire → Fitness Assessment → Nutrition → Equipment → Availability → Sign Up
-- Main application views: Home dashboard, Workout session, History tracking, Body metrics, Progress visualization, Settings
+- Main application views: Home dashboard, Workout session, History tracking, Body metrics, Progress visualization
 - Bottom navigation pattern for primary mobile navigation
 - Component-based architecture with reusable UI elements in `/components` directory
-
-**Subscription System**
-- Free Tier: Full access to all fitness features with ads during rest periods
-- Premium Tier: $5/month or $36/year (40% savings) - Ad-free experience, priority support, advanced analytics
-- Advertisement component shows during rest timer (>10 seconds remaining) for free users
-- Settings page for subscription management and account preferences
 
 ### Backend Architecture
 

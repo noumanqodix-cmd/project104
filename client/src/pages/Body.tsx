@@ -6,27 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Activity, Heart, TrendingUp, Weight, Ruler, Flame, AlertCircle, Apple, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { useQuery } from "@tanstack/react-query";
-import type { UserProfile } from "@shared/schema";
 
 export default function Body() {
-  const { data: profile } = useQuery<UserProfile>({ queryKey: ["/api/profile"] });
-  const unitPreference = (profile?.unitPreference as string) || localStorage.getItem('unitPreference') || 'imperial';
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
   
-  const weight = profile?.weight || 180;
-  const height = profile?.height || 72;
-  const bmi = weight && height ? (weight / Math.pow(height, 2) * 703) : 24.4;
-  
   const healthStats = {
-    weight,
-    height,
-    bmi: typeof bmi === 'number' ? bmi.toFixed(1) : '24.4',
-    bmr: profile?.bmr || 1850,
+    weight: 180,
+    height: 72,
+    bmi: 24.4,
+    bmr: 1850,
     heartRate: 72,
     steps: 8245,
-    calories: profile?.targetCalories || 2100,
+    calories: 2100,
     lastUpdated: "2 hours ago",
   };
 
@@ -51,7 +44,7 @@ export default function Body() {
   const vitals = [
     { label: "Weight", value: `${healthStats.weight} ${weightUnit}`, icon: Weight, change: `-2 ${weightUnit} this week` },
     { label: "Height", value: `${healthStats.height} ${heightUnit}`, icon: Ruler, change: null },
-    { label: "BMI", value: healthStats.bmi, icon: Activity, change: "Normal range" },
+    { label: "BMI", value: healthStats.bmi.toFixed(1), icon: Activity, change: "Normal range" },
     { label: "BMR", value: `${healthStats.bmr} cal`, icon: Flame, change: "Daily baseline" },
   ];
 
