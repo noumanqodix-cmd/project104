@@ -83,7 +83,6 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip }: RestT
               strokeDasharray={`${2 * Math.PI * 120}`}
               strokeDashoffset={`${2 * Math.PI * 120 * (1 - progress / 100)}`}
               strokeLinecap="round"
-              className="transition-all duration-1000"
             />
           </svg>
           <div 
