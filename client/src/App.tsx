@@ -23,6 +23,7 @@ import History from "./pages/History";
 import Body from "./pages/Body";
 import FitnessTest from "./pages/FitnessTest";
 import WorkoutPreview from "./pages/WorkoutPreview";
+import Settings from "./pages/Settings";
 import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 
@@ -173,6 +174,10 @@ function App() {
 
           <Route path="/body">
             <Body />
+          </Route>
+
+          <Route path="/settings">
+            <Settings />
           </Route>
 
           <Route path="/fitness-test">

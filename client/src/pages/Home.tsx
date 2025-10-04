@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Home() {
@@ -28,9 +28,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Welcome Back!</h1>
-          <p className="text-muted-foreground">Ready to crush your next workout?</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Welcome Back!</h1>
+            <p className="text-muted-foreground">Ready to crush your next workout?</p>
+          </div>
+          <Link href="/settings">
+            <Button variant="ghost" size="icon" data-testid="button-settings">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </Link>
         </div>
 
         <Card>

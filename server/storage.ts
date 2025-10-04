@@ -35,6 +35,7 @@ export class MemStorage implements IStorage {
       id,
       subscriptionTier: "free",
       unitPreference: "imperial",
+      phone: null,
       height: null,
       weight: null,
       bmr: null,
