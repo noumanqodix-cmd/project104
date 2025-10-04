@@ -25,6 +25,9 @@ interface TestResult {
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
+  
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
   const testHistory: TestResult[] = [
     {
@@ -182,12 +185,12 @@ export default function FitnessTest() {
                 <div key={lift.key} className="space-y-2">
                   <p className="text-sm text-muted-foreground">{lift.label}</p>
                   <p className="text-2xl font-bold" data-testid={`stat-${lift.key}`}>
-                    {current} lbs
+                    {current} {weightUnit}
                   </p>
                   {prev && (
                     <p className={`text-xs ${getImprovement(current, prev).isImprovement ? "text-green-500" : "text-red-500"}`}>
                       {getImprovement(current, prev).diff > 0 ? "+" : ""}
-                      {getImprovement(current, prev).diff} lbs ({getImprovement(current, prev).percent}%)
+                      {getImprovement(current, prev).diff} {weightUnit} ({getImprovement(current, prev).percent}%)
                     </p>
                   )}
                 </div>

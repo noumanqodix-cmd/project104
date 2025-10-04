@@ -21,6 +21,9 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [goal, setGoal] = useState("");
+  
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const isMetric = unitPreference === 'metric';
 
   const calculateBMR = () => {
     const h = parseFloat(height);
@@ -61,24 +64,28 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="height">Height (cm)</Label>
+              <Label htmlFor="height">
+                Height ({isMetric ? 'cm' : 'in'})
+              </Label>
               <Input
                 id="height"
                 type="number"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
-                placeholder="170"
+                placeholder={isMetric ? '170' : '68'}
                 data-testid="input-height"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="weight">Weight (kg)</Label>
+              <Label htmlFor="weight">
+                Weight ({isMetric ? 'kg' : 'lbs'})
+              </Label>
               <Input
                 id="weight"
                 type="number"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                placeholder="70"
+                placeholder={isMetric ? '70' : '155'}
                 data-testid="input-weight"
               />
             </div>

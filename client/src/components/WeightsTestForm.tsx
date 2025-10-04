@@ -30,6 +30,9 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
   const [currentExercise, setCurrentExercise] = useState(0);
   const [results, setResults] = useState<Partial<WeightsTestResults>>({});
   const [value, setValue] = useState("");
+  
+  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
   const exercise = exercises[currentExercise];
 
@@ -96,7 +99,7 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
               data-testid="input-test-value"
             />
             <p className="text-sm text-muted-foreground text-center">
-              pounds (lbs)
+              {unitPreference === 'imperial' ? 'pounds (lbs)' : 'kilograms (kg)'}
             </p>
           </div>
 
