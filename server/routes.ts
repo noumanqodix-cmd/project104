@@ -23,6 +23,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       (req as any).session.userId = user.id;
+      
+      await new Promise<void>((resolve, reject) => {
+        (req as any).session.save((err: any) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
       const updatedUser = await storage.getUser(user.id);
       
       res.json(updatedUser);
