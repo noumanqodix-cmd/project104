@@ -26,8 +26,14 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
   const isMetric = unitPreference === 'metric';
 
   const calculateBMR = () => {
-    const h = parseFloat(height);
-    const w = parseFloat(weight);
+    let h = parseFloat(height);
+    let w = parseFloat(weight);
+    
+    if (!isMetric) {
+      h = h * 2.54;
+      w = w * 0.453592;
+    }
+    
     return Math.round(10 * w + 6.25 * h - 5 * 30 + 5);
   };
 

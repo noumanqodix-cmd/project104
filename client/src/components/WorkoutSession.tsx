@@ -124,7 +124,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     });
   };
 
-  const progressPercent = ((currentExerciseIndex * currentExercise.sets + currentSet) / 
+  const completedSets = exercises.slice(0, currentExerciseIndex).reduce((acc, ex) => acc + ex.sets, 0);
+  const progressPercent = ((completedSets + (currentSet - 1)) / 
     (exercises.reduce((acc, ex) => acc + ex.sets, 0))) * 100;
 
   return (
@@ -144,6 +145,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   <p className="text-sm text-muted-foreground">HR</p>
                   <p className="text-2xl font-mono font-bold">{heartRate}</p>
                 </div>
+              </div>
+              <div className="h-12 w-px bg-border" />
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Complete</p>
+                <p className="text-2xl font-mono font-bold" data-testid="text-workout-progress">
+                  {Math.round(progressPercent)}%
+                </p>
               </div>
             </div>
             <Button
