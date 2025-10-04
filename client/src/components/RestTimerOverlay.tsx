@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface RestTimerOverlayProps {
   duration: number;
@@ -9,6 +11,7 @@ interface RestTimerOverlayProps {
 
 export default function RestTimerOverlay({ duration, onComplete, onSkip }: RestTimerOverlayProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
+  const [rir, setRir] = useState("");
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
@@ -97,6 +100,26 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip }: RestT
         </div>
 
         <p className="text-2xl font-semibold mb-6">Rest Time</p>
+
+        <div className="max-w-xs mx-auto mb-6">
+          <Label htmlFor="rir-input" className="text-base mb-2 block">
+            How many more reps could you have done with perfect form?
+          </Label>
+          <Input
+            id="rir-input"
+            type="number"
+            value={rir}
+            onChange={(e) => setRir(e.target.value)}
+            placeholder="Enter RIR (0-5)"
+            className="text-center text-xl h-12"
+            min="0"
+            max="10"
+            data-testid="input-rir"
+          />
+          <p className="text-sm text-muted-foreground mt-2" data-testid="text-rir-helper">
+            RIR (Reps in Reserve): 0 = failure, 1-2 = very hard, 3-5 = moderate effort
+          </p>
+        </div>
 
         <Button
           variant="outline"

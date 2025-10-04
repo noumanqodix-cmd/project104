@@ -16,6 +16,7 @@ interface Exercise {
   reps: string;
   weight: string;
   tempo: string;
+  rpe?: number;
   formVideoUrl: string;
 }
 
@@ -34,9 +35,9 @@ export interface WorkoutSummary {
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   //todo: remove mock functionality
   const [exercises, setExercises] = useState<Exercise[]>([
-    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: "135 lbs", tempo: "1-2-1-1", formVideoUrl: "#" },
-    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: "30 lbs", tempo: "1-1-1-1", formVideoUrl: "#" },
-    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: "60 lbs", tempo: "1-2-1-0", formVideoUrl: "#" },
+    { id: "1", name: "Barbell Bench Press", equipment: "barbell", sets: 4, reps: "8-10", weight: "135 lbs", tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
+    { id: "2", name: "Dumbbell Shoulder Press", equipment: "dumbbells", sets: 3, reps: "10-12", weight: "30 lbs", tempo: "1-1-1-1", rpe: 7, formVideoUrl: "#" },
+    { id: "3", name: "Cable Tricep Pushdown", equipment: "cable", sets: 3, reps: "12-15", weight: "60 lbs", tempo: "1-1-1-1", rpe: 8, formVideoUrl: "#" },
   ]);
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -183,6 +184,18 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   <span className="text-muted-foreground">Recommended: </span>
                   <span className="font-bold">{currentExercise.reps} reps × {currentExercise.weight}</span>
                 </p>
+                <div className="flex items-center justify-center gap-6 mt-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Tempo</p>
+                    <p className="text-lg font-mono font-bold" data-testid="text-tempo">{currentExercise.tempo}</p>
+                  </div>
+                  {currentExercise.rpe && (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Suggested RPE</p>
+                      <p className="text-lg font-mono font-bold" data-testid="text-rpe">{currentExercise.rpe}/10</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -220,7 +233,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               disabled={!actualReps || !actualWeight}
               data-testid="button-next-set"
             >
-              {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Next Set"}
+              {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Finish Set and Recover"}
             </Button>
 
             <Button
