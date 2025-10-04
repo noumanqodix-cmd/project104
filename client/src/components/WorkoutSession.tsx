@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Heart, Play, Pause, PlayCircle, Repeat } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
+import { useQuery } from "@tanstack/react-query";
 
 interface Exercise {
   id: string;
@@ -35,6 +36,12 @@ export interface WorkoutSummary {
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  
+  const { data: user } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+  
+  const showAds = user?.subscriptionTier === "free" || !user?.subscriptionTier;
   
   //todo: remove mock functionality
   const [exercises, setExercises] = useState<Exercise[]>([
@@ -264,6 +271,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           duration={90}
           onComplete={() => setShowRestTimer(false)}
           onSkip={() => setShowRestTimer(false)}
+          showAds={showAds}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,17 +6,35 @@ import { Label } from "@/components/ui/label";
 import { Activity, Heart, TrendingUp, Weight, Ruler, Flame, AlertCircle, Apple, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Body() {
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
   
+  const { data: user } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const isMetric = unitPreference === 'metric';
+  
+  let displayWeight = user?.weight || 70;
+  let displayHeight = user?.height || 170;
+  
+  if (user?.weight && !isMetric) {
+    displayWeight = user.weight * 2.20462;
+  }
+  
+  if (user?.height && !isMetric) {
+    displayHeight = user.height / 2.54;
+  }
+  
   const healthStats = {
-    weight: 180,
-    height: 72,
+    weight: Math.round(displayWeight),
+    height: Math.round(displayHeight),
     bmi: 24.4,
-    bmr: 1850,
+    bmr: user?.bmr || 1850,
     heartRate: 72,
     steps: 8245,
     calories: 2100,

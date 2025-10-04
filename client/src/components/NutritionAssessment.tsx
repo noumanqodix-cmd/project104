@@ -48,9 +48,17 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
     const bmr = calculateBMR();
     const calories = calculateCalories(bmr, goal);
     
+    let h = parseFloat(height);
+    let w = parseFloat(weight);
+    
+    if (!isMetric) {
+      h = h * 2.54;
+      w = w * 0.453592;
+    }
+    
     onComplete({
-      height: parseFloat(height),
-      weight: parseFloat(weight),
+      height: h,
+      weight: w,
       goal,
       bmr,
       calories,
@@ -131,7 +139,7 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
               >
                 <RadioGroupItem value="lose" id="lose" />
                 <div>
-                  <div className="font-semibold">Lose Fat</div>
+                  <div className="font-semibold">Lose Weight</div>
                   <div className="text-sm text-muted-foreground">-500 calories deficit</div>
                 </div>
               </Label>

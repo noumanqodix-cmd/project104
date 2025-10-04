@@ -10,6 +10,7 @@ import FitnessTestForm from "./components/FitnessTestForm";
 import NutritionAssessment from "./components/NutritionAssessment";
 import EquipmentSelector from "./components/EquipmentSelector";
 import AvailabilityForm from "./components/AvailabilityForm";
+import SubscriptionSelector from "./components/SubscriptionSelector";
 import SignUpPage from "./components/SignUpPage";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
@@ -88,6 +89,16 @@ function OnboardingFlow() {
           <AvailabilityForm
             onComplete={(data) => {
               setQuestionnaireData({ ...questionnaireData, availability: data });
+              setCurrentStep("subscription");
+            }}
+          />
+        );
+
+      case "subscription":
+        return (
+          <SubscriptionSelector
+            onSelect={(tier, billingPeriod) => {
+              setQuestionnaireData({ ...questionnaireData, subscriptionTier: tier, billingPeriod });
               setCurrentStep("signup");
             }}
           />
@@ -96,9 +107,34 @@ function OnboardingFlow() {
       case "signup":
         return (
           <SignUpPage
-            onSignUp={(email, password) => {
-              console.log("User signed up:", email, questionnaireData);
-              setLocation("/home");
+            onSignUp={async (email, password) => {
+              try {
+                const response = await fetch("/api/auth/signup", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    email,
+                    password,
+                    subscriptionTier: questionnaireData.subscriptionTier || "free",
+                    height: questionnaireData.nutrition?.height,
+                    weight: questionnaireData.nutrition?.weight,
+                    bmr: questionnaireData.nutrition?.bmr,
+                    targetCalories: questionnaireData.nutrition?.calories,
+                    nutritionGoal: questionnaireData.nutrition?.goal,
+                    unitPreference: questionnaireData.unitPreference || "imperial",
+                  }),
+                });
+
+                if (response.ok) {
+                  console.log("User signed up:", email, questionnaireData);
+                  setLocation("/home");
+                } else {
+                  const error = await response.json();
+                  console.error("Signup failed:", error);
+                }
+              } catch (error) {
+                console.error("Signup error:", error);
+              }
             }}
           />
         );

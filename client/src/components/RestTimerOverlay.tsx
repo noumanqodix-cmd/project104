@@ -7,9 +7,10 @@ interface RestTimerOverlayProps {
   duration: number;
   onComplete: () => void;
   onSkip: () => void;
+  showAds?: boolean;
 }
 
-export default function RestTimerOverlay({ duration, onComplete, onSkip }: RestTimerOverlayProps) {
+export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds = false }: RestTimerOverlayProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [rir, setRir] = useState("");
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -128,6 +129,21 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip }: RestT
         >
           Skip Rest
         </Button>
+
+        {showAds && (
+          <div className="mt-8 p-4 border border-primary/30 rounded-lg bg-primary/5 max-w-md mx-auto" data-testid="ad-banner">
+            <div className="text-center space-y-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Advertisement</p>
+              <div className="p-6 bg-muted/50 rounded-md">
+                <p className="text-sm font-semibold mb-1">Premium Protein Powder</p>
+                <p className="text-xs text-muted-foreground">Fuel your gains with the best protein on the market</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Upgrade to Premium for an ad-free experience
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
