@@ -174,7 +174,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   };
 
-  const handleSetComplete = () => {
+  const handleSetComplete = async () => {
     if (isCardio) {
       if (!actualDuration) return;
     } else {
@@ -192,6 +192,40 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     
     setExercises(updatedExercises);
     setRecommendedWeightIncrease(0);
+
+    if (!isCardio && needsWeight) {
+      const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
+      const actualRepsInt = parseInt(actualReps);
+      
+      if (actualRepsInt < repsMin) {
+        const currentWeight = parseFloat(actualWeight);
+        const suggestedWeight = Math.round(currentWeight * 0.9);
+        
+        try {
+          const response = await fetch(`/api/programs/exercises/${currentExercise.id}/update-weight`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ 
+              recommendedWeight: unitPreference === 'imperial' ? suggestedWeight : suggestedWeight / 0.453592
+            }),
+          });
+          
+          if (response.ok) {
+            const updatedWithSuggestion = exercises.map((ex, idx) => 
+              idx === currentExerciseIndex 
+                ? { ...ex, weight: suggestedWeight.toString() }
+                : ex
+            );
+            setExercises(updatedWithSuggestion);
+          }
+        } catch (error) {
+          console.error('Failed to update recommended weight:', error);
+        }
+      }
+    }
 
     if (isLastSet) {
       if (isLastExercise) {
