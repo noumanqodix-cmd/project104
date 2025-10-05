@@ -282,6 +282,65 @@ function OnboardingFlow() {
   return renderStep();
 }
 
+function BodyweightTestRoute() {
+  const [, setLocation] = useLocation();
+
+  const saveFitnessAssessmentMutation = useMutation({
+    mutationFn: async (assessmentData: any) => {
+      const response = await apiRequest("POST", "/api/fitness-assessments", assessmentData);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      setLocation("/fitness-test");
+    },
+  });
+
+  return (
+    <FitnessTestForm
+      onComplete={(results) => {
+        saveFitnessAssessmentMutation.mutate({
+          pushups: results.pushups,
+          pullups: results.pullups,
+          squats: results.squats,
+          mileTime: results.mileTime,
+        });
+      }}
+      onBack={() => setLocation("/fitness-test")}
+    />
+  );
+}
+
+function WeightsTestRoute() {
+  const [, setLocation] = useLocation();
+
+  const saveFitnessAssessmentMutation = useMutation({
+    mutationFn: async (assessmentData: any) => {
+      const response = await apiRequest("POST", "/api/fitness-assessments", assessmentData);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      setLocation("/fitness-test");
+    },
+  });
+
+  return (
+    <WeightsTestForm
+      onComplete={(results) => {
+        saveFitnessAssessmentMutation.mutate({
+          squat1rm: results.squat,
+          deadlift1rm: results.deadlift,
+          benchPress1rm: results.benchPress,
+          overheadPress1rm: results.overheadPress,
+          barbellRow1rm: results.row,
+        });
+      }}
+      onBack={() => setLocation("/fitness-test")}
+    />
+  );
+}
+
 function AppRoutes() {
   const [location, setLocation] = useLocation();
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
@@ -331,23 +390,11 @@ function AppRoutes() {
           </Route>
 
           <Route path="/test/bodyweight">
-            <FitnessTestForm
-              onComplete={(results) => {
-                console.log("Bodyweight test completed:", results);
-                setLocation("/fitness-test");
-              }}
-              onBack={() => setLocation("/fitness-test")}
-            />
+            <BodyweightTestRoute />
           </Route>
 
           <Route path="/test/weights">
-            <WeightsTestForm
-              onComplete={(results) => {
-                console.log("Weights test completed:", results);
-                setLocation("/fitness-test");
-              }}
-              onBack={() => setLocation("/fitness-test")}
-            />
+            <WeightsTestRoute />
           </Route>
 
           <Route path="/dashboard">
