@@ -34,6 +34,7 @@ export interface WorkoutSummary {
   totalVolume: number;
   incomplete?: boolean;
   completedExercises?: number;
+  programWorkoutId: string;
 }
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
@@ -68,6 +69,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [swapExercise, setSwapExercise] = useState<ExerciseData | null>(null);
   const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
+  const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
 
@@ -84,6 +86,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       }
       
       if (nextWorkout && nextWorkout.exercises) {
+        setCurrentWorkoutId(nextWorkout.id);
         const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => ({
           id: pe.id,
           name: pe.exercise.name,
@@ -162,6 +165,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           duration: workoutTime,
           exercises: exercises.length,
           totalVolume: Math.round(totalVolume),
+          programWorkoutId: currentWorkoutId,
         });
       } else {
         setCurrentExerciseIndex(prev => prev + 1);
@@ -196,6 +200,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       totalVolume: Math.round(completedVolume),
       incomplete: true,
       completedExercises: currentExerciseIndex,
+      programWorkoutId: currentWorkoutId,
     });
   };
 
