@@ -19,6 +19,7 @@ interface ExerciseData {
   sets: number;
   reps: string;
   weight: string;
+  recommendedWeight?: number;
   tempo: string;
   rpe?: number;
   rir?: number;
@@ -91,15 +92,6 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       if (nextWorkout && nextWorkout.exercises) {
         setCurrentWorkoutId(nextWorkout.id);
         const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => {
-          let weightValue = '0';
-          if (pe.recommendedWeight) {
-            if (unitPreference === 'imperial') {
-              weightValue = pe.recommendedWeight.toString();
-            } else {
-              weightValue = (pe.recommendedWeight * 0.453592).toFixed(1);
-            }
-          }
-          
           return {
             id: pe.id,
             name: pe.exercise.name,
@@ -107,7 +99,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             movementPattern: pe.exercise.movementPattern,
             sets: pe.sets,
             reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
-            weight: weightValue,
+            weight: '0',
+            recommendedWeight: pe.recommendedWeight || undefined,
             tempo: '2-0-2-0',
             rpe: pe.targetRPE || undefined,
             rir: pe.targetRIR || undefined,
@@ -193,13 +186,19 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     setExercises(updatedExercises);
     setRecommendedWeightIncrease(0);
 
-    if (!isCardio && needsWeight) {
+    if (!isCardio && needsWeight && currentExercise.recommendedWeight) {
       const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
       const actualRepsInt = parseInt(actualReps);
       
       if (actualRepsInt < repsMin) {
-        const currentWeight = parseFloat(actualWeight);
-        const suggestedWeight = Math.round(currentWeight * 0.9);
+        const repDeficit = repsMin - actualRepsInt;
+        const reductionPercent = repDeficit <= 2 ? 0.05 : 0.10;
+        
+        const currentWeightInLbs = unitPreference === 'imperial' 
+          ? parseFloat(actualWeight) 
+          : parseFloat(actualWeight) / 0.453592;
+        
+        const suggestedWeightInLbs = Math.round(currentWeightInLbs * (1 - reductionPercent));
         
         try {
           const response = await fetch(`/api/programs/exercises/${currentExercise.id}/update-weight`, {
@@ -209,14 +208,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             },
             credentials: 'include',
             body: JSON.stringify({ 
-              recommendedWeight: unitPreference === 'imperial' ? suggestedWeight : suggestedWeight / 0.453592
+              recommendedWeight: suggestedWeightInLbs
             }),
           });
           
           if (response.ok) {
             const updatedWithSuggestion = exercises.map((ex, idx) => 
               idx === currentExerciseIndex 
-                ? { ...ex, weight: suggestedWeight.toString() }
+                ? { ...ex, recommendedWeight: suggestedWeightInLbs }
                 : ex
             );
             setExercises(updatedWithSuggestion);
@@ -469,7 +468,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                       type="number"
                       value={actualWeight}
                       onChange={(e) => setActualWeight(e.target.value)}
-                      placeholder={currentExercise.weight !== '0' ? currentExercise.weight : undefined}
+                      placeholder={
+                        currentExercise.recommendedWeight 
+                          ? unitPreference === 'imperial' 
+                            ? currentExercise.recommendedWeight.toString()
+                            : (currentExercise.recommendedWeight * 0.453592).toFixed(1)
+                          : undefined
+                      }
                       className="text-2xl text-center h-16 placeholder:text-muted-foreground/40"
                       data-testid="input-actual-weight"
                     />
