@@ -391,6 +391,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/programs/preview", async (req: Request, res: Response) => {
+    try {
+      const { 
+        experienceLevel, 
+        fitnessTest, 
+        weightsTest, 
+        nutritionGoal,
+        equipment, 
+        workoutDuration, 
+        unitPreference 
+      } = req.body;
+
+      if (!equipment || !Array.isArray(equipment) || equipment.length === 0) {
+        return res.status(400).json({ error: "Equipment array is required" });
+      }
+
+      const tempUser = {
+        id: "temp-preview-user",
+        username: "preview",
+        password: "",
+        equipment: equipment,
+        workoutDuration: workoutDuration || 60,
+        nutritionGoal: nutritionGoal || "maintain",
+        unitPreference: unitPreference || "imperial",
+        fitnessLevel: experienceLevel || "beginner",
+      };
+
+      const tempAssessment = {
+        id: "temp-preview-assessment",
+        userId: "temp-preview-user",
+        experienceLevel: experienceLevel || "beginner",
+        ...fitnessTest,
+        ...weightsTest,
+        createdAt: new Date(),
+      };
+
+      let availableExercises = await storage.getAllExercises();
+      if (availableExercises.length === 0) {
+        console.log("No exercises found, auto-seeding for preview with equipment:", equipment);
+        try {
+          let equipmentList = equipment || [];
+          if (!equipmentList.includes("bodyweight")) {
+            equipmentList = ["bodyweight", ...equipmentList];
+          }
+          if (equipmentList.length === 0) {
+            equipmentList = ["bodyweight"];
+          }
+
+          const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
+          console.log(`Generated ${generatedExercises.length} exercises for preview`);
+          
+          await Promise.all(generatedExercises.map(ex => storage.createExercise(ex)));
+          availableExercises = await storage.getAllExercises();
+        } catch (seedError) {
+          console.error("Auto-seed failed for preview:", seedError);
+          return res.status(500).json({ error: "Failed to generate exercise library. Please try again." });
+        }
+      }
+
+      const generatedProgram = await generateWorkoutProgram({
+        user: tempUser as any,
+        latestAssessment: tempAssessment as any,
+        availableExercises,
+      });
+
+      res.json(generatedProgram);
+    } catch (error) {
+      console.error("Generate preview program error:", error);
+      res.status(500).json({ error: "Failed to generate workout program preview" });
+    }
+  });
+
   app.get("/api/programs/active", async (req: Request, res: Response) => {
     try {
       if (!(req as any).session.userId) {
