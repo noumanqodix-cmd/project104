@@ -9,7 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/signup", async (req: Request, res: Response) => {
     try {
-      const { email, password, fitnessTest, weightsTest, experienceLevel, ...profileData } = req.body;
+      const { email, password, fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
       
       const existingUser = await storage.getUserByUsername(email);
       if (existingUser) {
@@ -77,17 +77,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail signup, but log the error
       }
       
-      // Generate workout program automatically
+      // Generate or use provided workout program
       try {
         const latestAssessment = await storage.getLatestFitnessAssessment(user.id);
         if (latestAssessment) {
           const availableExercises = await storage.getAllExercises();
           if (availableExercises.length > 0) {
-            const generatedProgram = await generateWorkoutProgram({
-              user: updatedUser,
-              latestAssessment,
-              availableExercises,
-            });
+            let programData;
+            
+            if (generatedProgram) {
+              console.log("Using pre-generated program provided in signup request");
+              programData = generatedProgram;
+            } else {
+              console.log("Generating new program using AI");
+              programData = await generateWorkoutProgram({
+                user: updatedUser,
+                latestAssessment,
+                availableExercises,
+              });
+            }
 
             const existingPrograms = await storage.getUserPrograms(user.id);
             for (const oldProgram of existingPrograms) {
@@ -97,13 +105,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const program = await storage.createWorkoutProgram({
               userId: user.id,
               fitnessAssessmentId: latestAssessment.id,
-              programType: generatedProgram.programType,
-              weeklyStructure: generatedProgram.weeklyStructure,
-              durationWeeks: generatedProgram.durationWeeks,
+              programType: programData.programType,
+              weeklyStructure: programData.weeklyStructure,
+              durationWeeks: programData.durationWeeks,
               isActive: 1,
             });
 
-            for (const workout of generatedProgram.workouts) {
+            for (const workout of programData.workouts) {
               const programWorkout = await storage.createProgramWorkout({
                 programId: program.id,
                 dayOfWeek: workout.dayOfWeek,
@@ -134,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       } catch (programError) {
-        console.error("Failed to generate program during signup:", programError);
+        console.log("Failed to generate/save program during signup:", programError);
         // Don't fail signup, program can be generated later
       }
       

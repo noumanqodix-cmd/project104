@@ -204,6 +204,7 @@ function OnboardingFlow() {
                     experienceLevel: questionnaireData.experienceLevel,
                     fitnessTest: questionnaireData.fitnessTest,
                     weightsTest: questionnaireData.weightsTest,
+                    generatedProgram: generatedProgram, // Pass pre-generated program
                   }),
                 });
 
