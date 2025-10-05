@@ -46,10 +46,10 @@ Preferred communication style: Simple, everyday language.
 - Replit-specific plugins for development tooling (cartographer, dev banner, runtime error overlay)
 
 **Storage Layer**
-- In-memory storage implementation (MemStorage class) as default
-- Interface-based storage design (IStorage) allowing for database implementation swap
+- PostgreSQL database implementation (DbStorage class) using Drizzle ORM
+- Interface-based storage design (IStorage) for clean architecture
 - User CRUD operations with UUID-based ID generation
-- Prepared for database integration via storage interface
+- All data persisted to database including users, assessments, programs, workouts, and exercises
 
 ### Data Storage Solutions
 
@@ -66,7 +66,8 @@ Preferred communication style: Simple, everyday language.
 - Migration system configured via drizzle-kit
 
 **Session Management**
-- In-memory session storage using memorystore with 24-hour cleanup cycle
+- Database-backed session storage using connect-pg-simple with PostgreSQL
+- Session table in database for persistent login sessions across server restarts
 - Explicit cookie configuration: name 'fitforge.sid', secure=false for development
 - Cookie-based authentication with 7-day maxAge, httpOnly, sameSite='lax'
 - Session debugging middleware logs session ID, user ID, and cookie presence for all API requests
@@ -127,8 +128,20 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure and duration
 - **Performance Tracking**: Workout sessions and individual set tracking with weight, reps, and RIR (Reps in Reserve) data for progressive overload analysis
 
+**Automatic Program Generation During Signup:**
+- When a user completes the onboarding flow and creates an account, the `/api/auth/signup` endpoint automatically:
+  1. Creates the user account and saves all profile data (equipment, nutrition goals, fitness level, etc.)
+  2. Saves the fitness assessment test results to the database
+  3. Seeds the exercise library if the database is empty (using AI to generate 150-200+ exercises)
+  4. Generates a personalized workout program using OpenAI GPT-4 based on the user's data
+  5. Saves the program, workouts, and exercises to the database
+- After signup, the frontend waits 2 seconds for the session cookie to propagate, then redirects to /home
+- The user sees their active program immediately upon login without needing to click a "Generate Program" button
+- All data persists in the PostgreSQL database and survives server restarts
+
 **API Endpoints:**
-- POST `/api/programs/generate` - Generate new AI workout program
+- POST `/api/auth/signup` - Create account and automatically generate workout program
+- POST `/api/programs/generate` - Manually generate new AI workout program
 - GET `/api/programs/active` - Fetch user's active program
 - GET `/api/programs/:id` - Get full program details with nested workouts and exercises
 - POST `/api/fitness-assessments` - Save fitness test results

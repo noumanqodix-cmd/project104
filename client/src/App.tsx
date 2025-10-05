@@ -165,7 +165,10 @@ function OnboardingFlow() {
 
                 console.log("User signed up:", email, questionnaireData);
                 
-                // All processing happens server-side now - just navigate to home
+                // Wait for session cookie to propagate to browser
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Navigate to home - program has been generated server-side
                 setLocation("/home");
               } catch (error) {
                 console.error("Signup error:", error);
