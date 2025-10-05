@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import WelcomePage from "./components/WelcomePage";
@@ -282,9 +282,18 @@ function OnboardingFlow() {
   return renderStep();
 }
 
-function App() {
+function AppRoutes() {
   const [location, setLocation] = useLocation();
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
+
+  const saveWorkoutMutation = useMutation({
+    mutationFn: async (workoutData: any) => {
+      return await apiRequest("POST", "/api/workout-sessions", workoutData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+    },
+  });
 
   const showBottomNav = location.startsWith("/home") || 
                         location.startsWith("/history") || 
@@ -295,8 +304,7 @@ function App() {
                         location.startsWith("/test/");
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+    <>
         <Switch>
           <Route path="/home">
             <Home />
@@ -373,8 +381,18 @@ function App() {
           <Route path="/summary">
             <WorkoutSummary
               {...workoutSummaryData}
-              onFinish={(difficulty) => {
+              onFinish={async (difficulty) => {
                 console.log("Workout difficulty:", difficulty);
+                
+                if (workoutSummaryData) {
+                  await saveWorkoutMutation.mutateAsync({
+                    completed: 1,
+                    durationMinutes: Math.floor(workoutSummaryData.duration / 60),
+                    difficulty: difficulty,
+                    sessionDate: new Date().toISOString(),
+                  });
+                }
+                
                 setLocation("/home");
               }}
             />
@@ -392,9 +410,18 @@ function App() {
             <OnboardingFlow />
           </Route>
         </Switch>
-        
-        {showBottomNav && <BottomNavigation />}
-        <Toaster />
+      
+      {showBottomNav && <BottomNavigation />}
+      <Toaster />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AppRoutes />
       </TooltipProvider>
     </QueryClientProvider>
   );

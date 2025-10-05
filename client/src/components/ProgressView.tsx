@@ -2,10 +2,10 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, TrendingUp, Award, Target, AlertCircle } from "lucide-react";
+import { ArrowLeft, TrendingUp, Award, Target, AlertCircle, Dumbbell } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import type { WorkoutSession, User } from "@shared/schema";
+import type { WorkoutSession, User, FitnessAssessment } from "@shared/schema";
 
 interface ProgressViewProps {
   onBack: () => void;
@@ -16,9 +16,15 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
     queryKey: ["/api/auth/user"],
   });
 
-  const { data: sessions, isLoading } = useQuery<WorkoutSession[]>({
+  const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
   });
+
+  const { data: assessments, isLoading: assessmentsLoading } = useQuery<FitnessAssessment[]>({
+    queryKey: ["/api/fitness-assessments"],
+  });
+
+  const isLoading = sessionsLoading || assessmentsLoading;
 
   const sortedSessions = useMemo(() => sessions?.sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime()) || [], [sessions]);
 
@@ -99,6 +105,94 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
       volume: (data.count * 100) + (index * 50),
     }));
   }, [sortedSessions]);
+
+  const fitnessTestProgress = useMemo(() => {
+    if (!assessments || assessments.length < 2) return null;
+
+    const latest = assessments[0];
+    const previous = assessments[1];
+
+    const getImprovement = (current: number, previous: number, lowerIsBetter = false) => {
+      const diff = current - previous;
+      const percentChange = ((diff / previous) * 100).toFixed(1);
+      const isImprovement = lowerIsBetter ? diff < 0 : diff > 0;
+      return {
+        diff,
+        percent: percentChange,
+        isImprovement,
+      };
+    };
+
+    const metrics = [];
+
+    if (latest.pushups !== null && previous.pushups !== null) {
+      const improvement = getImprovement(latest.pushups, previous.pushups);
+      metrics.push({
+        name: "Push-ups",
+        current: latest.pushups,
+        improvement,
+      });
+    }
+
+    if (latest.pullups !== null && previous.pullups !== null) {
+      const improvement = getImprovement(latest.pullups, previous.pullups);
+      metrics.push({
+        name: "Pull-ups",
+        current: latest.pullups,
+        improvement,
+      });
+    }
+
+    if (latest.squats !== null && previous.squats !== null) {
+      const improvement = getImprovement(latest.squats, previous.squats);
+      metrics.push({
+        name: "Air Squats",
+        current: latest.squats,
+        improvement,
+      });
+    }
+
+    if (latest.mileTime !== null && previous.mileTime !== null) {
+      const improvement = getImprovement(latest.mileTime, previous.mileTime, true);
+      metrics.push({
+        name: "Mile Time",
+        current: `${latest.mileTime} min`,
+        improvement,
+      });
+    }
+
+    const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+    const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+
+    if (latest.squat1rm !== null && previous.squat1rm !== null) {
+      const improvement = getImprovement(latest.squat1rm, previous.squat1rm);
+      metrics.push({
+        name: "Squat",
+        current: `${latest.squat1rm} ${weightUnit}`,
+        improvement,
+      });
+    }
+
+    if (latest.deadlift1rm !== null && previous.deadlift1rm !== null) {
+      const improvement = getImprovement(latest.deadlift1rm, previous.deadlift1rm);
+      metrics.push({
+        name: "Deadlift",
+        current: `${latest.deadlift1rm} ${weightUnit}`,
+        improvement,
+      });
+    }
+
+    if (latest.benchPress1rm !== null && previous.benchPress1rm !== null) {
+      const improvement = getImprovement(latest.benchPress1rm, previous.benchPress1rm);
+      metrics.push({
+        name: "Bench Press",
+        current: `${latest.benchPress1rm} ${weightUnit}`,
+        improvement,
+      });
+    }
+
+    return metrics.length > 0 ? metrics : null;
+  }, [assessments]);
 
   if (isLoading) {
     return (
@@ -211,6 +305,29 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
                 />
               </LineChart>
             </ResponsiveContainer>
+          </Card>
+        )}
+
+        {fitnessTestProgress && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <Award className="h-5 w-5 text-primary" />
+              <h3 className="text-xl font-semibold">Fitness Test Progress</h3>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4">
+              {fitnessTestProgress.map((metric) => (
+                <div key={metric.name}>
+                  <p className="text-sm text-muted-foreground mb-1">{metric.name}</p>
+                  <p className="text-2xl font-bold mb-1" data-testid={`progress-${metric.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                    {metric.current}
+                  </p>
+                  <p className={`text-sm ${metric.improvement.isImprovement ? "text-green-500" : "text-red-500"}`}>
+                    {metric.improvement.diff > 0 ? "+" : ""}
+                    {metric.improvement.diff} ({metric.improvement.percent}%)
+                  </p>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
 

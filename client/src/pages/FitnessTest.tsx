@@ -250,38 +250,91 @@ export default function FitnessTest() {
               assessments.map((assessment) => {
                 const isBodyweight = assessment.pushups || assessment.pullups || assessment.squats || assessment.mileTime;
                 const isWeights = assessment.squat1rm || assessment.deadlift1rm || assessment.benchPress1rm || assessment.overheadPress1rm || assessment.barbellRow1rm;
-                const metricsCount = [
-                  assessment.pushups, assessment.pullups, assessment.squats, assessment.mileTime,
-                  assessment.squat1rm, assessment.deadlift1rm, assessment.benchPress1rm, 
-                  assessment.overheadPress1rm, assessment.barbellRow1rm
-                ].filter(Boolean).length;
 
                 return (
-                  <div 
+                  <Card 
                     key={assessment.id} 
-                    className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
                     data-testid={`test-result-${assessment.id}`}
                   >
-                    <div className="flex items-center gap-3">
-                      {isBodyweight ? (
-                        <Award className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Dumbbell className="h-4 w-4 text-primary" />
-                      )}
-                      <div>
-                        <p className="font-medium">
-                          {isBodyweight && isWeights ? "Combined Test" : isBodyweight ? "Bodyweight Test" : "Weights Test"}
-                        </p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(assessment.testDate), "MMM d, yyyy")}
-                        </p>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {isBodyweight ? (
+                            <Award className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Dumbbell className="h-4 w-4 text-primary" />
+                          )}
+                          <div>
+                            <CardTitle className="text-base">
+                              {isBodyweight && isWeights ? "Combined Test" : isBodyweight ? "Bodyweight Test" : "Weights Test"}
+                            </CardTitle>
+                            <CardDescription className="flex items-center gap-1 mt-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(assessment.testDate), "MMM d, yyyy")}
+                            </CardDescription>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <Badge variant="outline">
-                      {metricsCount} metrics
-                    </Badge>
-                  </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {assessment.pushups !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Push-ups</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-pushups`}>{assessment.pushups}</p>
+                          </div>
+                        )}
+                        {assessment.pullups !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Pull-ups</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-pullups`}>{assessment.pullups}</p>
+                          </div>
+                        )}
+                        {assessment.squats !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Air Squats</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-squats`}>{assessment.squats}</p>
+                          </div>
+                        )}
+                        {assessment.mileTime !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Mile Time</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-miletime`}>{assessment.mileTime} min</p>
+                          </div>
+                        )}
+                        {assessment.squat1rm !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Squat</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-squat`}>{assessment.squat1rm} {weightUnit}</p>
+                          </div>
+                        )}
+                        {assessment.deadlift1rm !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Deadlift</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-deadlift`}>{assessment.deadlift1rm} {weightUnit}</p>
+                          </div>
+                        )}
+                        {assessment.benchPress1rm !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Bench Press</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-bench`}>{assessment.benchPress1rm} {weightUnit}</p>
+                          </div>
+                        )}
+                        {assessment.overheadPress1rm !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Overhead Press</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-ohp`}>{assessment.overheadPress1rm} {weightUnit}</p>
+                          </div>
+                        )}
+                        {assessment.barbellRow1rm !== null && (
+                          <div>
+                            <p className="text-muted-foreground">Barbell Row</p>
+                            <p className="font-semibold" data-testid={`test-${assessment.id}-row`}>{assessment.barbellRow1rm} {weightUnit}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })
             )}
