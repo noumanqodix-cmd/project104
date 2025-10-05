@@ -4,9 +4,10 @@ import heroImage from "@assets/stock_images/female_athlete_worki_2ba03690.jpg";
 
 interface WelcomePageProps {
   onGetStarted: () => void;
+  onLogin: () => void;
 }
 
-export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
+export default function WelcomePage({ onGetStarted, onLogin }: WelcomePageProps) {
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
       <div 
@@ -32,14 +33,25 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           Get custom workout programs tailored to your fitness level, available equipment, and goals. Track your progress and achieve results with AI-powered recommendations.
         </p>
         
-        <Button
-          size="lg"
-          onClick={onGetStarted}
-          className="text-lg px-8 py-6 h-auto"
-          data-testid="button-get-started"
-        >
-          Get Started
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            size="lg"
+            onClick={onGetStarted}
+            className="text-lg px-8 py-6 h-auto"
+            data-testid="button-get-started"
+          >
+            Get Started
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={onLogin}
+            className="text-lg px-8 py-6 h-auto bg-background/10 backdrop-blur-sm hover:bg-background/20 text-white border-white/30"
+            data-testid="button-login"
+          >
+            Log In
+          </Button>
+        </div>
       </div>
     </div>
   );

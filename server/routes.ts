@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema } from "@shared/schema";
+import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
@@ -16,7 +17,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "User already exists" });
       }
 
-      const user = await storage.createUser({ username: email, password });
+      // Hash password before storing
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({ username: email, password: hashedPassword });
       
       if (Object.keys(profileData).length > 0) {
         await storage.updateUser(user.id, profileData);
@@ -136,6 +139,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Signup error:", error);
       res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      const user = await storage.getUserByUsername(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Verify password using bcrypt
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Set up session
+      (req as any).session.userId = user.id;
+
+      await new Promise<void>((resolve, reject) => {
+        (req as any).session.save((err: any) => {
+          if (err) {
+            console.error("Session save error during login:", err);
+            reject(err);
+          } else {
+            console.log("Login session saved. SessionID:", (req as any).session.id, "UserID:", user.id);
+            resolve();
+          }
+        });
+      });
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Failed to log in" });
     }
   });
 

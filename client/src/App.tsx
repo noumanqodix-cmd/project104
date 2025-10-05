@@ -12,6 +12,7 @@ import EquipmentSelector from "./components/EquipmentSelector";
 import AvailabilityForm from "./components/AvailabilityForm";
 import SubscriptionSelector from "./components/SubscriptionSelector";
 import SignUpPage from "./components/SignUpPage";
+import LoginPage from "./components/LoginPage";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
 import WorkoutSession from "./components/WorkoutSession";
@@ -39,7 +40,12 @@ function OnboardingFlow() {
   const renderStep = () => {
     switch (currentStep) {
       case "welcome":
-        return <WelcomePage onGetStarted={() => setCurrentStep("questionnaire")} />;
+        return (
+          <WelcomePage
+            onGetStarted={() => setCurrentStep("questionnaire")}
+            onLogin={() => setCurrentStep("login")}
+          />
+        );
 
       case "questionnaire":
         return (
@@ -179,9 +185,41 @@ function OnboardingFlow() {
           />
         );
 
+      case "login":
+        return (
+          <LoginPage
+            onLogin={async (email, password) => {
+              try {
+                const response = await fetch("/api/auth/login", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ email, password }),
+                });
+
+                if (!response.ok) {
+                  const error = await response.json();
+                  throw new Error(error.error || "Login failed");
+                }
+
+                // Wait for session cookie to propagate
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Navigate to home
+                setLocation("/home");
+              } catch (error) {
+                console.error("Login error:", error);
+                throw error;
+              }
+            }}
+            onBack={() => setCurrentStep("welcome")}
+          />
+        );
+
       case "signup":
         return (
           <SignUpPage
+            onLoginRedirect={() => setCurrentStep("login")}
             onSignUp={async (email, password) => {
               try {
                 const response = await fetch("/api/auth/signup", {
@@ -230,7 +268,12 @@ function OnboardingFlow() {
         );
 
       default:
-        return <WelcomePage onGetStarted={() => setCurrentStep("questionnaire")} />;
+        return (
+          <WelcomePage
+            onGetStarted={() => setCurrentStep("questionnaire")}
+            onLogin={() => setCurrentStep("login")}
+          />
+        );
     }
   };
 
