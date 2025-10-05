@@ -93,6 +93,8 @@ export const workoutPrograms = pgTable("workout_programs", {
   weeklyStructure: text("weekly_structure").notNull(),
   durationWeeks: integer("duration_weeks").notNull(),
   isActive: integer("is_active").notNull().default(1),
+  archivedDate: timestamp("archived_date"),
+  archivedReason: text("archived_reason"),
 });
 
 export const programWorkouts = pgTable("program_workouts", {

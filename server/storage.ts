@@ -199,6 +199,8 @@ export class MemStorage implements IStorage {
       createdDate: new Date(),
       fitnessAssessmentId: insertProgram.fitnessAssessmentId || null,
       isActive: insertProgram.isActive !== undefined ? insertProgram.isActive : 1,
+      archivedDate: null,
+      archivedReason: null,
     };
     this.workoutPrograms.set(id, program);
     return program;

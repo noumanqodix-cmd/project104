@@ -16,7 +16,9 @@ import {
   Phone,
   ChevronLeft,
   Crown,
-  AlertTriangle
+  AlertTriangle,
+  Dumbbell,
+  RefreshCw
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -40,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -54,12 +57,19 @@ export default function Settings() {
   const [phone, setPhone] = useState("");
   const [helpTicket, setHelpTicket] = useState("");
   const [selectedGoal, setSelectedGoal] = useState("maintain");
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [workoutDuration, setWorkoutDuration] = useState(60);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   useEffect(() => {
     if (user) {
       setEmail(user.username || "");
       setPhone(user.phone || "");
       setSelectedGoal(user.nutritionGoal || "maintain");
+      setSelectedEquipment(user.equipment || []);
+      setDaysPerWeek(user.daysPerWeek || 3);
+      setWorkoutDuration(user.workoutDuration || 60);
     }
   }, [user]);
 
@@ -130,6 +140,56 @@ export default function Settings() {
       title: "Upgrade to Premium",
       description: "Stripe checkout integration coming soon!",
     });
+  };
+
+  const handleSaveWorkoutPreferences = () => {
+    if (selectedEquipment.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one equipment type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateProfileMutation.mutate({
+      equipment: selectedEquipment,
+      daysPerWeek,
+      workoutDuration,
+    });
+  };
+
+  const toggleEquipment = (equipment: string) => {
+    setSelectedEquipment(prev => 
+      prev.includes(equipment) 
+        ? prev.filter(e => e !== equipment)
+        : [...prev, equipment]
+    );
+  };
+
+  const generateNewProgramMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/programs/generate", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
+      setShowRegenerateDialog(false);
+      toast({
+        title: "Program Generated",
+        description: "Your new workout program has been created!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate new program. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRegenerateProgram = () => {
+    generateNewProgramMutation.mutate();
   };
 
   const isPaidUser = user?.subscriptionTier === "paid";
@@ -241,6 +301,126 @@ export default function Settings() {
             >
               {updateProfileMutation.isPending ? "Saving..." : "Update Goal"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5" />
+              <CardTitle>Workout Preferences</CardTitle>
+            </div>
+            <CardDescription>Customize your training program</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Available Equipment</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: "dumbbells", label: "Dumbbells" },
+                  { value: "barbell", label: "Barbell" },
+                  { value: "kettlebell", label: "Kettlebell" },
+                  { value: "resistance-bands", label: "Resistance Bands" },
+                  { value: "pull-up-bar", label: "Pull-up Bar" },
+                  { value: "trx", label: "TRX" },
+                  { value: "medicine-ball", label: "Medicine Ball" },
+                  { value: "box", label: "Box/Bench" },
+                  { value: "jumprope", label: "Jump Rope" },
+                  { value: "foam-roller", label: "Foam Roller" },
+                  { value: "yoga-mat", label: "Yoga Mat" },
+                  { value: "bodyweight", label: "Bodyweight Only" },
+                ].map((eq) => (
+                  <div key={eq.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={eq.value}
+                      checked={selectedEquipment.includes(eq.value)}
+                      onCheckedChange={() => toggleEquipment(eq.value)}
+                      data-testid={`checkbox-equipment-${eq.value}`}
+                    />
+                    <Label htmlFor={eq.value} className="text-sm font-normal cursor-pointer">
+                      {eq.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="days-per-week">Days Per Week</Label>
+                <Select value={daysPerWeek.toString()} onValueChange={(val) => setDaysPerWeek(parseInt(val))}>
+                  <SelectTrigger id="days-per-week" data-testid="select-days-per-week">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 days</SelectItem>
+                    <SelectItem value="3">3 days</SelectItem>
+                    <SelectItem value="4">4 days</SelectItem>
+                    <SelectItem value="5">5 days</SelectItem>
+                    <SelectItem value="6">6 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="workout-duration">Workout Duration</Label>
+                <Select value={workoutDuration.toString()} onValueChange={(val) => setWorkoutDuration(parseInt(val))}>
+                  <SelectTrigger id="workout-duration" data-testid="select-workout-duration">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                    <SelectItem value="45">45 minutes</SelectItem>
+                    <SelectItem value="60">60 minutes</SelectItem>
+                    <SelectItem value="75">75 minutes</SelectItem>
+                    <SelectItem value="90">90 minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleSaveWorkoutPreferences}
+              disabled={updateProfileMutation.isPending}
+              className="w-full"
+              data-testid="button-save-workout-preferences"
+            >
+              {updateProfileMutation.isPending ? "Saving..." : "Save Workout Preferences"}
+            </Button>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Changed your equipment or goals? Generate a new program tailored to your updated preferences.
+              </p>
+              <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    data-testid="button-regenerate-program"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Generate New Program
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Generate New Workout Program?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will replace your current active program. Your existing program will be saved to your history. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRegenerateProgram} disabled={generateNewProgramMutation.isPending}>
+                      {generateNewProgramMutation.isPending ? "Generating..." : "Generate New Program"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardContent>
         </Card>
 

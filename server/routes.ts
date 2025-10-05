@@ -89,7 +89,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const existingPrograms = await storage.getUserPrograms(user.id);
           for (const oldProgram of existingPrograms) {
-            await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
+            if (oldProgram.isActive === 1) {
+              await storage.updateWorkoutProgram(oldProgram.id, { 
+                isActive: 0,
+                archivedDate: new Date(),
+                archivedReason: "replaced"
+              });
+            }
           }
 
           const program = await storage.createWorkoutProgram({
@@ -439,7 +445,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const existingPrograms = await storage.getUserPrograms(userId);
       for (const oldProgram of existingPrograms) {
-        await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
+        if (oldProgram.isActive === 1) {
+          await storage.updateWorkoutProgram(oldProgram.id, { 
+            isActive: 0,
+            archivedDate: new Date(),
+            archivedReason: "replaced"
+          });
+        }
       }
 
       const program = await storage.createWorkoutProgram({
@@ -592,6 +604,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(program || null);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch active program" });
+    }
+  });
+
+  app.get("/api/programs/archived", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const allPrograms = await storage.getUserPrograms((req as any).session.userId);
+      const archivedPrograms = allPrograms.filter(p => p.isActive === 0 && p.archivedDate !== null);
+      res.json(archivedPrograms);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch archived programs" });
     }
   });
 
