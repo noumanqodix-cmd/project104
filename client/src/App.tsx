@@ -386,10 +386,10 @@ function AppRoutes() {
                 
                 if (workoutSummaryData) {
                   await saveWorkoutMutation.mutateAsync({
+                    programWorkoutId: workoutSummaryData.programWorkoutId,
                     completed: 1,
                     durationMinutes: Math.floor(workoutSummaryData.duration / 60),
-                    difficulty: difficulty,
-                    sessionDate: new Date().toISOString(),
+                    notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
                   });
                 }
                 
