@@ -134,6 +134,8 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 
 **Database Schema:**
 - **Fitness Assessments**: Timestamped records of bodyweight tests (pushups, pullups, squats, mile run) and strength tests (1RM for major lifts)
+  - Users can complete multiple assessments over time (e.g., separate bodyweight test and weights test)
+  - System merges most recent data from each test type to create complete fitness profile for AI program generation
 - **Exercise Database**: 143 functional exercises with movement pattern categorization, equipment requirements, difficulty levels, exercise types (warmup/main/cooldown), and form tips
 - **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure, duration, and **program history tracking** (archivedDate, archivedReason: "completed" or "replaced")
 - **Performance Tracking**: Workout sessions and individual set tracking with weight, reps, and RIR (Reps in Reserve) data for progressive overload analysis

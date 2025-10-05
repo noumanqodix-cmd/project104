@@ -71,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate or use provided workout program
       try {
-        const latestAssessment = await storage.getLatestFitnessAssessment(user.id);
+        const latestAssessment = await storage.getCompleteFitnessProfile(user.id);
         if (latestAssessment) {
           let programData;
           
@@ -79,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("Using pre-generated program provided in signup request");
             programData = generatedProgram;
           } else {
-            console.log("Generating new program using AI");
+            console.log("Generating new program using AI with complete fitness profile");
             programData = await generateWorkoutProgram({
               user: updatedUser,
               latestAssessment,
@@ -505,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const latestAssessment = await storage.getLatestFitnessAssessment(userId);
+      const latestAssessment = await storage.getCompleteFitnessProfile(userId);
       if (!latestAssessment) {
         return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
       }
@@ -517,6 +517,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: "Exercise database not initialized. Please contact support." 
         });
       }
+
+      console.log("Generating program with complete fitness profile:", {
+        hasPushups: !!latestAssessment.pushups,
+        hasPullups: !!latestAssessment.pullups,
+        hasBenchPress1RM: !!latestAssessment.benchPress1rm,
+        hasSquat1RM: !!latestAssessment.squat1rm,
+      });
 
       const generatedProgram = await generateWorkoutProgram({
         user,

@@ -30,6 +30,7 @@ export interface IStorage {
   createFitnessAssessment(assessment: InsertFitnessAssessment): Promise<FitnessAssessment>;
   getUserFitnessAssessments(userId: string): Promise<FitnessAssessment[]>;
   getLatestFitnessAssessment(userId: string): Promise<FitnessAssessment | undefined>;
+  getCompleteFitnessProfile(userId: string): Promise<FitnessAssessment | undefined>;
   
   createExercise(exercise: InsertExercise): Promise<Exercise>;
   getExercise(id: string): Promise<Exercise | undefined>;
@@ -156,6 +157,39 @@ export class MemStorage implements IStorage {
   async getLatestFitnessAssessment(userId: string): Promise<FitnessAssessment | undefined> {
     const assessments = await this.getUserFitnessAssessments(userId);
     return assessments[0];
+  }
+
+  async getCompleteFitnessProfile(userId: string): Promise<FitnessAssessment | undefined> {
+    const assessments = await this.getUserFitnessAssessments(userId);
+    if (assessments.length === 0) {
+      return undefined;
+    }
+    
+    // Get most recent bodyweight test data
+    const bodyweightTest = assessments.find(a => a.pushups || a.pullups || a.squats || a.mileTime);
+    
+    // Get most recent weights test data
+    const weightsTest = assessments.find(a => 
+      a.squat1rm || a.deadlift1rm || a.benchPress1rm || a.overheadPress1rm || a.barbellRow1rm
+    );
+    
+    // Merge the data, preferring the most recent overall assessment for metadata
+    const latestAssessment = assessments[0];
+    
+    return {
+      ...latestAssessment,
+      // Override with bodyweight data if available
+      pushups: bodyweightTest?.pushups ?? latestAssessment.pushups,
+      pullups: bodyweightTest?.pullups ?? latestAssessment.pullups,
+      squats: bodyweightTest?.squats ?? latestAssessment.squats,
+      mileTime: bodyweightTest?.mileTime ?? latestAssessment.mileTime,
+      // Override with weights data if available
+      squat1rm: weightsTest?.squat1rm ?? latestAssessment.squat1rm,
+      deadlift1rm: weightsTest?.deadlift1rm ?? latestAssessment.deadlift1rm,
+      benchPress1rm: weightsTest?.benchPress1rm ?? latestAssessment.benchPress1rm,
+      overheadPress1rm: weightsTest?.overheadPress1rm ?? latestAssessment.overheadPress1rm,
+      barbellRow1rm: weightsTest?.barbellRow1rm ?? latestAssessment.barbellRow1rm,
+    };
   }
 
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
@@ -420,6 +454,42 @@ export class DbStorage implements IStorage {
       .orderBy(desc(fitnessAssessments.testDate))
       .limit(1);
     return result[0];
+  }
+
+  async getCompleteFitnessProfile(userId: string): Promise<FitnessAssessment | undefined> {
+    const assessments = await db.select().from(fitnessAssessments)
+      .where(eq(fitnessAssessments.userId, userId))
+      .orderBy(desc(fitnessAssessments.testDate));
+    
+    if (assessments.length === 0) {
+      return undefined;
+    }
+    
+    // Get most recent bodyweight test data
+    const bodyweightTest = assessments.find(a => a.pushups || a.pullups || a.squats || a.mileTime);
+    
+    // Get most recent weights test data
+    const weightsTest = assessments.find(a => 
+      a.squat1rm || a.deadlift1rm || a.benchPress1rm || a.overheadPress1rm || a.barbellRow1rm
+    );
+    
+    // Merge the data, preferring the most recent overall assessment for metadata
+    const latestAssessment = assessments[0];
+    
+    return {
+      ...latestAssessment,
+      // Override with bodyweight data if available
+      pushups: bodyweightTest?.pushups ?? latestAssessment.pushups,
+      pullups: bodyweightTest?.pullups ?? latestAssessment.pullups,
+      squats: bodyweightTest?.squats ?? latestAssessment.squats,
+      mileTime: bodyweightTest?.mileTime ?? latestAssessment.mileTime,
+      // Override with weights data if available
+      squat1rm: weightsTest?.squat1rm ?? latestAssessment.squat1rm,
+      deadlift1rm: weightsTest?.deadlift1rm ?? latestAssessment.deadlift1rm,
+      benchPress1rm: weightsTest?.benchPress1rm ?? latestAssessment.benchPress1rm,
+      overheadPress1rm: weightsTest?.overheadPress1rm ?? latestAssessment.overheadPress1rm,
+      barbellRow1rm: weightsTest?.barbellRow1rm ?? latestAssessment.barbellRow1rm,
+    };
   }
 
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
