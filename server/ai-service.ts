@@ -128,6 +128,27 @@ ${warmupList}
 - Intermediate: RPE 7-8, RIR 2-3
 - Advanced: RPE 8-9, RIR 1-2
 
+**WEIGHT AND REP RECOMMENDATIONS BASED ON FITNESS TEST:**
+Use the fitness test results to provide specific weight/rep recommendations in the notes field:
+
+For WEIGHT-BASED exercises (when 1RM data is available):
+- HIGH REP exercises (12-15+ reps): Use 60-70% of 1RM
+  Example: If Squat 1RM is 200 lbs, recommend 120-140 lbs for 12-15 rep sets
+- MODERATE REP exercises (8-12 reps): Use 70-80% of 1RM
+  Example: If Bench Press 1RM is 150 lbs, recommend 105-120 lbs for 8-12 rep sets
+- LOW REP exercises (3-6 reps): Use 85-90% of 1RM
+  Example: If Deadlift 1RM is 300 lbs, recommend 255-270 lbs for 3-6 rep sets
+
+For BODYWEIGHT exercises (when max rep data is available):
+- HIGH REP exercises (12-15+ reps target): Aim for 50-60% of max reps
+  Example: If max pushups is 40, recommend working sets of 20-24 reps
+- MODERATE REP exercises (8-12 reps target): Aim for 60-75% of max reps
+  Example: If max pushups is 15, recommend working sets of 9-11 reps
+- LOW REP exercises (3-6 reps target): Aim for 75-85% of max reps
+  Example: If max pullups is 8, recommend working sets of 6 reps, or use harder variations
+
+IMPORTANT: Include specific weight or rep recommendations in the "notes" field for each exercise based on the user's fitness test results. Format as "Start with [X] lbs" or "Aim for [X] reps per set" based on the calculations above.
+
 **Response Format (JSON):**
 {
   "programType": "functional strength program name",
@@ -166,7 +187,7 @@ ${warmupList}
           "targetRPE": 7,
           "targetRIR": 3,
           "isWarmup": false,
-          "notes": "Control the descent"
+          "notes": "Start with 140 lbs (70% of 1RM). Control the descent"
         },
         {
           "exerciseName": "Dumbbell Bench Press",
@@ -177,7 +198,18 @@ ${warmupList}
           "targetRPE": 8,
           "targetRIR": 2,
           "isWarmup": false,
-          "notes": "Full range of motion"
+          "notes": "Start with 105 lbs (70% of 1RM). Full range of motion"
+        },
+        {
+          "exerciseName": "Push-ups",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 15,
+          "restSeconds": 60,
+          "targetRPE": 7,
+          "targetRIR": 3,
+          "isWarmup": false,
+          "notes": "Aim for 20 reps per set (50% of max). Maintain plank position"
         }
       ]
     }
