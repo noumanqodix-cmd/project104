@@ -464,7 +464,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         availableExercises,
       });
 
-      res.json(generatedProgram);
+      const workoutsWithExercises = generatedProgram.workouts.map((workout) => {
+        const exercisesWithDetails = workout.exercises.map((ex) => {
+          const matchingExercise = availableExercises.find(
+            exercise => exercise.name.toLowerCase() === ex.exerciseName.toLowerCase()
+          );
+          
+          return {
+            ...ex,
+            exercise: matchingExercise || {
+              id: 'unknown',
+              name: ex.exerciseName,
+              description: '',
+              movementPattern: 'unknown',
+              equipment: [],
+              difficulty: 'beginner',
+              primaryMuscles: [],
+              secondaryMuscles: [],
+              exerciseType: 'main',
+              isFunctional: 1,
+              isCorrective: 0,
+              formTips: []
+            }
+          };
+        });
+        
+        return { ...workout, exercises: exercisesWithDetails };
+      });
+
+      const enrichedProgram = {
+        ...generatedProgram,
+        workouts: workoutsWithExercises
+      };
+
+      res.json(enrichedProgram);
     } catch (error) {
       console.error("Generate preview program error:", error);
       res.status(500).json({ error: "Failed to generate workout program preview" });
