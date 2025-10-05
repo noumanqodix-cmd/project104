@@ -90,24 +90,35 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       
       if (nextWorkout && nextWorkout.exercises) {
         setCurrentWorkoutId(nextWorkout.id);
-        const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => ({
-          id: pe.id,
-          name: pe.exercise.name,
-          equipment: pe.exercise.equipment || [],
-          movementPattern: pe.exercise.movementPattern,
-          sets: pe.sets,
-          reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
-          weight: '0',
-          tempo: '2-0-2-0',
-          rpe: pe.targetRPE || undefined,
-          rir: pe.targetRIR || undefined,
-          formVideoUrl: pe.exercise.videoUrl || '#',
-          durationSeconds: pe.durationSeconds || undefined,
-        }));
+        const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => {
+          let weightValue = '0';
+          if (pe.recommendedWeight) {
+            if (unitPreference === 'imperial') {
+              weightValue = pe.recommendedWeight.toString();
+            } else {
+              weightValue = (pe.recommendedWeight * 0.453592).toFixed(1);
+            }
+          }
+          
+          return {
+            id: pe.id,
+            name: pe.exercise.name,
+            equipment: pe.exercise.equipment || [],
+            movementPattern: pe.exercise.movementPattern,
+            sets: pe.sets,
+            reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
+            weight: weightValue,
+            tempo: '2-0-2-0',
+            rpe: pe.targetRPE || undefined,
+            rir: pe.targetRIR || undefined,
+            formVideoUrl: pe.exercise.videoUrl || '#',
+            durationSeconds: pe.durationSeconds || undefined,
+          };
+        });
         setExercises(mappedExercises);
       }
     }
-  }, [programDetails]);
+  }, [programDetails, unitPreference]);
 
   const currentExercise = exercises[currentExerciseIndex];
   const isLastSet = currentExercise && currentSet === currentExercise.sets;
@@ -394,7 +405,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   type="number"
                   value={actualDuration}
                   onChange={(e) => setActualDuration(e.target.value)}
-                  placeholder="300"
+                  placeholder={currentExercise.durationSeconds?.toString() || "300"}
                   className="text-2xl text-center h-16"
                   data-testid="input-actual-duration"
                 />
@@ -411,8 +422,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                     type="number"
                     value={actualReps}
                     onChange={(e) => setActualReps(e.target.value)}
-                    placeholder="10"
-                    className="text-2xl text-center h-16"
+                    placeholder={currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps}
+                    className="text-2xl text-center h-16 placeholder:text-muted-foreground/40"
                     data-testid="input-actual-reps"
                   />
                 </div>
@@ -424,8 +435,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                       type="number"
                       value={actualWeight}
                       onChange={(e) => setActualWeight(e.target.value)}
-                      placeholder="135"
-                      className="text-2xl text-center h-16"
+                      placeholder={currentExercise.weight !== '0' ? currentExercise.weight : undefined}
+                      className="text-2xl text-center h-16 placeholder:text-muted-foreground/40"
                       data-testid="input-actual-weight"
                     />
                   </div>
