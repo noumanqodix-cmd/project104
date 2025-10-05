@@ -73,6 +73,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [swapExercise, setSwapExercise] = useState<ExerciseData | null>(null);
   const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
+  const [recommendedRepIncrease, setRecommendedRepIncrease] = useState<number>(0);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
@@ -156,14 +157,29 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     return 0;
   };
 
+  const getRepIncreaseRecommendation = (rir: number) => {
+    if (rir > 2) {
+      return 1;
+    }
+    return 0;
+  };
+
   const handleRestComplete = (rir?: number) => {
     setShowRestTimer(false);
     
-    if (rir !== undefined && !isLastSet && needsWeight) {
-      const increase = getWeightIncreaseRecommendation(rir);
-      setRecommendedWeightIncrease(increase);
+    if (rir !== undefined && !isLastSet && !isCardio) {
+      if (needsWeight) {
+        const increase = getWeightIncreaseRecommendation(rir);
+        setRecommendedWeightIncrease(increase);
+        setRecommendedRepIncrease(0);
+      } else {
+        const repIncrease = getRepIncreaseRecommendation(rir);
+        setRecommendedRepIncrease(repIncrease);
+        setRecommendedWeightIncrease(0);
+      }
     } else {
       setRecommendedWeightIncrease(0);
+      setRecommendedRepIncrease(0);
     }
   };
 
@@ -185,6 +201,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     
     setExercises(updatedExercises);
     setRecommendedWeightIncrease(0);
+    setRecommendedRepIncrease(0);
 
     if (!isCardio && needsWeight && currentExercise.recommendedWeight) {
       const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
@@ -388,6 +405,19 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                 </div>
               </div>
             )}
+            {recommendedRepIncrease > 0 && (
+              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg" data-testid="rep-increase-banner">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">Rep Increase Recommended</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Based on your last set, consider adding <span className="font-bold text-primary">{recommendedRepIncrease} more rep</span> for this set.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Set {currentSet} of {currentExercise.sets}</p>
@@ -455,7 +485,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                     type="number"
                     value={actualReps}
                     onChange={(e) => setActualReps(e.target.value)}
-                    placeholder={currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps}
+                    placeholder={
+                      (() => {
+                        const baseReps = currentExercise.reps.includes('-') 
+                          ? parseInt(currentExercise.reps.split('-')[0]) 
+                          : parseInt(currentExercise.reps);
+                        return (baseReps + recommendedRepIncrease).toString();
+                      })()
+                    }
                     className="text-2xl text-center h-16 placeholder:text-muted-foreground/40"
                     data-testid="input-actual-reps"
                   />
