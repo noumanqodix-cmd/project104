@@ -107,6 +107,7 @@ export class MemStorage implements IStorage {
       nutritionGoal: null,
       equipment: null,
       workoutDuration: null,
+      daysPerWeek: null,
       fitnessLevel: null,
     };
     this.users.set(id, user);

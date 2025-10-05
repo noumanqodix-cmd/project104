@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   unitPreference: text("unit_preference").notNull().default("imperial"),
   equipment: text("equipment").array(),
   workoutDuration: integer("workout_duration"),
+  daysPerWeek: integer("days_per_week"),
   fitnessLevel: text("fitness_level"),
 });
 

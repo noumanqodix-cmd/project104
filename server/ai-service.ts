@@ -45,6 +45,7 @@ export async function generateWorkoutProgram(
 
   const equipmentList = user.equipment?.join(", ") || "bodyweight only";
   const workoutDuration = user.workoutDuration || 60;
+  const daysPerWeek = user.daysPerWeek || 3;
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
   const assessmentSummary = `
@@ -89,6 +90,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
 **User Profile:**
 - Fitness Level: ${fitnessLevel}
 - Available Equipment: ${equipmentList}
+- Workout Frequency: ${daysPerWeek} days per week
 - Workout Duration: ${workoutDuration} minutes per session
 - Nutrition Goal: ${user.nutritionGoal || "maintain"}
 - Unit Preference: ${user.unitPreference}
@@ -102,13 +104,14 @@ ${exerciseList}
 ${warmupList}
 
 **Program Requirements:**
-1. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
-2. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
-3. Emphasize movement patterns: PUSH, PULL, HINGE, SQUAT, CARRY, ROTATION
-4. Progressive overload strategy built-in
-5. Appropriate for ${workoutDuration}-minute sessions
-6. Match the user's current fitness level based on assessment results
-7. Use available equipment: ${equipmentList}
+1. Create exactly ${daysPerWeek} workouts per week - this is CRITICAL
+2. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
+3. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
+4. Emphasize movement patterns: PUSH, PULL, HINGE, SQUAT, CARRY, ROTATION
+5. Progressive overload strategy built-in
+6. Appropriate for ${workoutDuration}-minute sessions
+7. Match the user's current fitness level based on assessment results
+8. Use available equipment: ${equipmentList}
 
 **WARMUP REQUIREMENTS (CRITICAL):**
 - Each workout MUST include 2-3 dynamic warmup exercises at the beginning that specifically prepare for that day's movement patterns
@@ -181,7 +184,7 @@ ${warmupList}
   ]
 }
 
-Create a complete program with 3-5 workout days per week. Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis.`;
+Create a complete program with exactly ${daysPerWeek} workouts for the week (one workout per day requested). Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis across all ${daysPerWeek} training days.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",

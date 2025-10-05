@@ -498,7 +498,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weightsTest, 
         nutritionGoal,
         equipment, 
-        workoutDuration, 
+        workoutDuration,
+        daysPerWeek,
         unitPreference 
       } = req.body;
 
@@ -512,6 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: "",
         equipment: equipment,
         workoutDuration: workoutDuration || 60,
+        daysPerWeek: daysPerWeek || 3,
         nutritionGoal: nutritionGoal || "maintain",
         unitPreference: unitPreference || "imperial",
         fitnessLevel: experienceLevel || "beginner",

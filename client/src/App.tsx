@@ -148,6 +148,7 @@ function OnboardingFlow() {
                     nutritionGoal: questionnaireData.nutrition?.goal,
                     equipment: questionnaireData.equipment || [],
                     workoutDuration: questionnaireData.availability?.minutesPerSession,
+                    daysPerWeek: questionnaireData.availability?.daysPerWeek,
                     unitPreference: questionnaireData.unitPreference || "imperial",
                   }),
                 });
@@ -238,6 +239,7 @@ function OnboardingFlow() {
                     unitPreference: questionnaireData.unitPreference || "imperial",
                     equipment: questionnaireData.equipment || [],
                     workoutDuration: questionnaireData.availability?.minutesPerSession,
+                    daysPerWeek: questionnaireData.availability?.daysPerWeek,
                     fitnessLevel: questionnaireData.experienceLevel,
                     experienceLevel: questionnaireData.experienceLevel,
                     fitnessTest: questionnaireData.fitnessTest,
