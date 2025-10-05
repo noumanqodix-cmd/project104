@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
-import { generateComprehensiveExerciseLibrary } from "./ai-exercise-generator";
+import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -286,6 +286,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "AI API configuration error. Please check OpenAI API key." });
       }
       res.status(500).json({ error: "Failed to seed exercises. Please try again or contact support." });
+    }
+  });
+
+  // Admin endpoint to populate master exercise database (ONE-TIME USE)
+  app.post("/api/admin/populate-master-exercises", async (req: Request, res: Response) => {
+    try {
+      console.log("🔧 ADMIN: Starting master exercise database population...");
+      
+      // Clear existing exercises
+      const existingExercises = await storage.getAllExercises();
+      console.log(`  Clearing ${existingExercises.length} existing exercises...`);
+      
+      // Note: This is a destructive operation, so we're just doing it
+      // In production, you'd want proper authentication here
+      
+      // Generate comprehensive master database
+      const masterExercises = await generateMasterExerciseDatabase();
+      
+      // Delete all existing exercises
+      for (const ex of existingExercises) {
+        await storage.deleteExercise(ex.id);
+      }
+      
+      // Insert all new exercises
+      console.log(`  Inserting ${masterExercises.length} exercises into database...`);
+      const insertedExercises = await Promise.all(
+        masterExercises.map(ex => storage.createExercise(ex))
+      );
+      
+      console.log("✅ Master exercise database population complete!");
+      
+      res.json({ 
+        success: true,
+        count: insertedExercises.length, 
+        message: `Successfully populated ${insertedExercises.length} exercises`
+      });
+    } catch (error) {
+      console.error("❌ Master exercise population error:", error);
+      if (error instanceof Error && error.message.includes("API key")) {
+        return res.status(500).json({ error: "AI API configuration error. Please check OpenAI API key." });
+      }
+      res.status(500).json({ error: "Failed to populate master exercises. Please check logs." });
     }
   });
 

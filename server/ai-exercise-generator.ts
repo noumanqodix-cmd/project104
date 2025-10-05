@@ -31,12 +31,18 @@ export async function generateExercisesForEquipment(
    - Cooldown exercises (static stretching, mobility)
 
 2. Cover multiple movement patterns:
-   - Push (horizontal/vertical)
-   - Pull (horizontal/vertical)
-   - Hinge (hip dominant)
-   - Squat (knee dominant)
+   - Push (horizontal/vertical pressing)
+   - Pull (horizontal/vertical pulling)
+   - Hinge (hip dominant movements)
+   - Squat (knee dominant movements)
    - Carry (loaded carries)
    - Rotation (anti-rotation, rotational power)
+   - Core (planks, anti-extension, stability)
+   - Hang (dead hangs, hanging variations)
+   - Lunge (split stance movements)
+   - Cardio (conditioning, endurance)
+   - Plyometric (jumping, explosive movements)
+   - Crawl (ground-based locomotion)
 
 3. Include all difficulty levels:
    - Beginner (foundational movements)
@@ -53,7 +59,7 @@ export async function generateExercisesForEquipment(
     {
       "name": "Exercise Name",
       "description": "Clear description of the exercise and its benefits",
-      "movementPattern": "push|pull|hinge|squat|carry|rotation",
+      "movementPattern": "push|pull|hinge|squat|carry|rotation|core|hang|lunge|cardio|plyometric|crawl",
       "equipment": ["${equipment}"],
       "difficulty": "beginner|intermediate|advanced",
       "primaryMuscles": ["muscle1", "muscle2"],
@@ -130,5 +136,53 @@ export async function generateComprehensiveExerciseLibrary(
     new Map(allExercises.map((ex) => [ex.name, ex])).values()
   );
 
+  return uniqueExercises;
+}
+
+export async function generateMasterExerciseDatabase(): Promise<InsertExercise[]> {
+  console.log("🚀 Starting master exercise database generation...");
+  
+  const equipmentTypes = [
+    "bodyweight",
+    "dumbbells",
+    "barbell",
+    "kettlebell",
+    "resistance bands",
+    "pull-up bar",
+    "trx",
+    "medicine ball",
+    "box",
+    "jump rope",
+    "foam roller",
+    "yoga mat"
+  ];
+
+  const allExercises: InsertExercise[] = [];
+  let totalGenerated = 0;
+
+  for (const equipment of equipmentTypes) {
+    try {
+      console.log(`  Generating exercises for: ${equipment}...`);
+      const exercises = await generateExercisesForEquipment(equipment);
+      allExercises.push(...exercises);
+      totalGenerated += exercises.length;
+      console.log(`    ✓ Generated ${exercises.length} exercises for ${equipment}`);
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error(`    ✗ Failed to generate exercises for ${equipment}:`, error);
+    }
+  }
+
+  // Deduplicate by name
+  const uniqueExercises = Array.from(
+    new Map(allExercises.map((ex) => [ex.name.toLowerCase(), ex])).values()
+  );
+
+  console.log(`\n✅ Master database generation complete:`);
+  console.log(`   Total generated: ${totalGenerated} exercises`);
+  console.log(`   Unique exercises: ${uniqueExercises.length}`);
+  
   return uniqueExercises;
 }

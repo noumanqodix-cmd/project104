@@ -35,6 +35,7 @@ export interface IStorage {
   getExercise(id: string): Promise<Exercise | undefined>;
   getAllExercises(): Promise<Exercise[]>;
   getExercisesByEquipment(equipment: string[]): Promise<Exercise[]>;
+  deleteExercise(id: string): Promise<void>;
   
   createWorkoutProgram(program: InsertWorkoutProgram): Promise<WorkoutProgram>;
   getWorkoutProgram(id: string): Promise<WorkoutProgram | undefined>;
@@ -183,6 +184,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.exercises.values()).filter((ex) =>
       ex.equipment?.some((eq) => equipment.includes(eq) || eq === "bodyweight")
     );
+  }
+
+  async deleteExercise(id: string): Promise<void> {
+    this.exercises.delete(id);
   }
 
   async createWorkoutProgram(insertProgram: InsertWorkoutProgram): Promise<WorkoutProgram> {
@@ -420,6 +425,10 @@ export class DbStorage implements IStorage {
     return allExercises.filter((ex) =>
       ex.equipment?.some((eq) => equipment.includes(eq) || eq === "bodyweight")
     );
+  }
+
+  async deleteExercise(id: string): Promise<void> {
+    await db.delete(exercises).where(eq(exercises.id, id));
   }
 
   async createWorkoutProgram(insertProgram: InsertWorkoutProgram): Promise<WorkoutProgram> {
