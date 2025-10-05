@@ -53,25 +53,37 @@ export default function Settings() {
     queryKey: ["/api/auth/user"],
   });
 
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [helpTicket, setHelpTicket] = useState("");
   const [selectedGoal, setSelectedGoal] = useState("maintain");
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [workoutDuration, setWorkoutDuration] = useState(60);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [age, setAge] = useState("");
 
   useEffect(() => {
     if (user) {
-      setEmail(user.username || "");
-      setPhone(user.phone || "");
       setSelectedGoal(user.nutritionGoal || "maintain");
       setSelectedEquipment(user.equipment || []);
       setDaysPerWeek(user.daysPerWeek || 3);
       setWorkoutDuration(user.workoutDuration || 60);
+      
+      const isMetric = unitPreference === 'metric';
+      if (user.height) {
+        const displayHeight = Math.round(user.height * (isMetric ? 1 : 0.393701));
+        setHeight(displayHeight.toString());
+      }
+      if (user.weight) {
+        const displayWeight = Math.round(user.weight * (isMetric ? 1 : 2.20462));
+        setWeight(displayWeight.toString());
+      }
+      if (user.age) {
+        setAge(user.age.toString());
+      }
     }
-  }, [user]);
+  }, [user, unitPreference]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -98,10 +110,56 @@ export default function Settings() {
     setLocation("/");
   };
 
-  const handleSaveProfile = () => {
+  const calculateBMR = (heightValue: number, weightValue: number, ageValue: number) => {
+    return Math.round(10 * weightValue + 6.25 * heightValue - 5 * ageValue + 5);
+  };
+
+  const calculateHeartRateZones = (ageValue: number) => {
+    const maxHR = 220 - ageValue;
+    return {
+      maxHeartRate: maxHR,
+      zone1: { min: Math.round(maxHR * 0.50), max: Math.round(maxHR * 0.60) },
+      zone2: { min: Math.round(maxHR * 0.60), max: Math.round(maxHR * 0.70) },
+      zone3: { min: Math.round(maxHR * 0.70), max: Math.round(maxHR * 0.80) },
+      zone4: { min: Math.round(maxHR * 0.80), max: Math.round(maxHR * 0.90) },
+      zone5: { min: Math.round(maxHR * 0.90), max: maxHR }
+    };
+  };
+
+  const handleSavePhysicalStats = () => {
+    const heightVal = parseFloat(height);
+    const weightVal = parseFloat(weight);
+    const ageVal = parseFloat(age);
+
+    if (!heightVal || !weightVal || !ageVal) {
+      toast({
+        title: "Error",
+        description: "Please enter valid height, weight, and age values.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const isMetric = unitPreference === 'metric';
+    let heightInCm = heightVal;
+    let weightInKg = weightVal;
+
+    if (!isMetric) {
+      heightInCm = heightVal * 2.54;
+      weightInKg = weightVal * 0.453592;
+    }
+
+    const bmr = calculateBMR(heightInCm, weightInKg, ageVal);
+    const targetCalories = selectedGoal === "gain" ? bmr + 500 
+                         : selectedGoal === "lose" ? bmr - 500 
+                         : bmr;
+
     updateProfileMutation.mutate({
-      username: email,
-      phone: phone || null,
+      height: heightInCm,
+      weight: weightInKg,
+      age: ageVal,
+      bmr,
+      targetCalories,
     });
   };
 
@@ -215,53 +273,86 @@ export default function Settings() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              <CardTitle>Profile & Contact</CardTitle>
+              <CardTitle>Account Information</CardTitle>
             </div>
-            <CardDescription>Update your personal information</CardDescription>
+            <CardDescription>View your account details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your.email@example.com"
-                data-testid="input-email"
-              />
+              <Label>Email</Label>
+              <p className="text-lg font-semibold" data-testid="text-email">
+                {user?.username || '-'}
+              </p>
+              <p className="text-sm text-muted-foreground">Email cannot be changed</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              <CardTitle>Physical Stats</CardTitle>
+            </div>
+            <CardDescription>Update your body measurements</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="height">Height ({heightUnit})</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  placeholder={unitPreference === 'imperial' ? '70' : '178'}
+                  data-testid="input-height"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="weight">Weight ({weightUnit})</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder={unitPreference === 'imperial' ? '180' : '82'}
+                  data-testid="input-weight"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="age">Age (years)</Label>
+                <Input
+                  id="age"
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="30"
+                  min="18"
+                  max="100"
+                  data-testid="input-age"
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone (Optional)</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 (555) 000-0000"
-                data-testid="input-phone"
-              />
+              <Label>BMR (Basal Metabolic Rate)</Label>
+              <p className="text-lg font-semibold" data-testid="text-bmr">
+                {user?.bmr || '-'} calories/day
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Weight</Label>
-                <p className="text-lg font-semibold" data-testid="text-weight">
-                  {user?.weight ? `${Math.round(user.weight * (unitPreference === 'imperial' ? 2.20462 : 1))} ${weightUnit}` : '-'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Height</Label>
-                <p className="text-lg font-semibold" data-testid="text-height">
-                  {user?.height ? `${Math.round(user.height * (unitPreference === 'imperial' ? 0.393701 : 1))} ${heightUnit}` : '-'}
-                </p>
-              </div>
+            <div className="space-y-2">
+              <Label>Maximum Heart Rate</Label>
+              <p className="text-lg font-semibold" data-testid="text-max-hr">
+                {user?.age ? 220 - user.age : '-'} bpm
+              </p>
             </div>
             <Button 
-              onClick={handleSaveProfile}
+              onClick={handleSavePhysicalStats}
               disabled={updateProfileMutation.isPending}
-              data-testid="button-save-profile"
+              className="w-full"
+              data-testid="button-save-physical-stats"
             >
-              {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+              {updateProfileMutation.isPending ? "Saving..." : "Update Physical Stats"}
             </Button>
           </CardContent>
         </Card>
