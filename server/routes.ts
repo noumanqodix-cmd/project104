@@ -806,6 +806,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/exercises/similar", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { exerciseId, movementPattern, primaryMuscles } = req.body;
+      
+      const allExercises = await storage.getAllExercises();
+      
+      const similarExercises = allExercises.filter(ex => {
+        if (ex.id === exerciseId) return false;
+        if (ex.movementPattern !== movementPattern) return false;
+        
+        const hasMatchingMuscle = primaryMuscles.some((muscle: string) => 
+          ex.primaryMuscles.includes(muscle)
+        );
+        
+        return hasMatchingMuscle;
+      });
+      
+      res.json(similarExercises);
+    } catch (error) {
+      console.error("Similar exercises error:", error);
+      res.status(500).json({ error: "Failed to fetch similar exercises" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
