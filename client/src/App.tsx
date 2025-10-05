@@ -165,9 +165,9 @@ function OnboardingFlow() {
                 // Wait 2 seconds for session cookie to be fully set in browser
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                // Try to save fitness assessment (non-blocking)
+                // Save fitness assessment (must complete before program generation)
                 if (questionnaireData.fitnessTest || questionnaireData.weightsTest) {
-                  fetch("/api/fitness-assessments", {
+                  const assessmentResponse = await fetch("/api/fitness-assessments", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
@@ -176,16 +176,39 @@ function OnboardingFlow() {
                       ...questionnaireData.fitnessTest,
                       ...questionnaireData.weightsTest,
                     }),
-                  }).catch(error => console.error("Failed to save fitness assessment:", error));
+                  });
+                  
+                  if (!assessmentResponse.ok) {
+                    const error = await assessmentResponse.json();
+                    throw new Error(error.error || "Failed to save fitness assessment");
+                  }
                 }
                 
-                // Try to seed exercises (non-blocking)
-                fetch("/api/exercises/seed", { 
+                // Seed exercises (must complete before program generation)
+                const seedResponse = await fetch("/api/exercises/seed", { 
                   method: "POST",
                   credentials: "include",
-                }).catch(error => console.error("Failed to seed exercises:", error));
+                });
                 
-                // Navigate to home immediately (don't wait for background requests)
+                if (!seedResponse.ok) {
+                  const error = await seedResponse.json();
+                  throw new Error(error.error || "Failed to seed exercises");
+                }
+                
+                // Generate workout program automatically
+                const programResponse = await fetch("/api/programs/generate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({}),
+                });
+                
+                if (!programResponse.ok) {
+                  const error = await programResponse.json();
+                  throw new Error(error.error || "Failed to generate workout program");
+                }
+                
+                // Navigate to home with program ready
                 setLocation("/home");
               } catch (error) {
                 console.error("Signup error:", error);

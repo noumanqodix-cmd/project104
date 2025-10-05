@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dumbbell } from "lucide-react";
+import { Dumbbell, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SignUpPageProps {
   onSignUp: (email: string, password: string) => Promise<void>;
@@ -13,15 +14,18 @@ export default function SignUpPage({ onSignUp }: SignUpPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email && password && !isSubmitting) {
       setIsSubmitting(true);
+      setError(null);
       try {
         await onSignUp(email, password);
       } catch (error) {
         console.error("Signup error:", error);
+        setError(error instanceof Error ? error.message : "An error occurred during signup");
         setIsSubmitting(false);
       }
     }
@@ -40,6 +44,13 @@ export default function SignUpPage({ onSignUp }: SignUpPageProps) {
         <p className="text-muted-foreground text-center mb-8">
           Create your account to get your personalized program
         </p>
+
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -75,7 +86,7 @@ export default function SignUpPage({ onSignUp }: SignUpPageProps) {
             disabled={!email || !password || isSubmitting}
             data-testid="button-create-account"
           >
-            {isSubmitting ? "Creating Account..." : "Create Account"}
+            {isSubmitting ? "Building Your Program..." : "Create Account"}
           </Button>
         </form>
       </Card>
