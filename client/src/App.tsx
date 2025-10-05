@@ -27,11 +27,14 @@ import Settings from "./pages/Settings";
 import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 import TestTypeSelector from "./components/TestTypeSelector";
+import ProgramPreviewPage from "./components/ProgramPreviewPage";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
   const [currentStep, setCurrentStep] = useState<string>("welcome");
   const [questionnaireData, setQuestionnaireData] = useState<any>({});
+  const [generatedProgram, setGeneratedProgram] = useState<any>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -122,10 +125,57 @@ function OnboardingFlow() {
       case "subscription":
         return (
           <SubscriptionSelector
-            onSelect={(tier, billingPeriod) => {
+            onSelect={async (tier, billingPeriod) => {
               setQuestionnaireData({ ...questionnaireData, subscriptionTier: tier, billingPeriod });
-              setCurrentStep("signup");
+              setCurrentStep("programPreview");
+              
+              // Generate program preview
+              setIsGeneratingPreview(true);
+              try {
+                const response = await fetch("/api/programs/preview", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    experienceLevel: questionnaireData.experienceLevel,
+                    fitnessTest: questionnaireData.fitnessTest,
+                    weightsTest: questionnaireData.weightsTest,
+                    nutritionGoal: questionnaireData.nutrition?.goal,
+                    equipment: questionnaireData.equipment || [],
+                    workoutDuration: questionnaireData.availability?.minutesPerSession,
+                    unitPreference: questionnaireData.unitPreference || "imperial",
+                  }),
+                });
+
+                if (response.ok) {
+                  const program = await response.json();
+                  setGeneratedProgram(program);
+                }
+              } catch (error) {
+                console.error("Failed to generate preview:", error);
+              } finally {
+                setIsGeneratingPreview(false);
+              }
             }}
+          />
+        );
+
+      case "programPreview":
+        if (isGeneratingPreview || !generatedProgram) {
+          return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+                <p className="text-xl font-semibold">Generating Your Personalized Program...</p>
+                <p className="text-muted-foreground mt-2">This may take a moment</p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <ProgramPreviewPage
+            generatedProgram={generatedProgram}
+            onContinue={() => setCurrentStep("signup")}
           />
         );
 
