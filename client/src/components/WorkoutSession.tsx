@@ -15,6 +15,7 @@ interface ExerciseData {
   id: string;
   name: string;
   equipment: string[];
+  movementPattern: string;
   sets: number;
   reps: string;
   weight: string;
@@ -22,6 +23,7 @@ interface ExerciseData {
   rpe?: number;
   rir?: number;
   formVideoUrl: string;
+  durationSeconds?: number;
 }
 
 interface WorkoutSessionProps {
@@ -63,6 +65,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [currentSet, setCurrentSet] = useState(1);
   const [actualReps, setActualReps] = useState("");
   const [actualWeight, setActualWeight] = useState("");
+  const [actualDuration, setActualDuration] = useState("");
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [workoutTime, setWorkoutTime] = useState(0);
   const [heartRate] = useState(120);
@@ -91,6 +94,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           id: pe.id,
           name: pe.exercise.name,
           equipment: pe.exercise.equipment || [],
+          movementPattern: pe.exercise.movementPattern,
           sets: pe.sets,
           reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
           weight: '0',
@@ -98,6 +102,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           rpe: pe.targetRPE || undefined,
           rir: pe.targetRIR || undefined,
           formVideoUrl: pe.exercise.videoUrl || '#',
+          durationSeconds: pe.durationSeconds || undefined,
         }));
         setExercises(mappedExercises);
       }
@@ -113,6 +118,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     return equipment.some(eq => weightEquipment.includes(eq.toLowerCase()));
   };
 
+  const isCardio = currentExercise?.movementPattern === 'cardio';
   const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
 
   useEffect(() => {
@@ -158,10 +164,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleSetComplete = () => {
-    if (!actualReps) return;
-    if (needsWeight && !actualWeight) return;
+    if (isCardio) {
+      if (!actualDuration) return;
+    } else {
+      if (!actualReps) return;
+      if (needsWeight && !actualWeight) return;
+    }
 
-    const weightToUse = needsWeight ? actualWeight : "0";
+    const weightToUse = isCardio ? "0" : (needsWeight ? actualWeight : "0");
     
     const updatedExercises = exercises.map((ex, idx) => 
       idx === currentExerciseIndex 
@@ -189,12 +199,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         setCurrentSet(1);
         setActualReps("");
         setActualWeight("");
+        setActualDuration("");
         setShowRestTimer(true);
       }
     } else {
       setCurrentSet(prev => prev + 1);
       setActualReps("");
       setActualWeight("");
+      setActualDuration("");
       setShowRestTimer(true);
     }
   };
@@ -336,65 +348,96 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Set {currentSet} of {currentExercise.sets}</p>
               <div className="space-y-2">
-                <p className="text-lg">
-                  <span className="text-muted-foreground">Recommended: </span>
-                  <span className="font-bold">{currentExercise.reps} reps</span>
-                </p>
-                <div className="flex items-center justify-center gap-6 mt-4">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Tempo</p>
-                    <p className="text-lg font-mono font-bold" data-testid="text-tempo">{currentExercise.tempo}</p>
+                {isCardio ? (
+                  <p className="text-lg">
+                    <span className="text-muted-foreground">Duration: </span>
+                    <span className="font-bold">
+                      {currentExercise.durationSeconds 
+                        ? `${Math.floor(currentExercise.durationSeconds / 60)}:${(currentExercise.durationSeconds % 60).toString().padStart(2, '0')}` 
+                        : 'Track your time'}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-lg">
+                    <span className="text-muted-foreground">Recommended: </span>
+                    <span className="font-bold">{currentExercise.reps} reps</span>
+                  </p>
+                )}
+                {!isCardio && (
+                  <div className="flex items-center justify-center gap-6 mt-4">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Tempo</p>
+                      <p className="text-lg font-mono font-bold" data-testid="text-tempo">{currentExercise.tempo}</p>
+                    </div>
+                    {currentExercise.rpe && (
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Suggested RPE</p>
+                        <p className="text-lg font-mono font-bold" data-testid="text-rpe">{currentExercise.rpe}/10</p>
+                      </div>
+                    )}
+                    {currentExercise.rir && (
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Target RIR</p>
+                        <p className="text-lg font-mono font-bold" data-testid="text-rir">{currentExercise.rir}</p>
+                      </div>
+                    )}
                   </div>
-                  {currentExercise.rpe && (
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">Suggested RPE</p>
-                      <p className="text-lg font-mono font-bold" data-testid="text-rpe">{currentExercise.rpe}/10</p>
-                    </div>
-                  )}
-                  {currentExercise.rir && (
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">Target RIR</p>
-                      <p className="text-lg font-mono font-bold" data-testid="text-rir">{currentExercise.rir}</p>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 
-            <div className={needsWeight ? "grid grid-cols-2 gap-4" : ""}>
+            {isCardio ? (
               <div className="space-y-2">
-                <Label htmlFor="actual-reps">Actual Reps</Label>
+                <Label htmlFor="actual-duration">Duration (seconds)</Label>
                 <Input
-                  id="actual-reps"
+                  id="actual-duration"
                   type="number"
-                  value={actualReps}
-                  onChange={(e) => setActualReps(e.target.value)}
-                  placeholder="10"
+                  value={actualDuration}
+                  onChange={(e) => setActualDuration(e.target.value)}
+                  placeholder="300"
                   className="text-2xl text-center h-16"
-                  data-testid="input-actual-reps"
+                  data-testid="input-actual-duration"
                 />
+                <p className="text-xs text-muted-foreground text-center">
+                  {actualDuration ? `${Math.floor(parseInt(actualDuration) / 60)}:${(parseInt(actualDuration) % 60).toString().padStart(2, '0')}` : ''}
+                </p>
               </div>
-              {needsWeight && (
+            ) : (
+              <div className={needsWeight ? "grid grid-cols-2 gap-4" : ""}>
                 <div className="space-y-2">
-                  <Label htmlFor="actual-weight">Actual Weight ({weightUnit})</Label>
+                  <Label htmlFor="actual-reps">Actual Reps</Label>
                   <Input
-                    id="actual-weight"
+                    id="actual-reps"
                     type="number"
-                    value={actualWeight}
-                    onChange={(e) => setActualWeight(e.target.value)}
-                    placeholder="135"
+                    value={actualReps}
+                    onChange={(e) => setActualReps(e.target.value)}
+                    placeholder="10"
                     className="text-2xl text-center h-16"
-                    data-testid="input-actual-weight"
+                    data-testid="input-actual-reps"
                   />
                 </div>
-              )}
-            </div>
+                {needsWeight && (
+                  <div className="space-y-2">
+                    <Label htmlFor="actual-weight">Actual Weight ({weightUnit})</Label>
+                    <Input
+                      id="actual-weight"
+                      type="number"
+                      value={actualWeight}
+                      onChange={(e) => setActualWeight(e.target.value)}
+                      placeholder="135"
+                      className="text-2xl text-center h-16"
+                      data-testid="input-actual-weight"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button
               size="lg"
               className="w-full"
               onClick={handleSetComplete}
-              disabled={!actualReps || (needsWeight && !actualWeight)}
+              disabled={isCardio ? !actualDuration : (!actualReps || (needsWeight && !actualWeight))}
               data-testid="button-next-set"
             >
               {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Finish Set and Recover"}
