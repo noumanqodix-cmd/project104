@@ -114,18 +114,6 @@ export default function Settings() {
     return Math.round(10 * weightValue + 6.25 * heightValue - 5 * ageValue + 5);
   };
 
-  const calculateHeartRateZones = (ageValue: number) => {
-    const maxHR = 220 - ageValue;
-    return {
-      maxHeartRate: maxHR,
-      zone1: { min: Math.round(maxHR * 0.50), max: Math.round(maxHR * 0.60) },
-      zone2: { min: Math.round(maxHR * 0.60), max: Math.round(maxHR * 0.70) },
-      zone3: { min: Math.round(maxHR * 0.70), max: Math.round(maxHR * 0.80) },
-      zone4: { min: Math.round(maxHR * 0.80), max: Math.round(maxHR * 0.90) },
-      zone5: { min: Math.round(maxHR * 0.90), max: maxHR }
-    };
-  };
-
   const handleSavePhysicalStats = () => {
     const heightVal = parseFloat(height);
     const weightVal = parseFloat(weight);
@@ -140,6 +128,15 @@ export default function Settings() {
       return;
     }
 
+    if (ageVal < 18 || ageVal > 100) {
+      toast({
+        title: "Error",
+        description: "Age must be between 18 and 100.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const isMetric = unitPreference === 'metric';
     let heightInCm = heightVal;
     let weightInKg = weightVal;
@@ -149,17 +146,10 @@ export default function Settings() {
       weightInKg = weightVal * 0.453592;
     }
 
-    const bmr = calculateBMR(heightInCm, weightInKg, ageVal);
-    const targetCalories = selectedGoal === "gain" ? bmr + 500 
-                         : selectedGoal === "lose" ? bmr - 500 
-                         : bmr;
-
     updateProfileMutation.mutate({
       height: heightInCm,
       weight: weightInKg,
       age: ageVal,
-      bmr,
-      targetCalories,
     });
   };
 
@@ -339,12 +329,38 @@ export default function Settings() {
               <p className="text-lg font-semibold" data-testid="text-bmr">
                 {user?.bmr || '-'} calories/day
               </p>
+              <p className="text-sm text-muted-foreground">
+                Automatically recalculated when you update your stats
+              </p>
             </div>
             <div className="space-y-2">
-              <Label>Maximum Heart Rate</Label>
-              <p className="text-lg font-semibold" data-testid="text-max-hr">
-                {user?.age ? 220 - user.age : '-'} bpm
-              </p>
+              <Label>Heart Rate Training Zones</Label>
+              {user?.age ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold" data-testid="text-max-hr">
+                    Maximum HR: {220 - user.age} bpm
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 text-sm">
+                    <p data-testid="text-hr-zone1">
+                      Zone 1 (50-60%): {Math.round((220 - user.age) * 0.50)}-{Math.round((220 - user.age) * 0.60)} bpm - Warm-up
+                    </p>
+                    <p data-testid="text-hr-zone2">
+                      Zone 2 (60-70%): {Math.round((220 - user.age) * 0.60)}-{Math.round((220 - user.age) * 0.70)} bpm - Fat Burning
+                    </p>
+                    <p data-testid="text-hr-zone3">
+                      Zone 3 (70-80%): {Math.round((220 - user.age) * 0.70)}-{Math.round((220 - user.age) * 0.80)} bpm - Aerobic
+                    </p>
+                    <p data-testid="text-hr-zone4">
+                      Zone 4 (80-90%): {Math.round((220 - user.age) * 0.80)}-{Math.round((220 - user.age) * 0.90)} bpm - Anaerobic
+                    </p>
+                    <p data-testid="text-hr-zone5">
+                      Zone 5 (90-100%): {Math.round((220 - user.age) * 0.90)}-{220 - user.age} bpm - Peak
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">-</p>
+              )}
             </div>
             <Button 
               onClick={handleSavePhysicalStats}

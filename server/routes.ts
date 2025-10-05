@@ -215,6 +215,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updates = req.body;
+      const user = await storage.getUser((req as any).session.userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (updates.age !== undefined && (updates.age < 18 || updates.age > 100)) {
+        return res.status(400).json({ error: "Age must be between 18 and 100" });
+      }
+      
+      delete updates.bmr;
+      delete updates.targetCalories;
+      
+      const hasPhysicalStatChange = updates.height !== undefined || updates.weight !== undefined || updates.age !== undefined;
+      const hasGoalChange = updates.nutritionGoal !== undefined;
+      
+      if (hasPhysicalStatChange || hasGoalChange) {
+        const finalHeight = updates.height !== undefined ? updates.height : user.height;
+        const finalWeight = updates.weight !== undefined ? updates.weight : user.weight;
+        const finalAge = updates.age !== undefined ? updates.age : user.age;
+        const finalGoal = updates.nutritionGoal !== undefined ? updates.nutritionGoal : user.nutritionGoal;
+        
+        if (finalHeight && finalWeight && finalAge) {
+          const bmr = Math.round(10 * finalWeight + 6.25 * finalHeight - 5 * finalAge + 5);
+          const targetCalories = finalGoal === "gain" ? bmr + 500 
+                               : finalGoal === "lose" ? bmr - 500 
+                               : bmr;
+          
+          updates.bmr = bmr;
+          updates.targetCalories = targetCalories;
+        }
+      }
+      
       const updatedUser = await storage.updateUser((req as any).session.userId, updates);
       
       if (!updatedUser) {
