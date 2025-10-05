@@ -188,6 +188,12 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - **Automatic Weight Recording**: Bodyweight exercises automatically record "0" weight for accurate volume tracking
 - **Conditional Validation**: Form validation only requires weight input when exercise equipment demands it
 - **Accurate Volume Calculation**: Total workout volume correctly aggregates weighted and bodyweight exercises
+- **Real-Time RIR-Based Weight Recommendations**: During rest periods between sets, system tracks Reps in Reserve (RIR)
+  - If RIR > 2 (user had 3+ reps left in the tank), suggests adding weight for next set:
+    - RIR 3-4: Add 5 lbs
+    - RIR 5+: Add 10 lbs
+  - Recommendation appears as banner and updates the weight input placeholder automatically
+  - Helps users progressively overload and train closer to failure for optimal gains
 - **Cardio Exercise Support**: Cardio exercises (movement_pattern === 'cardio') track duration only
   - Shows duration input in seconds instead of reps/weight
   - Displays recommended duration from program if available

@@ -159,7 +159,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const handleRestComplete = (rir?: number) => {
     setShowRestTimer(false);
     
-    if (rir !== undefined && !isLastSet) {
+    if (rir !== undefined && !isLastSet && needsWeight) {
       const increase = getWeightIncreaseRecommendation(rir);
       setRecommendedWeightIncrease(increase);
     } else {
@@ -471,8 +471,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                       placeholder={
                         currentExercise.recommendedWeight 
                           ? unitPreference === 'imperial' 
-                            ? currentExercise.recommendedWeight.toString()
-                            : (currentExercise.recommendedWeight * 0.453592).toFixed(1)
+                            ? (currentExercise.recommendedWeight + recommendedWeightIncrease).toString()
+                            : ((currentExercise.recommendedWeight + recommendedWeightIncrease) * 0.453592).toFixed(1)
                           : undefined
                       }
                       className="text-2xl text-center h-16 placeholder:text-muted-foreground/40"
