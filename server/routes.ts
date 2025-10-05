@@ -688,6 +688,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/programs/exercises/:exerciseId/update-weight", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { recommendedWeight } = req.body;
+      if (recommendedWeight === undefined) {
+        return res.status(400).json({ error: "recommendedWeight is required" });
+      }
+
+      const exercise = await storage.getProgramExercise(req.params.exerciseId);
+      if (!exercise) {
+        return res.status(404).json({ error: "Exercise not found" });
+      }
+
+      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, {
+        recommendedWeight: parseFloat(recommendedWeight),
+      });
+
+      res.json(updatedExercise);
+    } catch (error) {
+      console.error("Update exercise weight error:", error);
+      res.status(500).json({ error: "Failed to update recommended weight" });
+    }
+  });
+
   // Workout Session routes
   app.post("/api/workout-sessions", async (req: Request, res: Response) => {
     try {

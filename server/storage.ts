@@ -49,6 +49,7 @@ export interface IStorage {
   createProgramExercise(exercise: InsertProgramExercise): Promise<ProgramExercise>;
   getWorkoutExercises(workoutId: string): Promise<ProgramExercise[]>;
   getProgramExercise(id: string): Promise<ProgramExercise | undefined>;
+  updateProgramExercise(id: string, updates: Partial<ProgramExercise>): Promise<ProgramExercise | undefined>;
   
   createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
@@ -102,6 +103,7 @@ export class MemStorage implements IStorage {
       phone: null,
       height: null,
       weight: null,
+      age: null,
       bmr: null,
       targetCalories: null,
       nutritionGoal: null,
@@ -252,6 +254,7 @@ export class MemStorage implements IStorage {
       id,
       repsMin: insertExercise.repsMin || null,
       repsMax: insertExercise.repsMax || null,
+      recommendedWeight: insertExercise.recommendedWeight ?? null,
       durationSeconds: insertExercise.durationSeconds || null,
       targetRPE: insertExercise.targetRPE ?? null,
       targetRIR: insertExercise.targetRIR ?? null,
@@ -269,6 +272,16 @@ export class MemStorage implements IStorage {
 
   async getProgramExercise(id: string): Promise<ProgramExercise | undefined> {
     return this.programExercises.get(id);
+  }
+
+  async updateProgramExercise(id: string, updates: Partial<ProgramExercise>): Promise<ProgramExercise | undefined> {
+    const exercise = this.programExercises.get(id);
+    if (!exercise) {
+      return undefined;
+    }
+    const updatedExercise = { ...exercise, ...updates, id };
+    this.programExercises.set(id, updatedExercise);
+    return updatedExercise;
   }
 
   async createWorkoutSession(insertSession: InsertWorkoutSession): Promise<WorkoutSession> {
@@ -486,6 +499,11 @@ export class DbStorage implements IStorage {
 
   async getProgramExercise(id: string): Promise<ProgramExercise | undefined> {
     const result = await db.select().from(programExercises).where(eq(programExercises.id, id)).limit(1);
+    return result[0];
+  }
+
+  async updateProgramExercise(id: string, updates: Partial<ProgramExercise>): Promise<ProgramExercise | undefined> {
+    const result = await db.update(programExercises).set(updates).where(eq(programExercises.id, id)).returning();
     return result[0];
   }
 
