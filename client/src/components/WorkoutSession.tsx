@@ -161,11 +161,20 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     if (!actualReps) return;
     if (needsWeight && !actualWeight) return;
 
+    const weightToUse = needsWeight ? actualWeight : "0";
+    
+    const updatedExercises = exercises.map((ex, idx) => 
+      idx === currentExerciseIndex 
+        ? { ...ex, weight: weightToUse }
+        : ex
+    );
+    
+    setExercises(updatedExercises);
     setRecommendedWeightIncrease(0);
 
     if (isLastSet) {
       if (isLastExercise) {
-        const totalVolume = exercises.reduce((total, ex) => {
+        const totalVolume = updatedExercises.reduce((total, ex) => {
           return total + (ex.sets * parseFloat(ex.weight || '0'));
         }, 0);
         
