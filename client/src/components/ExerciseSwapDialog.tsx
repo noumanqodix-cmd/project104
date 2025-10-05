@@ -6,7 +6,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { ProgramExercise, Exercise } from "@shared/schema";
 
 interface ExerciseSwapDialogProps {
@@ -20,42 +23,17 @@ export default function ExerciseSwapDialog({
   onSwap,
   onClose,
 }: ExerciseSwapDialogProps) {
-  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
-  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
-  
-  //todo: remove mock functionality
-  const suggestions: Exercise[] = [
-    {
-      id: "alt1",
-      name: "Alternative Exercise 1",
-      description: "Similar movement pattern",
-      movementPattern: exercise.exercise.movementPattern,
-      equipment: exercise.exercise.equipment || [],
-      difficulty: exercise.exercise.difficulty,
-      primaryMuscles: exercise.exercise.primaryMuscles,
-      secondaryMuscles: exercise.exercise.secondaryMuscles || null,
-      isFunctional: exercise.exercise.isFunctional,
-      isCorrective: 0,
-      exerciseType: exercise.exercise.exerciseType,
-      videoUrl: null,
-      formTips: null,
+  const { data: suggestions = [], isLoading } = useQuery<Exercise[]>({
+    queryKey: ["/api/exercises/similar", exercise.exercise.id],
+    queryFn: async () => {
+      const response = await apiRequest("POST", "/api/exercises/similar", {
+        exerciseId: exercise.exercise.id,
+        movementPattern: exercise.exercise.movementPattern,
+        primaryMuscles: exercise.exercise.primaryMuscles,
+      });
+      return await response.json();
     },
-    {
-      id: "alt2",
-      name: "Alternative Exercise 2",
-      description: "Bodyweight alternative",
-      movementPattern: exercise.exercise.movementPattern,
-      equipment: ["bodyweight"],
-      difficulty: exercise.exercise.difficulty,
-      primaryMuscles: exercise.exercise.primaryMuscles,
-      secondaryMuscles: exercise.exercise.secondaryMuscles || null,
-      isFunctional: exercise.exercise.isFunctional,
-      isCorrective: 0,
-      exerciseType: exercise.exercise.exerciseType,
-      videoUrl: null,
-      formTips: null,
-    },
-  ];
+  });
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -69,35 +47,53 @@ export default function ExerciseSwapDialog({
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            AI-powered recommendations for similar exercises
+            Similar exercises with the same movement pattern and muscle groups
           </p>
 
-          {suggestions.map((suggestion) => (
-            <div
-              key={suggestion.id}
-              className="border rounded-lg p-4 hover-elevate"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold mb-1">{suggestion.name}</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {suggestion.equipment?.map((eq, idx) => (
-                      <Badge key={idx} variant="secondary">{eq}</Badge>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  onClick={() => onSwap(suggestion)}
-                  data-testid={`button-select-${suggestion.id}`}
-                >
-                  Select
-                </Button>
-              </div>
-              {suggestion.description && (
-                <p className="text-sm text-muted-foreground">{suggestion.description}</p>
-              )}
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
             </div>
-          ))}
+          ) : suggestions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No similar exercises found with the same movement pattern and muscles.</p>
+            </div>
+          ) : (
+            suggestions.map((suggestion) => (
+              <div
+                key={suggestion.id}
+                className="border rounded-lg p-4 hover-elevate"
+                data-testid={`swap-option-${suggestion.id}`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold mb-1">{suggestion.name}</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {suggestion.equipment?.map((eq: string, idx: number) => (
+                        <Badge key={idx} variant="secondary">{eq}</Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 flex-wrap mt-2">
+                      {suggestion.primaryMuscles?.map((muscle: string, idx: number) => (
+                        <Badge key={idx} variant="outline" className="text-xs">{muscle}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => onSwap(suggestion)}
+                    data-testid={`button-select-${suggestion.id}`}
+                  >
+                    Select
+                  </Button>
+                </div>
+                {suggestion.description && (
+                  <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </DialogContent>
     </Dialog>
