@@ -114,6 +114,7 @@ export const programExercises = pgTable("program_exercises", {
   sets: integer("sets").notNull(),
   repsMin: integer("reps_min"),
   repsMax: integer("reps_max"),
+  recommendedWeight: real("recommended_weight"),
   durationSeconds: integer("duration_seconds"),
   restSeconds: integer("rest_seconds").notNull(),
   targetRPE: integer("target_rpe"),
