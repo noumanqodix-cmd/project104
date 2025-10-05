@@ -50,8 +50,10 @@ export default function WorkoutPreview() {
 
   useEffect(() => {
     if (programDetails?.workouts) {
-      const today = new Date().getDay();
-      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= today);
+      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
+      const jsDay = new Date().getDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
       
       if (!nextWorkout) {
         nextWorkout = programDetails.workouts[0];
@@ -81,8 +83,10 @@ export default function WorkoutPreview() {
 
   useEffect(() => {
     if (programDetails?.workouts && exercises.length > 0) {
-      const today = new Date().getDay();
-      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= today);
+      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
+      const jsDay = new Date().getDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
       
       if (!nextWorkout) {
         nextWorkout = programDetails.workouts[0];

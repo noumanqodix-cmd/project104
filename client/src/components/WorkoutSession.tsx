@@ -73,11 +73,18 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   useEffect(() => {
     if (programDetails?.workouts) {
-      const today = new Date().getDay();
-      const todayWorkout = programDetails.workouts.find(w => w.dayOfWeek === today);
+      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
+      const jsDay = new Date().getDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
       
-      if (todayWorkout && todayWorkout.exercises) {
-        const mappedExercises: ExerciseData[] = todayWorkout.exercises.map(pe => ({
+      // Find next workout (today or later), or fall back to first workout
+      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
+      if (!nextWorkout) {
+        nextWorkout = programDetails.workouts[0];
+      }
+      
+      if (nextWorkout && nextWorkout.exercises) {
+        const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => ({
           id: pe.id,
           name: pe.exercise.name,
           equipment: pe.exercise.equipment || [],
