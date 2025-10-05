@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 
 **Application Structure**
 - Multi-step onboarding flow: Welcome → Questionnaire → **Test Type Selection** → Fitness Assessment (Bodyweight or Weights) → Nutrition → Equipment → Availability → Sign Up
-- Main application views: Home dashboard, Workout session, History tracking, Body metrics, Progress visualization
+- Main application views: Home dashboard, Workout session, **History with tabs (Workouts/Programs)**, Body metrics, **Settings with Workout Preferences**, Progress visualization
 - Bottom navigation pattern for primary mobile navigation
 - Component-based architecture with reusable UI elements in `/components` directory
 
@@ -129,7 +129,7 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 **Database Schema:**
 - **Fitness Assessments**: Timestamped records of bodyweight tests (pushups, pullups, squats, mile run) and strength tests (1RM for major lifts)
 - **Exercise Database**: 143 functional exercises with movement pattern categorization, equipment requirements, difficulty levels, exercise types (warmup/main/cooldown), and form tips
-- **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure and duration
+- **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure, duration, and **program history tracking** (archivedDate, archivedReason: "completed" or "replaced")
 - **Performance Tracking**: Workout sessions and individual set tracking with weight, reps, and RIR (Reps in Reserve) data for progressive overload analysis
 
 **Automatic Program Generation During Signup:**
@@ -144,9 +144,10 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - All data persists in the PostgreSQL database and survives server restarts
 
 **API Endpoints:**
-- POST `/api/auth/signup` - Create account and automatically generate workout program
-- POST `/api/programs/generate` - Manually generate new AI workout program
+- POST `/api/auth/signup` - Create account and automatically generate workout program (archives any existing programs)
+- POST `/api/programs/generate` - Manually generate new AI workout program (archives current program with reason "replaced")
 - GET `/api/programs/active` - Fetch user's active program
+- GET `/api/programs/archived` - Fetch user's archived programs (completed or replaced)
 - GET `/api/programs/:id` - Get full program details with nested workouts and exercises
 - POST `/api/programs/preview` - Generate preview program without authentication (for onboarding)
 - POST `/api/fitness-assessments` - Save fitness test results
@@ -156,6 +157,20 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - POST `/api/ai/progression-recommendation` - Get AI-powered weight/rep progression advice
 - POST `/api/ai/exercise-swap` - Get alternative exercise suggestions
 - POST `/api/admin/populate-master-exercises` - One-time admin endpoint to populate the master exercise database with 143 exercises
+
+**User Settings & Program Management:**
+- **Workout Preferences Section** in Settings page allows users to:
+  - Modify available equipment (12 types including bodyweight, dumbbells, barbell, kettlebell, etc.)
+  - Adjust workout frequency (2-6 days per week)
+  - Change workout duration (30-90 minutes)
+  - Generate new program with updated preferences (old program archived with reason "replaced")
+- **Program History Tracking**: All programs archived (not deleted) when replaced or completed
+  - Programs stored with archivedDate and archivedReason ("completed" or "replaced")
+  - Accessible via History page under "Programs" tab
+  - Preserves full program details (weekly structure, exercises, duration)
+- **History Page** displays two tabs:
+  - **Workouts Tab**: Completed workout sessions with duration, date, and notes
+  - **Programs Tab**: Archived programs showing creation date, archive date, archive reason, and program details
 
 **Adaptive Features (Planned):**
 - Automatic program regeneration when user completes new fitness assessment
