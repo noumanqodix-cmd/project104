@@ -30,6 +30,7 @@ export interface GeneratedExercise {
   sets: number;
   repsMin?: number;
   repsMax?: number;
+  recommendedWeight?: number;  // Recommended starting weight in user's unit preference
   durationSeconds?: number;
   restSeconds: number;
   targetRPE?: number;  // Rate of Perceived Exertion (1-10)
@@ -147,7 +148,11 @@ For BODYWEIGHT exercises (when max rep data is available):
 - LOW REP exercises (3-6 reps target): Aim for 75-85% of max reps
   Example: If max pullups is 8, recommend working sets of 6 reps, or use harder variations
 
-IMPORTANT: Include specific weight or rep recommendations in the "notes" field for each exercise based on the user's fitness test results. Format as "Start with [X] lbs" or "Aim for [X] reps per set" based on the calculations above.
+IMPORTANT: 
+1. Include the numeric weight recommendation in the "recommendedWeight" field for exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
+2. Set recommendedWeight to null or 0 for bodyweight-only exercises.
+3. Still include helpful form cues and intensity notes in the "notes" field.
+4. Use the user's unit preference (${user.unitPreference}) for all weight recommendations.
 
 **Response Format (JSON):**
 {
@@ -183,22 +188,24 @@ IMPORTANT: Include specific weight or rep recommendations in the "notes" field f
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
+          "recommendedWeight": 140,
           "restSeconds": 90,
           "targetRPE": 7,
           "targetRIR": 3,
           "isWarmup": false,
-          "notes": "Start with 140 lbs (70% of 1RM). Control the descent"
+          "notes": "70% of 1RM. Control the descent"
         },
         {
           "exerciseName": "Dumbbell Bench Press",
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
+          "recommendedWeight": 105,
           "restSeconds": 120,
           "targetRPE": 8,
           "targetRIR": 2,
           "isWarmup": false,
-          "notes": "Start with 105 lbs (70% of 1RM). Full range of motion"
+          "notes": "70% of 1RM. Full range of motion"
         },
         {
           "exerciseName": "Push-ups",
@@ -209,7 +216,7 @@ IMPORTANT: Include specific weight or rep recommendations in the "notes" field f
           "targetRPE": 7,
           "targetRIR": 3,
           "isWarmup": false,
-          "notes": "Aim for 20 reps per set (50% of max). Maintain plank position"
+          "notes": "50% of max. Maintain plank position"
         }
       ]
     }

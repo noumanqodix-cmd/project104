@@ -129,6 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   sets: exercise.sets,
                   repsMin: exercise.repsMin,
                   repsMax: exercise.repsMax,
+                  recommendedWeight: exercise.recommendedWeight,
                   restSeconds: exercise.restSeconds,
                   notes: exercise.notes,
                 });
@@ -518,6 +519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sets: exercise.sets,
               repsMin: exercise.repsMin,
               repsMax: exercise.repsMax,
+              recommendedWeight: exercise.recommendedWeight,
               durationSeconds: exercise.durationSeconds,
               restSeconds: exercise.restSeconds,
               targetRPE: exercise.targetRPE,
