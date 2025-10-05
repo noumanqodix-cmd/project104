@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
-import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase } from "./ai-exercise-generator";
+import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -57,86 +57,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Seed exercises based on user equipment
-      try {
-        const existingExercises = await storage.getAllExercises();
-        if (existingExercises.length === 0) {
-          let equipmentList = updatedUser.equipment || [];
-          if (!equipmentList.includes("bodyweight")) {
-            equipmentList = ["bodyweight", ...equipmentList];
-          }
-          if (equipmentList.length === 0) {
-            equipmentList = ["bodyweight"];
-          }
-          
-          const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
-          await Promise.all(generatedExercises.map(ex => storage.createExercise(ex)));
-        }
-      } catch (seedError) {
-        console.error("Failed to seed exercises during signup:", seedError);
-        // Don't fail signup, but log the error
+      // Check if master exercise database has been populated
+      const availableExercises = await storage.getAllExercises();
+      if (availableExercises.length === 0) {
+        console.error("Master exercise database is empty. Admin must populate via /api/admin/populate-master-exercises");
+        return res.status(500).json({ 
+          error: "Exercise database not initialized. Please contact support." 
+        });
       }
       
       // Generate or use provided workout program
       try {
         const latestAssessment = await storage.getLatestFitnessAssessment(user.id);
         if (latestAssessment) {
-          const availableExercises = await storage.getAllExercises();
-          if (availableExercises.length > 0) {
-            let programData;
-            
-            if (generatedProgram) {
-              console.log("Using pre-generated program provided in signup request");
-              programData = generatedProgram;
-            } else {
-              console.log("Generating new program using AI");
-              programData = await generateWorkoutProgram({
-                user: updatedUser,
-                latestAssessment,
-                availableExercises,
-              });
-            }
+          let programData;
+          
+          if (generatedProgram) {
+            console.log("Using pre-generated program provided in signup request");
+            programData = generatedProgram;
+          } else {
+            console.log("Generating new program using AI");
+            programData = await generateWorkoutProgram({
+              user: updatedUser,
+              latestAssessment,
+              availableExercises,
+            });
+          }
 
-            const existingPrograms = await storage.getUserPrograms(user.id);
-            for (const oldProgram of existingPrograms) {
-              await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
-            }
+          const existingPrograms = await storage.getUserPrograms(user.id);
+          for (const oldProgram of existingPrograms) {
+            await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
+          }
 
-            const program = await storage.createWorkoutProgram({
-              userId: user.id,
-              fitnessAssessmentId: latestAssessment.id,
-              programType: programData.programType,
-              weeklyStructure: programData.weeklyStructure,
-              durationWeeks: programData.durationWeeks,
-              isActive: 1,
+          const program = await storage.createWorkoutProgram({
+            userId: user.id,
+            fitnessAssessmentId: latestAssessment.id,
+            programType: programData.programType,
+            weeklyStructure: programData.weeklyStructure,
+            durationWeeks: programData.durationWeeks,
+            isActive: 1,
+          });
+
+          for (const workout of programData.workouts) {
+            const programWorkout = await storage.createProgramWorkout({
+              programId: program.id,
+              dayOfWeek: workout.dayOfWeek,
+              workoutName: workout.workoutName,
+              movementFocus: workout.movementFocus,
             });
 
-            for (const workout of programData.workouts) {
-              const programWorkout = await storage.createProgramWorkout({
-                programId: program.id,
-                dayOfWeek: workout.dayOfWeek,
-                workoutName: workout.workoutName,
-                movementFocus: workout.movementFocus,
-              });
+            for (let i = 0; i < workout.exercises.length; i++) {
+              const exercise = workout.exercises[i];
+              const matchingExercise = availableExercises.find(
+                ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+              );
 
-              for (let i = 0; i < workout.exercises.length; i++) {
-                const exercise = workout.exercises[i];
-                const matchingExercise = availableExercises.find(
-                  ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
-                );
-
-                if (matchingExercise) {
-                  await storage.createProgramExercise({
-                    workoutId: programWorkout.id,
-                    exerciseId: matchingExercise.id,
-                    orderIndex: i,
-                    sets: exercise.sets,
-                    repsMin: exercise.repsMin,
-                    repsMax: exercise.repsMax,
-                    restSeconds: exercise.restSeconds,
-                    notes: exercise.notes,
-                  });
-                }
+              if (matchingExercise) {
+                await storage.createProgramExercise({
+                  workoutId: programWorkout.id,
+                  exerciseId: matchingExercise.id,
+                  orderIndex: i,
+                  sets: exercise.sets,
+                  repsMin: exercise.repsMin,
+                  repsMax: exercise.repsMax,
+                  restSeconds: exercise.restSeconds,
+                  notes: exercise.notes,
+                });
               }
             }
           }
@@ -294,40 +280,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🔧 ADMIN: Starting master exercise database population...");
       
-      // Clear existing exercises
+      const equipmentTypes = [
+        "bodyweight", "dumbbells", "barbell", "kettlebell", "resistance bands",
+        "pull-up bar", "trx", "medicine ball", "box", "jump rope", "foam roller", "yoga mat"
+      ];
+
+      // Generate ALL exercises first before touching the database
+      console.log("  Generating all exercises (this may take 2-3 minutes)...");
+      const allGeneratedExercises: any[] = [];
+      
+      for (const equipment of equipmentTypes) {
+        try {
+          console.log(`    Generating for ${equipment}...`);
+          const exercises = await generateExercisesForEquipment(equipment);
+          allGeneratedExercises.push(...exercises);
+          console.log(`      ✓ ${exercises.length} exercises generated`);
+          
+          // Small delay to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error(`      ✗ Failed for ${equipment}:`, error);
+          throw new Error(`Exercise generation failed for ${equipment}: ${error}`);
+        }
+      }
+      
+      if (allGeneratedExercises.length === 0) {
+        throw new Error("No exercises were generated");
+      }
+      
+      console.log(`\n  ✓ Generation complete: ${allGeneratedExercises.length} exercises generated`);
+      console.log("  Now replacing database contents...");
+      
+      // Only NOW clear and replace - all generation succeeded
       const existingExercises = await storage.getAllExercises();
       console.log(`  Clearing ${existingExercises.length} existing exercises...`);
-      
-      // Note: This is a destructive operation, so we're just doing it
-      // In production, you'd want proper authentication here
-      
-      // Generate comprehensive master database
-      const masterExercises = await generateMasterExerciseDatabase();
-      
-      // Delete all existing exercises
       for (const ex of existingExercises) {
         await storage.deleteExercise(ex.id);
       }
       
-      // Insert all new exercises
-      console.log(`  Inserting ${masterExercises.length} exercises into database...`);
-      const insertedExercises = await Promise.all(
-        masterExercises.map(ex => storage.createExercise(ex))
+      // Save all new exercises
+      console.log(`  Saving ${allGeneratedExercises.length} new exercises...`);
+      await Promise.all(
+        allGeneratedExercises.map(ex => storage.createExercise(ex))
       );
       
-      console.log("✅ Master exercise database population complete!");
+      console.log(`\n✅ Master database population complete: ${allGeneratedExercises.length} exercises saved`);
       
       res.json({ 
         success: true,
-        count: insertedExercises.length, 
-        message: `Successfully populated ${insertedExercises.length} exercises`
+        count: allGeneratedExercises.length, 
+        message: `Successfully populated ${allGeneratedExercises.length} exercises across all equipment types`
       });
     } catch (error) {
       console.error("❌ Master exercise population error:", error);
       if (error instanceof Error && error.message.includes("API key")) {
         return res.status(500).json({ error: "AI API configuration error. Please check OpenAI API key." });
       }
-      res.status(500).json({ error: "Failed to populate master exercises. Please check logs." });
+      res.status(500).json({ error: `Failed to populate master exercises: ${error}` });
     }
   });
 
@@ -369,17 +378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
       }
 
-      let availableExercises = await storage.getAllExercises();
+      const availableExercises = await storage.getAllExercises();
       if (availableExercises.length === 0) {
-        console.log("No exercises found, auto-seeding for user:", userId);
-        try {
-          await generateComprehensiveExerciseLibrary(userId);
-          availableExercises = await storage.getAllExercises();
-          console.log(`Auto-seeded ${availableExercises.length} exercises`);
-        } catch (seedError) {
-          console.error("Auto-seed failed:", seedError);
-          return res.status(400).json({ error: "Failed to generate exercise library. Please try again." });
-        }
+        console.error("Master exercise database is empty. Admin must populate via /api/admin/populate-master-exercises");
+        return res.status(500).json({ 
+          error: "Exercise database not initialized. Please contact support." 
+        });
       }
 
       const generatedProgram = await generateWorkoutProgram({
@@ -477,27 +481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date(),
       };
 
-      let availableExercises = await storage.getAllExercises();
+      const availableExercises = await storage.getAllExercises();
       if (availableExercises.length === 0) {
-        console.log("No exercises found, auto-seeding for preview with equipment:", equipment);
-        try {
-          let equipmentList = equipment || [];
-          if (!equipmentList.includes("bodyweight")) {
-            equipmentList = ["bodyweight", ...equipmentList];
-          }
-          if (equipmentList.length === 0) {
-            equipmentList = ["bodyweight"];
-          }
-
-          const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
-          console.log(`Generated ${generatedExercises.length} exercises for preview`);
-          
-          await Promise.all(generatedExercises.map(ex => storage.createExercise(ex)));
-          availableExercises = await storage.getAllExercises();
-        } catch (seedError) {
-          console.error("Auto-seed failed for preview:", seedError);
-          return res.status(500).json({ error: "Failed to generate exercise library. Please try again." });
-        }
+        console.error("Master exercise database is empty. Admin must populate via /api/admin/populate-master-exercises");
+        return res.status(500).json({ 
+          error: "Exercise database not initialized. Please try again later." 
+        });
       }
 
       const generatedProgram = await generateWorkoutProgram({

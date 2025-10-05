@@ -118,13 +118,17 @@ FitForge now features a comprehensive AI-powered workout program generation syst
   - Available equipment (dumbbells, barbell, kettlebell, resistance bands, etc.)
   - Workout duration preferences (30-90 minutes per session)
   - Nutrition goals (gain muscle, maintain weight, lose weight)
-  - Emphasis on functional movement patterns (push, pull, hinge, squat, carry, rotation)
+  - Emphasis on functional movement patterns (push, pull, hinge, squat, carry, rotation, core, hang, lunge, plyometric, crawl, stretch)
   - Corrective exercises to address movement imbalances
-- **Automatic Exercise Seeding**: If no exercises exist when generating a program, the system automatically seeds a comprehensive exercise library (150-200+ exercises) using GPT-4o-mini based on user's equipment
+- **Master Exercise Database**: One-time AI-generated comprehensive exercise library (143 exercises) created via admin endpoint
+  - Covers 12 equipment types: bodyweight, dumbbells, barbell, kettlebell, resistance bands, pull-up bar, TRX, medicine ball, box, jump rope, foam roller, yoga mat
+  - Spans 12 movement patterns: hinge (27), core (21), rotation (17), lunge (15), push (15), squat (12), pull (10), carry (5), plyometric (5), stretch (5), hang (3), crawl (2)
+  - Generated once using GPT-4o-mini with incremental saving to prevent data loss during long-running operations
+  - All future program generation uses this master database - no ongoing OpenAI calls for exercises
 
 **Database Schema:**
 - **Fitness Assessments**: Timestamped records of bodyweight tests (pushups, pullups, squats, mile run) and strength tests (1RM for major lifts)
-- **Exercise Database**: 20+ functional exercises with movement pattern categorization, equipment requirements, difficulty levels, and form tips
+- **Exercise Database**: 143 functional exercises with movement pattern categorization, equipment requirements, difficulty levels, exercise types (warmup/main/cooldown), and form tips
 - **Workout Programs**: Template structure linking users to AI-generated programs with weekly structure and duration
 - **Performance Tracking**: Workout sessions and individual set tracking with weight, reps, and RIR (Reps in Reserve) data for progressive overload analysis
 
@@ -132,8 +136,8 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - When a user completes the onboarding flow and creates an account, the `/api/auth/signup` endpoint automatically:
   1. Creates the user account and saves all profile data (equipment, nutrition goals, fitness level, etc.)
   2. Saves the fitness assessment test results to the database
-  3. Seeds the exercise library if the database is empty (using AI to generate 150-200+ exercises)
-  4. Generates a personalized workout program using OpenAI GPT-4 based on the user's data
+  3. Retrieves exercises from the master exercise database (143 exercises pre-populated via admin endpoint)
+  4. Generates a personalized workout program using OpenAI GPT-4 based on the user's data and available exercises
   5. Saves the program, workouts, and exercises to the database
 - After signup, the frontend waits 2 seconds for the session cookie to propagate, then redirects to /home
 - The user sees their active program immediately upon login without needing to click a "Generate Program" button
@@ -144,12 +148,14 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - POST `/api/programs/generate` - Manually generate new AI workout program
 - GET `/api/programs/active` - Fetch user's active program
 - GET `/api/programs/:id` - Get full program details with nested workouts and exercises
+- POST `/api/programs/preview` - Generate preview program without authentication (for onboarding)
 - POST `/api/fitness-assessments` - Save fitness test results
 - GET `/api/fitness-assessments/latest` - Retrieve most recent assessment
 - POST `/api/workout-sessions` - Create new workout session
 - POST `/api/workout-sets` - Log individual set performance
 - POST `/api/ai/progression-recommendation` - Get AI-powered weight/rep progression advice
 - POST `/api/ai/exercise-swap` - Get alternative exercise suggestions
+- POST `/api/admin/populate-master-exercises` - One-time admin endpoint to populate the master exercise database with 143 exercises
 
 **Adaptive Features (Planned):**
 - Automatic program regeneration when user completes new fitness assessment
