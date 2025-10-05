@@ -179,6 +179,11 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - **Automatic Weight Recording**: Bodyweight exercises automatically record "0" weight for accurate volume tracking
 - **Conditional Validation**: Form validation only requires weight input when exercise equipment demands it
 - **Accurate Volume Calculation**: Total workout volume correctly aggregates weighted and bodyweight exercises
+- **Cardio Exercise Support**: Cardio exercises (movement_pattern === 'cardio') track duration only
+  - Shows duration input in seconds instead of reps/weight
+  - Displays recommended duration from program if available
+  - Converts duration to minutes:seconds format for easy reading
+  - Validates duration input before allowing set completion
 
 **Adaptive Features (Planned):**
 - Automatic program regeneration when user completes new fitness assessment
