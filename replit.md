@@ -172,6 +172,14 @@ FitForge now features a comprehensive AI-powered workout program generation syst
   - **Workouts Tab**: Completed workout sessions with duration, date, and notes
   - **Programs Tab**: Archived programs showing creation date, archive date, archive reason, and program details
 
+**Smart Workout Input System:**
+- **Equipment-Based Input Validation**: Workout session dynamically shows/hides weight input based on exercise equipment type
+  - **Weight Required**: dumbbells, barbell, kettlebell, medicine ball, resistance bands
+  - **No Weight Needed**: bodyweight, yoga mat, foam roller, jump rope, box, pull-up bar, TRX
+- **Automatic Weight Recording**: Bodyweight exercises automatically record "0" weight for accurate volume tracking
+- **Conditional Validation**: Form validation only requires weight input when exercise equipment demands it
+- **Accurate Volume Calculation**: Total workout volume correctly aggregates weighted and bodyweight exercises
+
 **Adaptive Features (Planned):**
 - Automatic program regeneration when user completes new fitness assessment
 - Progressive overload recommendations based on RIR data from completed workouts
