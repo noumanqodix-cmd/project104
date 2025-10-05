@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   phone: text("phone"),
   height: real("height"),
   weight: real("weight"),
+  age: integer("age"),
   bmr: integer("bmr"),
   targetCalories: integer("target_calories"),
   nutritionGoal: text("nutrition_goal"),

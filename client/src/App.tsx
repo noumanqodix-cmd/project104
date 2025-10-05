@@ -233,6 +233,7 @@ function OnboardingFlow() {
                     subscriptionTier: questionnaireData.subscriptionTier || "free",
                     height: questionnaireData.nutrition?.height,
                     weight: questionnaireData.nutrition?.weight,
+                    age: questionnaireData.nutrition?.age,
                     bmr: questionnaireData.nutrition?.bmr,
                     targetCalories: questionnaireData.nutrition?.calories,
                     nutritionGoal: questionnaireData.nutrition?.goal,
