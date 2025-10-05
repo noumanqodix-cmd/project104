@@ -9,7 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/signup", async (req: Request, res: Response) => {
     try {
-      const { email, password, ...profileData } = req.body;
+      const { email, password, fitnessTest, weightsTest, experienceLevel, ...profileData } = req.body;
       
       const existingUser = await storage.getUserByUsername(email);
       if (existingUser) {
@@ -37,6 +37,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const updatedUser = await storage.getUser(user.id);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to retrieve user after creation" });
+      }
+      
+      // Save fitness assessment if provided
+      if (fitnessTest || weightsTest) {
+        try {
+          const assessmentData = {
+            userId: user.id,
+            experienceLevel: experienceLevel || profileData.fitnessLevel,
+            ...fitnessTest,
+            ...weightsTest,
+          };
+          await storage.createFitnessAssessment(assessmentData);
+        } catch (assessmentError) {
+          console.error("Failed to save fitness assessment during signup:", assessmentError);
+          // Don't fail signup, but log the error
+        }
+      }
+      
+      // Seed exercises based on user equipment
+      try {
+        const existingExercises = await storage.getAllExercises();
+        if (existingExercises.length === 0) {
+          let equipmentList = updatedUser.equipment || [];
+          if (!equipmentList.includes("bodyweight")) {
+            equipmentList = ["bodyweight", ...equipmentList];
+          }
+          if (equipmentList.length === 0) {
+            equipmentList = ["bodyweight"];
+          }
+          
+          const generatedExercises = await generateComprehensiveExerciseLibrary(equipmentList);
+          await Promise.all(generatedExercises.map(ex => storage.createExercise(ex)));
+        }
+      } catch (seedError) {
+        console.error("Failed to seed exercises during signup:", seedError);
+        // Don't fail signup, but log the error
+      }
+      
+      // Generate workout program automatically
+      try {
+        const latestAssessment = await storage.getLatestFitnessAssessment(user.id);
+        if (latestAssessment) {
+          const availableExercises = await storage.getAllExercises();
+          if (availableExercises.length > 0) {
+            const generatedProgram = await generateWorkoutProgram({
+              user: updatedUser,
+              latestAssessment,
+              availableExercises,
+            });
+
+            const existingPrograms = await storage.getUserPrograms(user.id);
+            for (const oldProgram of existingPrograms) {
+              await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
+            }
+
+            const program = await storage.createWorkoutProgram({
+              userId: user.id,
+              fitnessAssessmentId: latestAssessment.id,
+              programType: generatedProgram.programType,
+              weeklyStructure: generatedProgram.weeklyStructure,
+              durationWeeks: generatedProgram.durationWeeks,
+              isActive: 1,
+            });
+
+            for (const workout of generatedProgram.workouts) {
+              const programWorkout = await storage.createProgramWorkout({
+                programId: program.id,
+                dayOfWeek: workout.dayOfWeek,
+                workoutName: workout.workoutName,
+                movementFocus: workout.movementFocus,
+              });
+
+              for (let i = 0; i < workout.exercises.length; i++) {
+                const exercise = workout.exercises[i];
+                const matchingExercise = availableExercises.find(
+                  ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+                );
+
+                if (matchingExercise) {
+                  await storage.createProgramExercise({
+                    workoutId: programWorkout.id,
+                    exerciseId: matchingExercise.id,
+                    orderIndex: i,
+                    sets: exercise.sets,
+                    repsMin: exercise.repsMin,
+                    repsMax: exercise.repsMax,
+                    restSeconds: exercise.restSeconds,
+                    notes: exercise.notes,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (programError) {
+        console.error("Failed to generate program during signup:", programError);
+        // Don't fail signup, program can be generated later
+      }
       
       res.json(updatedUser);
     } catch (error) {
