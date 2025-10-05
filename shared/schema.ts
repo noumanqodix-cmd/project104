@@ -1,7 +1,13 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, timestamp, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
