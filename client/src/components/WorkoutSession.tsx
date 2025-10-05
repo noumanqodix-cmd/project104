@@ -108,6 +108,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const isLastSet = currentExercise && currentSet === currentExercise.sets;
   const isLastExercise = currentExerciseIndex === exercises.length - 1;
 
+  const requiresWeight = (equipment: string[]) => {
+    const weightEquipment = ['dumbbells', 'barbell', 'kettlebell', 'medicine ball', 'resistance bands'];
+    return equipment.some(eq => weightEquipment.includes(eq.toLowerCase()));
+  };
+
+  const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
+
   useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
@@ -151,7 +158,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleSetComplete = () => {
-    if (!actualReps || !actualWeight) return;
+    if (!actualReps) return;
+    if (needsWeight && !actualWeight) return;
 
     setRecommendedWeightIncrease(0);
 
@@ -344,7 +352,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className={needsWeight ? "grid grid-cols-2 gap-4" : ""}>
               <div className="space-y-2">
                 <Label htmlFor="actual-reps">Actual Reps</Label>
                 <Input
@@ -357,25 +365,27 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   data-testid="input-actual-reps"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="actual-weight">Actual Weight ({weightUnit})</Label>
-                <Input
-                  id="actual-weight"
-                  type="number"
-                  value={actualWeight}
-                  onChange={(e) => setActualWeight(e.target.value)}
-                  placeholder="135"
-                  className="text-2xl text-center h-16"
-                  data-testid="input-actual-weight"
-                />
-              </div>
+              {needsWeight && (
+                <div className="space-y-2">
+                  <Label htmlFor="actual-weight">Actual Weight ({weightUnit})</Label>
+                  <Input
+                    id="actual-weight"
+                    type="number"
+                    value={actualWeight}
+                    onChange={(e) => setActualWeight(e.target.value)}
+                    placeholder="135"
+                    className="text-2xl text-center h-16"
+                    data-testid="input-actual-weight"
+                  />
+                </div>
+              )}
             </div>
 
             <Button
               size="lg"
               className="w-full"
               onClick={handleSetComplete}
-              disabled={!actualReps || !actualWeight}
+              disabled={!actualReps || (needsWeight && !actualWeight)}
               data-testid="button-next-set"
             >
               {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Finish Set and Recover"}
