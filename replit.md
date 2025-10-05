@@ -120,6 +120,12 @@ FitForge now features a comprehensive AI-powered workout program generation syst
   - Nutrition goals (gain muscle, maintain weight, lose weight)
   - Emphasis on functional movement patterns (push, pull, hinge, squat, carry, rotation, core, hang, lunge, plyometric, crawl, stretch)
   - Corrective exercises to address movement imbalances
+- **Smart Weight Recommendations**: AI calculates recommended starting weights for ALL weighted exercises
+  - **With 1RM data** (Weights Test): Uses percentage-based calculations (60-90% of 1RM depending on rep ranges)
+  - **Without 1RM data** (Bodyweight Test): Uses bodyweight test performance as proxy (pushups for pressing, pullups for pulling, squats for lower body)
+  - Example: 25+ pushups → 20-30 lbs dumbbells for bench press; 10+ pullups → 30-40 lbs for rows
+  - Recommended weights stored in `program_exercises.recommended_weight` field (in lbs, converted to kg in UI if needed)
+  - Weight placeholders display in workout session input fields as greyed-out values
 - **Master Exercise Database**: One-time AI-generated comprehensive exercise library (143 exercises) created via admin endpoint
   - Covers 12 equipment types: bodyweight, dumbbells, barbell, kettlebell, resistance bands, pull-up bar, TRX, medicine ball, box, jump rope, foam roller, yoga mat
   - Spans 12 movement patterns: hinge (27), core (21), rotation (17), lunge (15), push (15), squat (12), pull (10), carry (5), plyometric (5), stretch (5), hang (3), crawl (2)
@@ -149,6 +155,7 @@ FitForge now features a comprehensive AI-powered workout program generation syst
 - GET `/api/programs/active` - Fetch user's active program
 - GET `/api/programs/archived` - Fetch user's archived programs (completed or replaced)
 - GET `/api/programs/:id` - Get full program details with nested workouts and exercises
+- PATCH `/api/programs/exercises/:exerciseId/update-weight` - Update recommended weight for a program exercise (used for automatic weight adjustments)
 - POST `/api/programs/preview` - Generate preview program without authentication (for onboarding)
 - POST `/api/fitness-assessments` - Save fitness test results
 - GET `/api/fitness-assessments/latest` - Retrieve most recent assessment

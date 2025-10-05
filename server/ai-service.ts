@@ -140,6 +140,24 @@ For WEIGHT-BASED exercises (when 1RM data is available):
 - LOW REP exercises (3-6 reps): Use 85-90% of 1RM
   Example: If Deadlift 1RM is 300 lbs, recommend 255-270 lbs for 3-6 rep sets
 
+For WEIGHT-BASED exercises (when 1RM data is NOT available - using bodyweight test as proxy):
+Based on pushup/pullup performance, estimate appropriate starting weights:
+
+UPPER BODY PRESSING (Bench Press, Dumbbell Press, Overhead Press):
+- Pushups < 15: Start light - 15-20 lbs dumbbells per hand (or 50-60 lbs barbell)
+- Pushups 15-30: Start moderate - 20-30 lbs dumbbells per hand (or 75-95 lbs barbell)
+- Pushups 30+: Start heavier - 30-40 lbs dumbbells per hand (or 95-135 lbs barbell)
+
+UPPER BODY PULLING (Rows, Lat Pulldowns):
+- Pullups < 5: Start light - 15-20 lbs dumbbells per hand (or 40-60 lbs)
+- Pullups 5-10: Start moderate - 20-30 lbs dumbbells per hand (or 60-80 lbs)
+- Pullups 10+: Start heavier - 30-40 lbs dumbbells per hand (or 80-100 lbs)
+
+LOWER BODY (Squats, Deadlifts, Lunges):
+- Air Squats < 25: Start light - 15-20 lbs dumbbells per hand (or 65-95 lbs barbell)
+- Air Squats 25-50: Start moderate - 25-35 lbs dumbbells per hand (or 95-135 lbs barbell)
+- Air Squats 50+: Start heavier - 35-50 lbs dumbbells per hand (or 135-185 lbs barbell)
+
 For BODYWEIGHT exercises (when max rep data is available):
 - HIGH REP exercises (12-15+ reps target): Aim for 50-60% of max reps
   Example: If max pushups is 40, recommend working sets of 20-24 reps
@@ -149,10 +167,12 @@ For BODYWEIGHT exercises (when max rep data is available):
   Example: If max pullups is 8, recommend working sets of 6 reps, or use harder variations
 
 IMPORTANT: 
-1. Include the numeric weight recommendation in the "recommendedWeight" field for exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
-2. Set recommendedWeight to null or 0 for bodyweight-only exercises.
-3. Still include helpful form cues and intensity notes in the "notes" field.
-4. Use the user's unit preference (${user.unitPreference}) for all weight recommendations.
+1. ALWAYS include the numeric weight recommendation in the "recommendedWeight" field for ALL exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
+2. Even without 1RM data, use the bodyweight test proxy guidelines above to estimate appropriate starting weights.
+3. Set recommendedWeight to null or 0 ONLY for bodyweight-only exercises (push-ups, pull-ups, air squats, etc.).
+4. Still include helpful form cues and intensity notes in the "notes" field.
+5. Use the user's unit preference (${user.unitPreference}) for all weight recommendations.
+6. For dumbbell exercises, the recommendedWeight should be PER HAND (so if recommending 25 lbs dumbbells, the field should be 25, not 50).
 
 **Response Format (JSON):**
 {
@@ -200,12 +220,12 @@ IMPORTANT:
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
-          "recommendedWeight": 105,
+          "recommendedWeight": 25,
           "restSeconds": 120,
           "targetRPE": 8,
           "targetRIR": 2,
           "isWarmup": false,
-          "notes": "70% of 1RM. Full range of motion"
+          "notes": "Based on pushup performance. Full range of motion, control the descent"
         },
         {
           "exerciseName": "Push-ups",

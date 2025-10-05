@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema } from "@shared/schema";
+import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -445,6 +445,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to estimate recommended weight based on bodyweight test
+  function estimateWeightFromBodyweightTest(
+    exerciseEquipment: string[],
+    movementPattern: string,
+    assessment: FitnessAssessment
+  ): number | undefined {
+    // Only estimate for exercises that require weight
+    const needsWeight = exerciseEquipment.some(eq => 
+      ['dumbbells', 'barbell', 'kettlebell', 'medicine ball', 'resistance bands'].includes(eq.toLowerCase())
+    );
+    
+    if (!needsWeight) {
+      return undefined;
+    }
+    
+    const pushups = assessment.pushups || 0;
+    const pullups = assessment.pullups || 0;
+    const squats = assessment.squats || 0;
+    
+    // Categorize by movement pattern
+    const isPressing = ['push', 'press'].some(p => movementPattern.toLowerCase().includes(p));
+    const isPulling = ['pull', 'row'].some(p => movementPattern.toLowerCase().includes(p));
+    const isLowerBody = ['squat', 'lunge', 'hinge', 'leg'].some(p => movementPattern.toLowerCase().includes(p));
+    
+    // Estimate weights for dumbbells (per hand) in lbs
+    if (isPressing && pushups > 0) {
+      if (pushups < 15) return 17.5; // 15-20 lbs average
+      if (pushups < 30) return 25;   // 20-30 lbs average
+      return 35;                      // 30-40 lbs average
+    }
+    
+    if (isPulling && pullups > 0) {
+      if (pullups < 5) return 17.5;  // 15-20 lbs average
+      if (pullups < 10) return 25;   // 20-30 lbs average
+      return 35;                      // 30-40 lbs average
+    }
+    
+    if (isLowerBody && squats > 0) {
+      if (squats < 25) return 17.5;  // 15-20 lbs average
+      if (squats < 50) return 30;    // 25-35 lbs average
+      return 42.5;                    // 35-50 lbs average
+    }
+    
+    // Default conservative estimate if we can't categorize
+    return 20;
+  }
+
   // Workout Program routes
   app.post("/api/programs/generate", async (req: Request, res: Response) => {
     try {
@@ -512,6 +559,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
           if (matchingExercise) {
+            // Use AI-provided weight, or fallback to estimation if not provided
+            let recommendedWeight = exercise.recommendedWeight;
+            if (!recommendedWeight && !exercise.isWarmup) {
+              recommendedWeight = estimateWeightFromBodyweightTest(
+                matchingExercise.equipment || [],
+                matchingExercise.movementPattern,
+                latestAssessment
+              );
+            }
+            
             await storage.createProgramExercise({
               workoutId: programWorkout.id,
               exerciseId: matchingExercise.id,
@@ -519,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sets: exercise.sets,
               repsMin: exercise.repsMin,
               repsMax: exercise.repsMax,
-              recommendedWeight: exercise.recommendedWeight,
+              recommendedWeight,
               durationSeconds: exercise.durationSeconds,
               restSeconds: exercise.restSeconds,
               targetRPE: exercise.targetRPE,
