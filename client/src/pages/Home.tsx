@@ -51,6 +51,28 @@ export default function Home() {
     },
   });
 
+  const completeRestDayMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/workout-sessions", {
+        programWorkoutId: null,
+        completed: 1,
+        status: "skipped",
+        notes: "Auto Rest Day",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Complete Rest Day",
+        description: error.message || "Failed to complete rest day",
+        variant: "destructive",
+      });
+    },
+  });
+
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/generate", {});
@@ -314,16 +336,9 @@ export default function Home() {
                         variant="outline"
                         size="lg"
                         className="w-full"
-                        onClick={async () => {
+                        onClick={() => {
                           if (actionableInfo.isAutoRestDay) {
-                            await apiRequest("POST", "/api/workout-sessions", {
-                              programWorkoutId: null,
-                              completed: 1,
-                              status: "skipped",
-                              notes: "Auto Rest Day",
-                            });
-                            queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
-                            queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
+                            completeRestDayMutation.mutate();
                           } else {
                             if (!todaysWorkout?.id) {
                               toast({
@@ -336,11 +351,11 @@ export default function Home() {
                             skipDayMutation.mutate({ workoutId: todaysWorkout.id, isRestDay: true });
                           }
                         }}
-                        disabled={skipDayMutation.isPending}
+                        disabled={skipDayMutation.isPending || completeRestDayMutation.isPending}
                         data-testid="button-skip-rest"
                       >
                         <SkipForward className="h-5 w-5 mr-2" />
-                        Complete Rest Day
+                        {completeRestDayMutation.isPending || skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
                       </Button>
                     </>
                   ) : (
