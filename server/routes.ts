@@ -1007,10 +1007,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If we found a pre-scheduled session, update it instead of creating new
         if (existingScheduledSession) {
+          const wasIncomplete = existingScheduledSession.completed === 0;
+          
           const updatedSession = await storage.updateWorkoutSession(existingScheduledSession.id, {
             ...validatedData,
             sessionDate: new Date(),
           });
+          
+          // If session was just completed, shift the remaining schedule
+          if (wasIncomplete && validatedData.completed === 1 && updatedSession && existingScheduledSession.scheduledDate !== null) {
+            const programWorkout = await storage.getProgramWorkout(existingScheduledSession.programWorkoutId);
+            if (programWorkout && existingScheduledSession.scheduledDate) {
+              await storage.shiftRemainingSchedule(
+                (req as any).session.userId,
+                existingScheduledSession.scheduledDate,
+                programWorkout.programId
+              );
+            }
+          }
+          
           return res.json(updatedSession);
         }
 
