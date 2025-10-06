@@ -6,11 +6,15 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { WorkoutProgram, WorkoutSession, ProgramWorkout } from "@shared/schema";
+import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
 
   const { data: activeProgram, isLoading: programLoading } = useQuery<WorkoutProgram>({
     queryKey: ["/api/programs/active"],
@@ -146,7 +150,11 @@ export default function Home() {
   const actionableWorkoutInfo = getActionableWorkout();
   const todaysWorkout = actionableWorkoutInfo?.workout;
   const isActuallyToday = actionableWorkoutInfo?.isToday ?? false;
-  const isWorkoutDoneToday = !actionableWorkoutInfo;
+  
+  const userScheduledDays = user?.selectedDays || [];
+  const isTodayScheduledWorkoutDay = userScheduledDays.includes(todayISODay);
+  const allWorkoutsCompletedThisWeek = programWorkouts && programWorkouts.length > 0 && 
+    programWorkouts.every(w => completedWorkoutIdsThisWeek.has(w.id));
   
   const todaysWorkoutSession = todaysWorkout && sessions?.find(
     s => s.programWorkoutId === todaysWorkout.id && 
@@ -316,10 +324,33 @@ export default function Home() {
                 ) : (
                   <div className="text-center py-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-                      <Calendar className="h-6 w-6 text-muted-foreground" />
+                      {allWorkoutsCompletedThisWeek ? (
+                        <Target className="h-6 w-6 text-muted-foreground" />
+                      ) : (
+                        <Calendar className="h-6 w-6 text-muted-foreground" />
+                      )}
                     </div>
-                    <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
-                    <p className="text-sm text-muted-foreground">{getDayName(todayISODay)}</p>
+                    {allWorkoutsCompletedThisWeek ? (
+                      <>
+                        <h3 className="font-semibold mb-1" data-testid="text-week-complete">Week Complete!</h3>
+                        <p className="text-sm text-muted-foreground">All workouts done for this week</p>
+                        {nextScheduledWorkout && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Next workout: {getDayName(nextScheduledWorkout.dayOfWeek)}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
+                        <p className="text-sm text-muted-foreground">{getDayName(todayISODay)}</p>
+                        {nextWorkout && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Next workout: {getDayName(nextWorkout.dayOfWeek)}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>
