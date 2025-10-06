@@ -36,6 +36,8 @@ FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalize
   - Skip functionality updates the existing session with status="skipped" and completed=1
   - Program completion is detected when all pre-generated sessions are marked as completed
   - Sessions display actual calendar dates (e.g., "Monday, October 7") for clarity
+  - **Workout Completion Fix (October 2025)**: POST /api/workout-sessions endpoint now finds and updates existing pre-scheduled sessions instead of creating duplicates, eliminating 409 conflict errors
+  - **Backward Compatibility**: Home page includes fallback logic to handle sessions without scheduledDate (for users with data created before calendar-based scheduling), ensuring old user data remains accessible
 
 ## External Dependencies
 
