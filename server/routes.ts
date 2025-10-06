@@ -1035,6 +1035,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json(updatedSession);
         }
 
+        // If no incomplete sessions found, this workout is complete - don't create duplicates
+        if (validatedData.completed === 1) {
+          return res.status(400).json({ 
+            error: "No incomplete sessions available for this workout" 
+          });
+        }
+
         // Fallback: Check for duplicate in current week (legacy behavior for old data)
         const isoDay = sessionDayOfWeek;
         const startOfWeek = new Date(today);
