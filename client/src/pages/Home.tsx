@@ -117,6 +117,15 @@ export default function Home() {
     w.dayOfWeek < todayISODay
   );
 
+  console.log('Home Dashboard Debug:', {
+    todayISODay,
+    programWorkoutsCount: programWorkouts?.length,
+    programWorkoutDays: programWorkouts?.map(w => ({ day: w.dayOfWeek, name: w.workoutName })),
+    todaysWorkout: todaysWorkout ? { day: todaysWorkout.dayOfWeek, name: todaysWorkout.workoutName } : null,
+    isWorkoutDoneToday,
+    nextScheduledWorkout: nextScheduledWorkout ? { day: nextScheduledWorkout.dayOfWeek, name: nextScheduledWorkout.workoutName } : null,
+  });
+
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
     const lastSession = completedSessions.reduce((latest: any, session: any) => {
