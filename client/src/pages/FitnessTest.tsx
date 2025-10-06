@@ -11,7 +11,11 @@ import type { FitnessAssessment } from "@shared/schema";
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
   
-  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  const { data: user } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const unitPreference = user?.unitPreference || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
   const { data: assessments, isLoading } = useQuery<FitnessAssessment[]>({

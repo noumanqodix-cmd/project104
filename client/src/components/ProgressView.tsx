@@ -161,7 +161,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
       });
     }
 
-    const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+    const unitPreference = user?.unitPreference || 'imperial';
     const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
     if (latest.squat1rm !== null && previous.squat1rm !== null) {
@@ -192,7 +192,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
     }
 
     return metrics.length > 0 ? metrics : null;
-  }, [assessments]);
+  }, [assessments, user]);
 
   if (isLoading) {
     return (

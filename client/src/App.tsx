@@ -52,9 +52,6 @@ function OnboardingFlow() {
           <QuestionnaireFlow
             onComplete={(data) => {
               setQuestionnaireData(data);
-              if (data.unitPreference) {
-                localStorage.setItem('unitPreference', data.unitPreference);
-              }
               setCurrentStep("testSelection");
             }}
             onBack={() => setCurrentStep("welcome")}

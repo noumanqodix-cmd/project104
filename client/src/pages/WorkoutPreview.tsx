@@ -25,7 +25,12 @@ interface ExerciseWithProgression {
 
 export default function WorkoutPreview() {
   const [, setLocation] = useLocation();
-  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
+  
+  const { data: user } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const unitPreference = user?.unitPreference || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   
   const { data: activeProgram, isLoading: loadingProgram } = useQuery<WorkoutProgram>({

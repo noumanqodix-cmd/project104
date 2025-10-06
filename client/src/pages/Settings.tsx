@@ -47,11 +47,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
 
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
   });
+
+  const unitPreference = user?.unitPreference || 'imperial';
 
   const [helpTicket, setHelpTicket] = useState("");
   const [selectedGoal, setSelectedGoal] = useState("maintain");

@@ -9,14 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Body() {
-  const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
-  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
-  const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
-  
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
   });
 
+  const unitPreference = user?.unitPreference || 'imperial';
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
   const isMetric = unitPreference === 'metric';
   
   let displayWeight = user?.weight || 70;
