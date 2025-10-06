@@ -45,6 +45,7 @@ export interface IStorage {
   updateWorkoutProgram(id: string, updates: Partial<WorkoutProgram>): Promise<WorkoutProgram | undefined>;
   
   createProgramWorkout(workout: InsertProgramWorkout): Promise<ProgramWorkout>;
+  getProgramWorkout(id: string): Promise<ProgramWorkout | undefined>;
   getProgramWorkouts(programId: string): Promise<ProgramWorkout[]>;
   
   createProgramExercise(exercise: InsertProgramExercise): Promise<ProgramExercise>;
@@ -208,6 +209,11 @@ export class DbStorage implements IStorage {
 
   async createProgramWorkout(insertWorkout: InsertProgramWorkout): Promise<ProgramWorkout> {
     const result = await db.insert(programWorkouts).values(insertWorkout).returning();
+    return result[0];
+  }
+
+  async getProgramWorkout(id: string): Promise<ProgramWorkout | undefined> {
+    const result = await db.select().from(programWorkouts).where(eq(programWorkouts.id, id)).limit(1);
     return result[0];
   }
 

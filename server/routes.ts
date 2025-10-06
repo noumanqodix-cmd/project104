@@ -923,7 +923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Verify the workout belongs to a program owned by the user
-        const program = await storage.getProgram(programWorkout.programId);
+        const program = await storage.getWorkoutProgram(programWorkout.programId);
         if (!program || program.userId !== (req as any).session.userId) {
           return res.status(403).json({ error: "Unauthorized access to program workout" });
         }
