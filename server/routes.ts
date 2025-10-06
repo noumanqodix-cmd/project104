@@ -748,6 +748,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/program-workouts/:programId", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const program = await storage.getWorkoutProgram(req.params.programId);
+      if (!program) {
+        return res.status(404).json({ error: "Program not found" });
+      }
+
+      if (program.userId !== (req as any).session.userId) {
+        return res.status(403).json({ error: "Not authorized to access this program" });
+      }
+
+      const workouts = await storage.getProgramWorkouts(req.params.programId);
+      res.json(workouts);
+    } catch (error) {
+      console.error("Fetch program workouts error:", error);
+      res.status(500).json({ error: "Failed to fetch program workouts" });
+    }
+  });
+
   app.get("/api/programs/:programId", async (req: Request, res: Response) => {
     try {
       if (!(req as any).session.userId) {
