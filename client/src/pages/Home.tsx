@@ -104,14 +104,42 @@ export default function Home() {
   const todayISODay = getTodayISODay();
   
   const getActionableWorkout = () => {
-    for (let i = 0; i <= 7; i++) {
-      const checkDay = ((todayISODay + i - 1) % 7) + 1;
-      const workout = programWorkouts?.find(w => w.dayOfWeek === checkDay);
-      
-      if (workout && !completedWorkoutIdsThisWeek.has(workout.id)) {
-        return { workout, isToday: i === 0 };
+    if (!programWorkouts || programWorkouts.length === 0) return null;
+    
+    const uncompletedWorkouts = programWorkouts.filter(w => !completedWorkoutIdsThisWeek.has(w.id));
+    
+    if (uncompletedWorkouts.length === 0) return null;
+    
+    const categorizeWorkout = (workout: any) => {
+      if (workout.dayOfWeek === todayISODay) return 'current';
+      if (workout.dayOfWeek < todayISODay) return 'backlog';
+      if (workout.dayOfWeek > todayISODay) {
+        const daysUntil = workout.dayOfWeek - todayISODay;
+        const daysSince = (todayISODay + 7) - workout.dayOfWeek;
+        return daysSince < daysUntil ? 'backlog' : 'future';
       }
+      return 'future';
+    };
+    
+    const backlog = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'backlog');
+    const current = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'current');
+    const future = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'future');
+    
+    const sortedBacklog = [...backlog].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+    const sortedFuture = [...future].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+    
+    if (sortedBacklog.length > 0) {
+      return { workout: sortedBacklog[0], isToday: false };
     }
+    
+    if (current.length > 0) {
+      return { workout: current[0], isToday: true };
+    }
+    
+    if (sortedFuture.length > 0) {
+      return { workout: sortedFuture[0], isToday: false };
+    }
+    
     return null;
   };
 
@@ -249,9 +277,7 @@ export default function Home() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>
-                  {isActuallyToday ? "Today's Workout" : "Next Workout"}
-                </CardTitle>
+                <CardTitle>Today's Workout</CardTitle>
                 <CardDescription>
                   {todaysWorkout ? getDayName(todaysWorkout.dayOfWeek) : getDayName(todayISODay)}
                 </CardDescription>
