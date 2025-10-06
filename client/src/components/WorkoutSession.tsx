@@ -62,6 +62,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const showAds = user?.subscriptionTier === "free" || !user?.subscriptionTier;
   
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
+  const [programExercises, setProgramExercises] = useState<(ProgramExercise & { exercise: Exercise })[]>([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
   const [actualReps, setActualReps] = useState("");
@@ -71,7 +72,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [workoutTime, setWorkoutTime] = useState(0);
   const [heartRate] = useState(120);
   const [isPaused, setIsPaused] = useState(false);
-  const [swapExercise, setSwapExercise] = useState<ExerciseData | null>(null);
+  const [swapExercise, setSwapExercise] = useState<(ProgramExercise & { exercise: Exercise }) | null>(null);
   const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
   const [recommendedRepIncrease, setRecommendedRepIncrease] = useState<number>(0);
   const [lastRir, setLastRir] = useState<number | undefined>(undefined);
@@ -93,6 +94,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       
       if (nextWorkout && nextWorkout.exercises) {
         setCurrentWorkoutId(nextWorkout.id);
+        setProgramExercises(nextWorkout.exercises);
         const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => {
           return {
             id: pe.id,
@@ -302,9 +304,21 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   };
 
-  const handleSwap = (newExercise: any) => {
+  const handleSwap = (newExercise: Exercise) => {
     setExercises(prev =>
-      prev.map(ex => ex.id === currentExercise.id ? { ...newExercise, id: currentExercise.id } : ex)
+      prev.map(ex => ex.id === currentExercise.id ? {
+        ...ex,
+        name: newExercise.name,
+        equipment: newExercise.equipment || [],
+        movementPattern: newExercise.movementPattern,
+        formVideoUrl: newExercise.videoUrl || '#',
+      } : ex)
+    );
+    setProgramExercises(prev =>
+      prev.map(pe => pe.id === currentExercise.id ? {
+        ...pe,
+        exercise: newExercise,
+      } : pe)
     );
     setSwapExercise(null);
   };
@@ -406,7 +420,12 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSwapExercise(currentExercise)}
+              onClick={() => {
+                const programExercise = programExercises.find(pe => pe.id === currentExercise.id);
+                if (programExercise) {
+                  setSwapExercise(programExercise);
+                }
+              }}
               data-testid="button-swap-exercise"
             >
               <Repeat className="h-4 w-4 mr-2" />
@@ -583,7 +602,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
       {swapExercise && (
         <ExerciseSwapDialog
-          exercise={swapExercise as any}
+          exercise={swapExercise}
           onSwap={handleSwap}
           onClose={() => setSwapExercise(null)}
         />
