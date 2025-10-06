@@ -254,11 +254,23 @@ export default function Home() {
                         ? `Next workout: ${nextWorkout.workoutName} on ${getDayName(nextWorkout.dayOfWeek)}`
                         : "No upcoming workouts scheduled"}
                     </p>
-                    <Link href="/program">
-                      <Button variant="outline" data-testid="button-view-program-details">
-                        View Program Details
-                      </Button>
-                    </Link>
+                    <div className="flex flex-col gap-2">
+                      {nextWorkout && (
+                        <Button 
+                          className="w-full"
+                          onClick={() => setLocation('/workout')}
+                          data-testid="button-skip-rest-day"
+                        >
+                          <PlayCircle className="h-5 w-5 mr-2" />
+                          Start Next Workout
+                        </Button>
+                      )}
+                      <Link href="/program">
+                        <Button variant="outline" className="w-full" data-testid="button-view-program-details">
+                          View Program Details
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 )}
               </CardContent>
