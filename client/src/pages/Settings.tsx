@@ -170,7 +170,6 @@ export default function Settings() {
       return;
     }
     
-    console.log("Submitting help ticket:", helpTicket);
     toast({
       title: "Ticket submitted",
       description: "We'll get back to you within 24-48 hours.",

@@ -49,7 +49,6 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
 
   const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise) => {
     // TODO: Implement exercise swap with backend
-    console.log('Swapping exercise:', oldExercise.exercise.name, 'with:', newExercise.name);
     setSwapExercise(null);
   };
 

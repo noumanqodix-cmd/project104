@@ -252,8 +252,6 @@ function OnboardingFlow() {
                   throw new Error(error.error || "Signup failed");
                 }
 
-                console.log("User signed up:", email, questionnaireData);
-                
                 // Wait for session cookie to propagate to browser
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
@@ -408,7 +406,6 @@ function AppRoutes() {
             <WorkoutProgramView
               onBack={() => setLocation("/home")}
               onSave={() => {
-                console.log("Program saved");
                 setLocation("/home");
               }}
             />
@@ -427,8 +424,6 @@ function AppRoutes() {
             <WorkoutSummary
               {...workoutSummaryData}
               onFinish={async (difficulty) => {
-                console.log("Workout difficulty:", difficulty);
-                
                 if (workoutSummaryData) {
                   await saveWorkoutMutation.mutateAsync({
                     programWorkoutId: workoutSummaryData.programWorkoutId,
