@@ -990,18 +990,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userSessions = await storage.getUserSessions((req as any).session.userId);
         
         // Find the earliest incomplete pre-scheduled session for this workout
-        // Filter: must be incomplete, have scheduledDate, AND sessionDate must be older (not created today)
-        // This prevents finding duplicate sessions created by previous failed attempts
-        const todayStart = new Date(today);
-        todayStart.setHours(0, 0, 0, 0);
-        
+        // Pre-scheduled sessions have status="scheduled" and scheduledDate set
         const incompleteSessions = userSessions
           .filter((s: any) => {
-            const sessionDate = new Date(s.sessionDate);
             return s.programWorkoutId === validatedData.programWorkoutId && 
                    s.completed === 0 && 
                    s.scheduledDate !== null &&
-                   sessionDate < todayStart; // Only pre-scheduled sessions (created before today)
+                   s.status === 'scheduled'; // Only pre-scheduled sessions
           })
           .sort((a: any, b: any) => {
             const dateA = new Date(a.scheduledDate).getTime();
@@ -1021,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           // If session was just completed, shift the remaining schedule
-          if (wasIncomplete && validatedData.completed === 1 && updatedSession) {
+          if (wasIncomplete && validatedData.completed === 1 && updatedSession && existingScheduledSession.programWorkoutId) {
             const programWorkout = await storage.getProgramWorkout(existingScheduledSession.programWorkoutId);
             if (programWorkout && existingScheduledSession.scheduledDate) {
               await storage.shiftRemainingSchedule(
