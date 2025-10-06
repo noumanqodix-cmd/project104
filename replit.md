@@ -17,6 +17,8 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 ### Data Storage
 PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users, Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
 
+**Calendar-Based Scheduling (October 2025)**: The system now uses actual calendar dates (`scheduledDate`) instead of day-of-week numbers. When a program is created, all workout sessions for the entire program duration are pre-generated with specific scheduled dates, eliminating ambiguity about which workout belongs to which day and enabling accurate program completion detection.
+
 ### AI-Powered Adaptive Training System
 FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
@@ -27,13 +29,13 @@ FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalize
 - **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR) data, both increasing and decreasing recommendations, and persists these updates to the database.
 - **Smart Workout Input**: Dynamically adjusts input fields based on exercise equipment (e.g., weight input for weighted exercises, duration for cardio).
 - **Program Management**: Users can modify workout preferences in settings to regenerate programs, with older programs being archived for history tracking.
-- **Workout Progression Logic**: The home page shows the next actionable workout using intelligent backlog prioritization:
-  - Missed workouts (no completed/skipped session) automatically carry forward to subsequent days
-  - Backlog workouts (earlier in the week) have highest priority
-  - Current day workout shown if no backlog exists
-  - Future workouts shown only when backlog and current are complete
-  - Skip functionality creates a session with status="skipped" and completed=1, advancing to next workout
-  - Handles week wraparound correctly (e.g., missed Sunday shows on Monday)
+- **Workout Progression Logic**: The home page shows the next actionable workout using calendar-based scheduling:
+  - All workout sessions are pre-generated with specific scheduled dates when program is created
+  - Home page displays the earliest incomplete session (by scheduledDate)
+  - Missed workouts (past due) automatically show as priority until completed or skipped
+  - Skip functionality updates the existing session with status="skipped" and completed=1
+  - Program completion is detected when all pre-generated sessions are marked as completed
+  - Sessions display actual calendar dates (e.g., "Monday, October 7") for clarity
 
 ## External Dependencies
 
