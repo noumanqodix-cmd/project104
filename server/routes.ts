@@ -1021,7 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           // If session was just completed, shift the remaining schedule
-          if (wasIncomplete && validatedData.completed === 1 && updatedSession && existingScheduledSession.scheduledDate !== null) {
+          if (wasIncomplete && validatedData.completed === 1 && updatedSession) {
             const programWorkout = await storage.getProgramWorkout(existingScheduledSession.programWorkoutId);
             if (programWorkout && existingScheduledSession.scheduledDate) {
               await storage.shiftRemainingSchedule(
