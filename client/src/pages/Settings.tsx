@@ -18,7 +18,8 @@ import {
   Crown,
   AlertTriangle,
   Dumbbell,
-  RefreshCw
+  RefreshCw,
+  Settings as SettingsIcon
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -43,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -63,6 +65,7 @@ export default function Settings() {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [age, setAge] = useState("");
+  const [selectedUnitPreference, setSelectedUnitPreference] = useState<string>("imperial");
 
   useEffect(() => {
     if (user) {
@@ -70,6 +73,7 @@ export default function Settings() {
       setSelectedEquipment(user.equipment || []);
       setDaysPerWeek(user.daysPerWeek || 3);
       setWorkoutDuration(user.workoutDuration || 60);
+      setSelectedUnitPreference(user.unitPreference || "imperial");
       
       const isMetric = unitPreference === 'metric';
       if (user.height) {
@@ -240,6 +244,32 @@ export default function Settings() {
     generateNewProgramMutation.mutate();
   };
 
+  const updateUnitPreferenceMutation = useMutation({
+    mutationFn: async (newUnit: string) => {
+      return await apiRequest("PUT", "/api/user/unit-preference", { unitPreference: newUnit });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Unit preference updated",
+        description: "All measurements have been converted to the new unit system.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update unit preference. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveUnitPreference = () => {
+    if (selectedUnitPreference !== unitPreference) {
+      updateUnitPreferenceMutation.mutate(selectedUnitPreference);
+    }
+  };
+
   const isPaidUser = user?.subscriptionTier === "paid";
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
   const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
@@ -275,6 +305,52 @@ export default function Settings() {
               </p>
               <p className="text-sm text-muted-foreground">Email cannot be changed</p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <SettingsIcon className="h-5 w-5" />
+              <CardTitle>App Preferences</CardTitle>
+            </div>
+            <CardDescription>Customize your app experience</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="unit-preference">Unit Preference</Label>
+              <Select value={selectedUnitPreference} onValueChange={setSelectedUnitPreference}>
+                <SelectTrigger id="unit-preference" data-testid="select-unit-preference">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="imperial">Imperial (lbs, in)</SelectItem>
+                  <SelectItem value="metric">Metric (kg, cm)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Changing this will convert all your existing measurements to the new unit system
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Theme</Label>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium">Color Mode</p>
+                  <p className="text-sm text-muted-foreground">Toggle between light and dark theme</p>
+                </div>
+                <ThemeToggle />
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleSaveUnitPreference}
+              disabled={updateUnitPreferenceMutation.isPending || selectedUnitPreference === unitPreference}
+              data-testid="button-save-preferences"
+            >
+              {updateUnitPreferenceMutation.isPending ? "Saving..." : "Save Preferences"}
+            </Button>
           </CardContent>
         </Card>
 

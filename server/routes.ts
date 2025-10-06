@@ -262,6 +262,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/user/unit-preference", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { unitPreference } = req.body;
+      
+      if (!unitPreference || !['imperial', 'metric'].includes(unitPreference)) {
+        return res.status(400).json({ error: "Invalid unit preference. Must be 'imperial' or 'metric'" });
+      }
+
+      const updatedUser = await storage.updateUser((req as any).session.userId, {
+        unitPreference
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Update unit preference error:", error);
+      res.status(500).json({ error: "Failed to update unit preference" });
+    }
+  });
+
   app.post("/api/auth/logout", async (req: Request, res: Response) => {
     (req as any).session.destroy();
     res.json({ success: true });
