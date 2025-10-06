@@ -174,6 +174,13 @@ export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).om
   sessionDate: true,
 });
 
+export const patchWorkoutSessionSchema = z.object({
+  completed: z.union([z.boolean(), z.number()]).transform(val => val ? 1 : 0).optional(),
+  status: z.string().optional(),
+  durationMinutes: z.number().optional(),
+  notes: z.string().optional(),
+});
+
 export const insertWorkoutSetSchema = createInsertSchema(workoutSets).omit({
   id: true,
   timestamp: true,
@@ -181,5 +188,6 @@ export const insertWorkoutSetSchema = createInsertSchema(workoutSets).omit({
 
 export type InsertWorkoutSession = z.infer<typeof insertWorkoutSessionSchema>;
 export type WorkoutSession = typeof workoutSessions.$inferSelect;
+export type PatchWorkoutSession = z.infer<typeof patchWorkoutSessionSchema>;
 export type InsertWorkoutSet = z.infer<typeof insertWorkoutSetSchema>;
 export type WorkoutSet = typeof workoutSets.$inferSelect;

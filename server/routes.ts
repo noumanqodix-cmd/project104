@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
+import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 // Helper function to generate workout schedule for entire program duration
@@ -1066,13 +1066,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const session = await storage.updateWorkoutSession(req.params.sessionId, req.body);
+      // Validate and transform the patch data (converts boolean completed to integer)
+      const validatedData = patchWorkoutSessionSchema.parse(req.body);
+
+      const session = await storage.updateWorkoutSession(req.params.sessionId, validatedData);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
       res.json(session);
     } catch (error) {
+      console.error("Patch session error:", error);
       res.status(500).json({ error: "Failed to update session" });
     }
   });
