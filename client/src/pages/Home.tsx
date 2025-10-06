@@ -140,10 +140,15 @@ export default function Home() {
       ...Array.from(restDaysThisWeek)
     ]);
     
+    const scheduledDays = new Set(programWorkouts.map(w => w.dayOfWeek));
+    
     if (allCompletedDays.size === 7) return null;
     
     for (let offset = 0; offset < 7; offset++) {
       const checkDay = ((todayISODay + offset - 1) % 7) + 1;
+      
+      if (!scheduledDays.has(checkDay)) continue;
+      
       if (!allCompletedDays.has(checkDay)) {
         const workout = programWorkouts.find(w => w.dayOfWeek === checkDay);
         const isRestDay = workout?.workoutType === "rest";
@@ -322,13 +327,13 @@ export default function Home() {
                   )
                 ) : (
                   <div className="text-center py-4">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-                      <Target className="h-6 w-6 text-muted-foreground" />
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
+                      <Target className="h-6 w-6 text-primary" />
                     </div>
-                    <h3 className="font-semibold mb-1" data-testid="text-week-complete">Week Complete!</h3>
-                    <p className="text-sm text-muted-foreground">All 7 days completed for this week</p>
+                    <h3 className="font-semibold mb-1" data-testid="text-week-complete">Great Work!</h3>
+                    <p className="text-sm text-muted-foreground">You've completed all your scheduled workouts for this week</p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      New week starts Monday
+                      Your next workout starts Monday
                     </p>
                   </div>
                 )}
