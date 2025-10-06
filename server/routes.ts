@@ -927,6 +927,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!program || program.userId !== (req as any).session.userId) {
           return res.status(403).json({ error: "Unauthorized access to program workout" });
         }
+
+        // Check for existing session for this programWorkoutId in the current ISO week
+        const userSessions = await storage.getUserSessions((req as any).session.userId);
+        const today = new Date();
+        
+        // Calculate ISO week start (Monday)
+        const dayOfWeek = today.getDay();
+        const isoDay = dayOfWeek === 0 ? 7 : dayOfWeek; // Convert Sunday (0) to 7
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - (isoDay - 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+        
+        const existingSession = userSessions.find((s: any) => {
+          const sessionDate = new Date(s.sessionDate);
+          return s.programWorkoutId === validatedData.programWorkoutId && 
+                 sessionDate >= startOfWeek &&
+                 sessionDate <= endOfWeek;
+        });
+
+        if (existingSession) {
+          return res.status(409).json({ error: "Session already exists for this workout this week" });
+        }
       }
 
       const session = await storage.createWorkoutSession(validatedData);
