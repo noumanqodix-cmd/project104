@@ -134,7 +134,10 @@ export default function Home() {
     sessionsThisWeek
       .filter((s: any) => s.completed === 1)
       .map((s: any) => {
-        if (s.programWorkoutId) {
+        // Use explicit sessionDayOfWeek field if available, otherwise fall back to calculating from workout
+        if (s.sessionDayOfWeek) {
+          return s.sessionDayOfWeek;
+        } else if (s.programWorkoutId) {
           const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
           return workout ? workout.dayOfWeek : null;
         } else {
@@ -155,7 +158,10 @@ export default function Home() {
         return workout?.workoutType === "rest";
       })
       .map((s: any) => {
-        if (s.programWorkoutId) {
+        // Use explicit sessionDayOfWeek field if available, otherwise fall back to calculating from workout
+        if (s.sessionDayOfWeek) {
+          return s.sessionDayOfWeek;
+        } else if (s.programWorkoutId) {
           const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
           return workout ? workout.dayOfWeek : null;
         } else {
