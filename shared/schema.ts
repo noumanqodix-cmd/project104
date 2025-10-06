@@ -146,7 +146,7 @@ export type ProgramExercise = typeof programExercises.$inferSelect;
 export const workoutSessions = pgTable("workout_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  programWorkoutId: varchar("program_workout_id").notNull(),
+  programWorkoutId: varchar("program_workout_id"),
   sessionDate: timestamp("session_date").notNull().defaultNow(),
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
