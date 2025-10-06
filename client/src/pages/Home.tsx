@@ -123,6 +123,40 @@ export default function Home() {
     w.dayOfWeek < todayISODay
   );
 
+  const getNextWorkoutDay = (fromDay: number) => {
+    if (!programWorkouts || programWorkouts.length === 0) return null;
+    
+    for (let i = 1; i <= 7; i++) {
+      const checkDay = ((fromDay + i - 1) % 7) + 1;
+      const workout = programWorkouts?.find(w => w.dayOfWeek === checkDay);
+      if (workout) {
+        return { day: checkDay, workout };
+      }
+    }
+    return null;
+  };
+
+  const getNextRestOrWorkoutDay = (fromDay: number) => {
+    if (!programWorkouts || programWorkouts.length === 0) return null;
+    
+    for (let i = 1; i <= 7; i++) {
+      const checkDay = ((fromDay + i - 1) % 7) + 1;
+      const workout = programWorkouts?.find(w => w.dayOfWeek === checkDay);
+      
+      if (workout) {
+        return { day: checkDay, isRest: false, workout };
+      } else if (programWorkouts.length < 7) {
+        return { day: checkDay, isRest: true, workout: undefined };
+      }
+    }
+    return null;
+  };
+
+  const nextDayInfo = getNextRestOrWorkoutDay(todayISODay);
+  const nextWorkoutAfterRestDay = nextDayInfo?.isRest 
+    ? getNextWorkoutDay(todayISODay)
+    : null;
+
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
     const lastSession = completedSessions.reduce((latest: any, session: any) => {
@@ -244,20 +278,30 @@ export default function Home() {
                         <h3 className="font-semibold mb-1" data-testid={wasSkipped ? "text-workout-skipped" : "text-workout-complete"}>
                           {wasSkipped ? "Workout Skipped" : "Workout Complete!"}
                         </h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          {nextWorkout ? (
-                            <>
-                              Next workout: {nextWorkout.workoutName} on {getDayName(nextWorkout.dayOfWeek)}
-                            </>
-                          ) : nextScheduledWorkout ? (
-                            <>
-                              All workouts complete this week!<br />
-                              Next: {nextScheduledWorkout.workoutName} on {getDayName(nextScheduledWorkout.dayOfWeek)}
-                            </>
+                        <div className="space-y-3 mb-4">
+                          {nextDayInfo ? (
+                            nextDayInfo.isRest ? (
+                              <>
+                                <p className="text-sm text-muted-foreground">
+                                  Next: <span className="font-medium">Rest Day</span> on {getDayName(nextDayInfo.day)}
+                                </p>
+                                {nextWorkoutAfterRestDay && nextWorkoutAfterRestDay.workout && (
+                                  <p className="text-sm text-muted-foreground">
+                                    Then: {nextWorkoutAfterRestDay.workout.workoutName} on {getDayName(nextWorkoutAfterRestDay.day)}
+                                  </p>
+                                )}
+                              </>
+                            ) : nextDayInfo.workout ? (
+                              <p className="text-sm text-muted-foreground">
+                                Next workout: {nextDayInfo.workout.workoutName} on {getDayName(nextDayInfo.day)}
+                              </p>
+                            ) : null
                           ) : (
-                            "All workouts for this week are complete! Great job!"
+                            <p className="text-sm text-muted-foreground">
+                              Great job completing your workouts!
+                            </p>
                           )}
-                        </p>
+                        </div>
                         <Link href="/program">
                           <Button variant="outline" data-testid="button-view-program-details">
                             View Program Details
@@ -272,28 +316,45 @@ export default function Home() {
                       <Calendar className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
+                    <p className="text-sm text-muted-foreground mb-1">{getDayName(todayISODay)}</p>
                     <p className="text-sm text-muted-foreground mb-4">
                       {nextScheduledWorkout 
                         ? `Next workout: ${nextScheduledWorkout.workoutName} on ${getDayName(nextScheduledWorkout.dayOfWeek)}`
                         : "No upcoming workouts scheduled"}
                     </p>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
                       {nextScheduledWorkout && (
-                        <Button 
-                          className="w-full"
-                          onClick={() => setLocation('/workout')}
-                          data-testid="button-skip-rest-day"
-                        >
-                          <PlayCircle className="h-5 w-5 mr-2" />
-                          Start Next Workout
-                        </Button>
+                        <>
+                          <Button 
+                            className="flex-1"
+                            onClick={() => setLocation('/workout')}
+                            data-testid="button-start-next-workout"
+                          >
+                            <PlayCircle className="h-5 w-5 mr-2" />
+                            Start Workout
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            size="lg"
+                            onClick={() => {
+                              toast({
+                                title: "Rest Day Skipped",
+                                description: "Moving to next scheduled workout",
+                              });
+                              setLocation('/workout');
+                            }}
+                            data-testid="button-skip-rest-day"
+                          >
+                            <SkipForward className="h-5 w-5" />
+                          </Button>
+                        </>
                       )}
-                      <Link href="/program">
-                        <Button variant="outline" className="w-full" data-testid="button-view-program-details">
-                          View Program Details
-                        </Button>
-                      </Link>
                     </div>
+                    <Link href="/program" className="block mt-3">
+                      <Button variant="outline" className="w-full" data-testid="button-view-program-details">
+                        View Program Details
+                      </Button>
+                    </Link>
                   </div>
                 )}
               </CardContent>
