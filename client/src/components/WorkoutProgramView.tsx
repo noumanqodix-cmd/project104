@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +26,7 @@ interface WorkoutProgramViewProps {
 export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramViewProps) {
   const [currentWorkoutIndex, setCurrentWorkoutIndex] = useState(0);
   const [swapExercise, setSwapExercise] = useState<ProgramExercise & { exercise: Exercise } | null>(null);
+  const { toast } = useToast();
 
   // Fetch active program
   const { data: activeProgram, isLoading: isLoadingActive } = useQuery<WorkoutProgram>({
@@ -34,6 +37,28 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
   const { data: fullProgram, isLoading: isLoadingFull } = useQuery<ProgramWithWorkouts>({
     queryKey: ['/api/programs', activeProgram?.id],
     enabled: !!activeProgram?.id,
+  });
+
+  const swapExerciseMutation = useMutation({
+    mutationFn: async ({ programExerciseId, newExerciseId }: { programExerciseId: string; newExerciseId: string }) => {
+      return await apiRequest("PATCH", `/api/programs/exercises/${programExerciseId}/swap`, {
+        newExerciseId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/programs', activeProgram?.id] });
+      toast({
+        title: "Exercise Swapped",
+        description: "Your workout has been updated with the new exercise.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Swap Failed",
+        description: "Failed to swap exercise. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const isLoading = isLoadingActive || isLoadingFull;
@@ -48,7 +73,10 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
   ) || [];
 
   const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise) => {
-    // TODO: Implement exercise swap with backend
+    swapExerciseMutation.mutate({
+      programExerciseId: oldExercise.id,
+      newExerciseId: newExercise.id,
+    });
     setSwapExercise(null);
   };
 

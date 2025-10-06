@@ -785,6 +785,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/programs/exercises/:exerciseId/swap", async (req: Request, res: Response) => {
+    try {
+      if (!(req as any).session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { newExerciseId } = req.body;
+      
+      if (!newExerciseId) {
+        return res.status(400).json({ error: "New exercise ID is required" });
+      }
+
+      const programExercise = await storage.getProgramExercise(req.params.exerciseId);
+      if (!programExercise) {
+        return res.status(404).json({ error: "Program exercise not found" });
+      }
+
+      const newExercise = await storage.getExercise(newExerciseId);
+      if (!newExercise) {
+        return res.status(404).json({ error: "New exercise not found" });
+      }
+
+      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, {
+        exerciseId: newExerciseId,
+      });
+
+      res.json(updatedExercise);
+    } catch (error) {
+      console.error("Swap exercise error:", error);
+      res.status(500).json({ error: "Failed to swap exercise" });
+    }
+  });
+
   // Workout Session routes
   app.post("/api/workout-sessions", async (req: Request, res: Response) => {
     try {
