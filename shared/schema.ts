@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   equipment: text("equipment").array(),
   workoutDuration: integer("workout_duration"),
   daysPerWeek: integer("days_per_week"),
+  selectedDays: integer("selected_days").array(),
   fitnessLevel: text("fitness_level"),
 });
 
