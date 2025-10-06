@@ -989,20 +989,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Look for existing pre-scheduled session (calendar-based system)
         const userSessions = await storage.getUserSessions((req as any).session.userId);
         
-        // First try to find a pre-scheduled session for today or near today
-        const todayStart = new Date(today);
-        const todayEnd = new Date(today);
-        todayEnd.setHours(23, 59, 59, 999);
+        // Find the earliest incomplete pre-scheduled session for this workout
+        // This allows early completion while ensuring we update the correct session
+        const incompleteSessions = userSessions
+          .filter((s: any) => 
+            s.programWorkoutId === validatedData.programWorkoutId && 
+            s.completed === 0 && 
+            s.scheduledDate !== null
+          )
+          .sort((a: any, b: any) => {
+            const dateA = new Date(a.scheduledDate).getTime();
+            const dateB = new Date(b.scheduledDate).getTime();
+            return dateA - dateB; // Ascending order - earliest first
+          });
         
-        const existingScheduledSession = userSessions.find((s: any) => {
-          if (!s.scheduledDate || s.programWorkoutId !== validatedData.programWorkoutId) {
-            return false;
-          }
-          const scheduledDate = new Date(s.scheduledDate);
-          scheduledDate.setHours(0, 0, 0, 0);
-          // Find session scheduled for today or earlier (to handle missed workouts)
-          return scheduledDate <= today && s.completed === 0;
-        });
+        const existingScheduledSession = incompleteSessions[0];
 
         // If we found a pre-scheduled session, update it instead of creating new
         if (existingScheduledSession) {
@@ -1066,12 +1067,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
+      // Get the old session to check if completion status is changing
+      const oldSession = await storage.getWorkoutSession(req.params.sessionId);
+      if (!oldSession) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
 
       const session = await storage.updateWorkoutSession(req.params.sessionId, validatedData);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
+      }
+
+      // If session was just completed, shift the remaining schedule
+      if (oldSession.completed === 0 && validatedData.completed === 1 && session.programWorkoutId && session.scheduledDate) {
+        const programWorkout = await storage.getProgramWorkout(session.programWorkoutId);
+        if (programWorkout) {
+          await storage.shiftRemainingSchedule(
+            (req as any).session.userId,
+            session.scheduledDate,
+            programWorkout.programId
+          );
+        }
       }
 
       res.json(session);

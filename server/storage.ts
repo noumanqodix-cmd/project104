@@ -57,6 +57,7 @@ export interface IStorage {
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
+  shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
   getSessionSets(sessionId: string): Promise<WorkoutSet[]>;
@@ -263,6 +264,45 @@ export class DbStorage implements IStorage {
   async updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined> {
     const result = await db.update(workoutSessions).set(updates).where(eq(workoutSessions.id, id)).returning();
     return result[0];
+  }
+
+  async shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void> {
+    // Get all program workouts for this program
+    const programWorkouts = await this.getProgramWorkouts(programId);
+    const programWorkoutIds = programWorkouts.map(pw => pw.id);
+    
+    if (programWorkoutIds.length === 0) {
+      return;
+    }
+
+    // Get all incomplete sessions for this program that are scheduled after the completed date
+    const sessions = await db.select().from(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        inArray(workoutSessions.programWorkoutId, programWorkoutIds),
+        eq(workoutSessions.completed, 0)
+      ));
+
+    // Filter sessions with scheduledDate > completedDate and shift them
+    const completedDateOnly = new Date(completedDate);
+    completedDateOnly.setHours(0, 0, 0, 0);
+
+    for (const session of sessions) {
+      if (session.scheduledDate) {
+        const sessionDate = new Date(session.scheduledDate);
+        sessionDate.setHours(0, 0, 0, 0);
+        
+        if (sessionDate > completedDateOnly) {
+          // Shift this session forward by 1 day
+          const newDate = new Date(session.scheduledDate);
+          newDate.setDate(newDate.getDate() - 1);
+          
+          await db.update(workoutSessions)
+            .set({ scheduledDate: newDate })
+            .where(eq(workoutSessions.id, session.id));
+        }
+      }
+    }
   }
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {

@@ -168,6 +168,20 @@ export default function Home() {
 
   const daysSinceLastWorkout = getDaysSinceLastWorkout();
 
+  // Get last completed workout details
+  const getLastCompletedWorkout = () => {
+    if (completedSessions.length === 0) return null;
+    const lastSession = completedSessions.reduce((latest: any, session: any) => {
+      const sessionDate = new Date(session.sessionDate);
+      const latestDate = new Date(latest.sessionDate);
+      return sessionDate > latestDate ? session : latest;
+    });
+    const workout = programWorkouts?.find(w => w.id === lastSession.programWorkoutId);
+    return { session: lastSession, workout };
+  };
+
+  const lastCompletedWorkout = getLastCompletedWorkout();
+
   const workoutsThisWeek = sessionsThisWeek.length;
 
   const avgDuration = completedSessions.length > 0
@@ -198,7 +212,14 @@ export default function Home() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">Welcome Back!</h1>
-            <p className="text-muted-foreground">Ready to crush your next workout?</p>
+            <p className="text-muted-foreground" data-testid="text-current-date">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </p>
           </div>
           <Link href="/settings">
             <Button variant="ghost" size="icon" data-testid="button-settings">
@@ -331,6 +352,30 @@ export default function Home() {
                 ) : null}
               </CardContent>
             </Card>
+
+            {lastCompletedWorkout && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Last Completed</CardTitle>
+                  <CardDescription>Your most recent workout</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="font-semibold" data-testid="text-last-workout-name">
+                      {lastCompletedWorkout.workout?.workoutName || "Rest Day"}
+                    </p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
+                      {formatDate(lastCompletedWorkout.session.sessionDate)}
+                    </p>
+                    {lastCompletedWorkout.session.durationMinutes && (
+                      <p className="text-sm text-muted-foreground">
+                        Duration: {lastCompletedWorkout.session.durationMinutes} minutes
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
