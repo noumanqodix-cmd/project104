@@ -20,13 +20,20 @@ PostgreSQL is used as the primary database, configured via Neon serverless and a
 ### AI-Powered Adaptive Training System
 FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
-- **Intelligent Program Generation**: GPT-4 creates custom programs based on fitness level, equipment, duration, nutrition goals, and movement patterns, including corrective exercises.
+- **Intelligent Program Generation**: GPT-4 creates custom programs based on fitness level, equipment, duration, nutrition goals, and movement patterns, including corrective exercises. Programs are generated for one week of workouts (repeating weekly) with duration specified in weeks (typically 8 weeks).
 - **Smart Weight Recommendations**: AI calculates recommended starting weights for all exercises, utilizing 1RM data or bodyweight test results as proxies. These recommendations are stored and displayed.
 - **Master Exercise Database**: A pre-populated database of 143 exercises, categorized by equipment and movement pattern, is used for all program generations to avoid repeated OpenAI calls.
 - **Automatic Program Generation**: Upon signup, the system automatically generates and saves a personalized workout program based on user input and assessment results.
 - **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR) data, both increasing and decreasing recommendations, and persists these updates to the database.
 - **Smart Workout Input**: Dynamically adjusts input fields based on exercise equipment (e.g., weight input for weighted exercises, duration for cardio).
 - **Program Management**: Users can modify workout preferences in settings to regenerate programs, with older programs being archived for history tracking.
+- **Workout Progression Logic**: The home page shows the next actionable workout using intelligent backlog prioritization:
+  - Missed workouts (no completed/skipped session) automatically carry forward to subsequent days
+  - Backlog workouts (earlier in the week) have highest priority
+  - Current day workout shown if no backlog exists
+  - Future workouts shown only when backlog and current are complete
+  - Skip functionality creates a session with status="skipped" and completed=1, advancing to next workout
+  - Handles week wraparound correctly (e.g., missed Sunday shows on Monday)
 
 ## External Dependencies
 
