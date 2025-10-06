@@ -29,13 +29,13 @@ export default function Home() {
     enabled: !!activeProgram?.id,
   });
 
-  const skipWorkoutMutation = useMutation({
-    mutationFn: async (workoutId: string) => {
+  const skipDayMutation = useMutation({
+    mutationFn: async ({ workoutId, isRestDay }: { workoutId: string | null; isRestDay: boolean }) => {
       return await apiRequest("POST", "/api/workout-sessions", {
         programWorkoutId: workoutId,
         completed: 1,
         status: "skipped",
-        notes: "Skipped",
+        notes: isRestDay ? "Rest Day" : "Skipped",
       });
     },
     onSuccess: () => {
@@ -45,7 +45,7 @@ export default function Home() {
     onError: (error: any) => {
       toast({
         title: "Failed to Skip",
-        description: error.message || "Failed to skip workout",
+        description: error.message || "Failed to skip day",
         variant: "destructive",
       });
     },
@@ -107,111 +107,58 @@ export default function Home() {
 
   const todayISODay = getTodayISODay();
   const userScheduledDays = user?.selectedDays || [];
-  const isTodayScheduledWorkoutDay = userScheduledDays.includes(todayISODay);
   
-  const getActionableWorkout = () => {
+  const completedDaysThisWeek = new Set(
+    sessionsThisWeek
+      .filter((s: any) => s.completed === 1)
+      .map((s: any) => {
+        const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
+        return workout ? workout.dayOfWeek : null;
+      })
+      .filter((day): day is number => day !== null)
+  );
+  
+  const restDaysThisWeek = new Set(
+    sessionsThisWeek
+      .filter((s: any) => s.completed === 1 && s.programWorkoutId === null)
+      .map((s: any) => {
+        const sessionDate = new Date(s.sessionDate);
+        const dayOfWeek = sessionDate.getDay();
+        return dayOfWeek === 0 ? 7 : dayOfWeek;
+      })
+  );
+  
+  const getActionableDay = () => {
     if (!programWorkouts || programWorkouts.length === 0) return null;
     
-    const uncompletedWorkouts = programWorkouts.filter(w => !completedWorkoutIdsThisWeek.has(w.id));
+    const allCompletedDays = new Set([
+      ...Array.from(completedDaysThisWeek), 
+      ...Array.from(restDaysThisWeek)
+    ]);
     
-    if (uncompletedWorkouts.length === 0) return null;
+    if (allCompletedDays.size === 7) return null;
     
-    const categorizeWorkout = (workout: any) => {
-      if (workout.dayOfWeek === todayISODay) return 'current';
-      if (workout.dayOfWeek < todayISODay) return 'backlog';
-      if (workout.dayOfWeek > todayISODay) {
-        const daysUntil = workout.dayOfWeek - todayISODay;
-        const daysSince = (todayISODay + 7) - workout.dayOfWeek;
-        return daysSince < daysUntil ? 'backlog' : 'future';
+    for (let offset = 0; offset < 7; offset++) {
+      const checkDay = ((todayISODay + offset - 1) % 7) + 1;
+      if (!allCompletedDays.has(checkDay)) {
+        const workout = programWorkouts.find(w => w.dayOfWeek === checkDay);
+        const isRestDay = !workout;
+        return { 
+          dayOfWeek: checkDay, 
+          workout: workout || null,
+          isRestDay,
+          isToday: offset === 0
+        };
       }
-      return 'future';
-    };
-    
-    const backlog = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'backlog');
-    const current = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'current');
-    const future = uncompletedWorkouts.filter(w => categorizeWorkout(w) === 'future');
-    
-    const sortedBacklog = [...backlog].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-    const sortedFuture = [...future].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-    
-    if (sortedBacklog.length > 0) {
-      return { workout: sortedBacklog[0], isToday: false, isBacklog: true };
-    }
-    
-    if (current.length > 0) {
-      return { workout: current[0], isToday: true, isBacklog: false };
-    }
-    
-    if (!isTodayScheduledWorkoutDay && sortedFuture.length > 0) {
-      return null;
-    }
-    
-    if (sortedFuture.length > 0) {
-      return { workout: sortedFuture[0], isToday: false, isBacklog: false };
     }
     
     return null;
   };
 
-  const actionableWorkoutInfo = getActionableWorkout();
-  const todaysWorkout = actionableWorkoutInfo?.workout;
-  const isActuallyToday = actionableWorkoutInfo?.isToday ?? false;
-  const isBacklog = actionableWorkoutInfo?.isBacklog ?? false;
-  
-  const allWorkoutsCompletedThisWeek = programWorkouts && programWorkouts.length > 0 && 
-    programWorkouts.every(w => completedWorkoutIdsThisWeek.has(w.id));
-  
-  const todaysWorkoutSession = todaysWorkout && sessions?.find(
-    s => s.programWorkoutId === todaysWorkout.id && 
-    new Date(s.sessionDate) >= getStartOfWeek()
-  );
-  const wasSkipped = todaysWorkoutSession?.status === "skipped";
-
-  const nextWorkout = programWorkouts?.find(w => 
-    w.dayOfWeek > todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
-  ) || programWorkouts?.find(w => 
-    w.dayOfWeek < todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
-  );
-
-  const nextScheduledWorkout = programWorkouts?.find(w => 
-    w.dayOfWeek > todayISODay
-  ) || programWorkouts?.find(w => 
-    w.dayOfWeek < todayISODay
-  );
-
-  const getNextWorkoutDay = (fromDay: number) => {
-    if (!programWorkouts || programWorkouts.length === 0) return null;
-    
-    for (let i = 1; i <= 7; i++) {
-      const checkDay = ((fromDay + i - 1) % 7) + 1;
-      const workout = programWorkouts?.find(w => w.dayOfWeek === checkDay);
-      if (workout) {
-        return { day: checkDay, workout };
-      }
-    }
-    return null;
-  };
-
-  const getNextRestOrWorkoutDay = (fromDay: number) => {
-    if (!programWorkouts || programWorkouts.length === 0) return null;
-    
-    for (let i = 1; i <= 7; i++) {
-      const checkDay = ((fromDay + i - 1) % 7) + 1;
-      const workout = programWorkouts?.find(w => w.dayOfWeek === checkDay);
-      
-      if (workout) {
-        return { day: checkDay, isRest: false, workout };
-      } else if (programWorkouts.length < 7) {
-        return { day: checkDay, isRest: true, workout: undefined };
-      }
-    }
-    return null;
-  };
-
-  const nextDayInfo = getNextRestOrWorkoutDay(todayISODay);
-  const nextWorkoutAfterRestDay = nextDayInfo?.isRest 
-    ? getNextWorkoutDay(todayISODay)
-    : null;
+  const actionableInfo = getActionableDay();
+  const todaysWorkout = actionableInfo?.workout;
+  const isRestDay = actionableInfo?.isRestDay ?? false;
+  const actionableDayOfWeek = actionableInfo?.dayOfWeek ?? todayISODay;
 
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
@@ -292,70 +239,73 @@ export default function Home() {
               <CardHeader>
                 <CardTitle>Today's Workout</CardTitle>
                 <CardDescription>
-                  {todaysWorkout ? getDayName(todaysWorkout.dayOfWeek) : getDayName(todayISODay)}
+                  {getDayName(actionableDayOfWeek)}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {todaysWorkout ? (
-                  <>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{todaysWorkout.workoutName}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Focus: {todaysWorkout.movementFocus.join(", ")}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1" 
-                        size="lg"
-                        onClick={() => setLocation('/workout')}
-                        data-testid="button-start-workout"
-                      >
-                        <PlayCircle className="h-5 w-5 mr-2" />
-                        Start Workout
-                      </Button>
+                {actionableInfo ? (
+                  isRestDay ? (
+                    <>
+                      <div className="text-center py-2">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                          <Calendar className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
+                        <p className="text-sm text-muted-foreground">Recovery is part of the program</p>
+                      </div>
                       <Button 
                         variant="outline"
                         size="lg"
-                        onClick={() => skipWorkoutMutation.mutate(todaysWorkout.id)}
-                        disabled={skipWorkoutMutation.isPending}
-                        data-testid="button-skip-workout"
+                        className="w-full"
+                        onClick={() => skipDayMutation.mutate({ workoutId: null, isRestDay: true })}
+                        disabled={skipDayMutation.isPending}
+                        data-testid="button-skip-rest"
                       >
-                        <SkipForward className="h-5 w-5" />
+                        <SkipForward className="h-5 w-5 mr-2" />
+                        Complete Rest Day
                       </Button>
-                    </div>
-                  </>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{todaysWorkout?.workoutName}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Focus: {todaysWorkout?.movementFocus.join(", ")}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button 
+                          className="flex-1" 
+                          size="lg"
+                          onClick={() => setLocation('/workout')}
+                          data-testid="button-start-workout"
+                        >
+                          <PlayCircle className="h-5 w-5 mr-2" />
+                          Start Workout
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          size="lg"
+                          onClick={() => skipDayMutation.mutate({ workoutId: todaysWorkout?.id || null, isRestDay: false })}
+                          disabled={skipDayMutation.isPending}
+                          data-testid="button-skip-workout"
+                        >
+                          <SkipForward className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </>
+                  )
                 ) : (
                   <div className="text-center py-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-                      {allWorkoutsCompletedThisWeek ? (
-                        <Target className="h-6 w-6 text-muted-foreground" />
-                      ) : (
-                        <Calendar className="h-6 w-6 text-muted-foreground" />
-                      )}
+                      <Target className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    {allWorkoutsCompletedThisWeek ? (
-                      <>
-                        <h3 className="font-semibold mb-1" data-testid="text-week-complete">Week Complete!</h3>
-                        <p className="text-sm text-muted-foreground">All workouts done for this week</p>
-                        {nextScheduledWorkout && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Next workout: {getDayName(nextScheduledWorkout.dayOfWeek)}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
-                        <p className="text-sm text-muted-foreground">{getDayName(todayISODay)}</p>
-                        {nextWorkout && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Next workout: {getDayName(nextWorkout.dayOfWeek)}
-                          </p>
-                        )}
-                      </>
-                    )}
+                    <h3 className="font-semibold mb-1" data-testid="text-week-complete">Week Complete!</h3>
+                    <p className="text-sm text-muted-foreground">All 7 days completed for this week</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      New week starts Monday
+                    </p>
                   </div>
                 )}
               </CardContent>
