@@ -107,12 +107,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isActive: 1,
           });
 
+          const scheduledDays = new Set<number>();
+          
           for (const workout of programData.workouts) {
+            scheduledDays.add(workout.dayOfWeek);
+            
             const programWorkout = await storage.createProgramWorkout({
               programId: program.id,
               dayOfWeek: workout.dayOfWeek,
               workoutName: workout.workoutName,
               movementFocus: workout.movementFocus,
+              workoutType: "workout",
             });
 
             for (let i = 0; i < workout.exercises.length; i++) {
@@ -134,6 +139,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   notes: exercise.notes,
                 });
               }
+            }
+          }
+          
+          for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+            if (!scheduledDays.has(dayOfWeek)) {
+              await storage.createProgramWorkout({
+                programId: program.id,
+                dayOfWeek,
+                workoutName: "Rest Day",
+                movementFocus: [],
+                workoutType: "rest",
+              });
             }
           }
         }
@@ -579,12 +596,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isActive: 1,
       });
 
+      const scheduledDays = new Set<number>();
+      
       for (const workout of generatedProgram.workouts) {
+        scheduledDays.add(workout.dayOfWeek);
+        
         const programWorkout = await storage.createProgramWorkout({
           programId: program.id,
           dayOfWeek: workout.dayOfWeek,
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
+          workoutType: "workout",
         });
 
         for (let i = 0; i < workout.exercises.length; i++) {
@@ -619,6 +641,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               notes: exercise.notes,
             });
           }
+        }
+      }
+      
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+        if (!scheduledDays.has(dayOfWeek)) {
+          await storage.createProgramWorkout({
+            programId: program.id,
+            dayOfWeek,
+            workoutName: "Rest Day",
+            movementFocus: [],
+            workoutType: "rest",
+          });
         }
       }
 

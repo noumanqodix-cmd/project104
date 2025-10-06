@@ -104,6 +104,7 @@ export const programWorkouts = pgTable("program_workouts", {
   dayOfWeek: integer("day_of_week").notNull(),
   workoutName: text("workout_name").notNull(),
   movementFocus: text("movement_focus").array().notNull(),
+  workoutType: text("workout_type").notNull().default("workout"),
 });
 
 export const programExercises = pgTable("program_exercises", {

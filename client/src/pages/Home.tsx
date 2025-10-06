@@ -120,12 +120,16 @@ export default function Home() {
   
   const restDaysThisWeek = new Set(
     sessionsThisWeek
-      .filter((s: any) => s.completed === 1 && s.programWorkoutId === null)
-      .map((s: any) => {
-        const sessionDate = new Date(s.sessionDate);
-        const dayOfWeek = sessionDate.getDay();
-        return dayOfWeek === 0 ? 7 : dayOfWeek;
+      .filter((s: any) => {
+        if (s.completed !== 1) return false;
+        const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
+        return workout?.workoutType === "rest";
       })
+      .map((s: any) => {
+        const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
+        return workout ? workout.dayOfWeek : null;
+      })
+      .filter((day): day is number => day !== null)
   );
   
   const getActionableDay = () => {
@@ -142,7 +146,7 @@ export default function Home() {
       const checkDay = ((todayISODay + offset - 1) % 7) + 1;
       if (!allCompletedDays.has(checkDay)) {
         const workout = programWorkouts.find(w => w.dayOfWeek === checkDay);
-        const isRestDay = !workout;
+        const isRestDay = workout?.workoutType === "rest";
         return { 
           dayOfWeek: checkDay, 
           workout: workout || null,
@@ -257,7 +261,7 @@ export default function Home() {
                         variant="outline"
                         size="lg"
                         className="w-full"
-                        onClick={() => skipDayMutation.mutate({ workoutId: null, isRestDay: true })}
+                        onClick={() => skipDayMutation.mutate({ workoutId: todaysWorkout?.id || null, isRestDay: true })}
                         disabled={skipDayMutation.isPending}
                         data-testid="button-skip-rest"
                       >
