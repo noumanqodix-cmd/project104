@@ -74,6 +74,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [swapExercise, setSwapExercise] = useState<ExerciseData | null>(null);
   const [recommendedWeightIncrease, setRecommendedWeightIncrease] = useState<number>(0);
   const [recommendedRepIncrease, setRecommendedRepIncrease] = useState<number>(0);
+  const [lastRir, setLastRir] = useState<number | undefined>(undefined);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
@@ -166,6 +167,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   const handleRestComplete = (rir?: number) => {
     setShowRestTimer(false);
+    setLastRir(rir);
     
     if (rir !== undefined && !isLastSet && !isCardio) {
       if (needsWeight) {
@@ -203,45 +205,73 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     setRecommendedWeightIncrease(0);
     setRecommendedRepIncrease(0);
 
-    if (!isCardio && needsWeight && currentExercise.recommendedWeight) {
+    if (!isCardio) {
       const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
+      const repsMax = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[1] : currentExercise.reps);
       const actualRepsInt = parseInt(actualReps);
       
-      if (actualRepsInt < repsMin) {
-        const repDeficit = repsMin - actualRepsInt;
-        const reductionPercent = repDeficit <= 2 ? 0.05 : 0.10;
-        
-        const currentWeightInLbs = unitPreference === 'imperial' 
-          ? parseFloat(actualWeight) 
-          : parseFloat(actualWeight) / 0.453592;
-        
-        const suggestedWeightInLbs = Math.round(currentWeightInLbs * (1 - reductionPercent));
-        
-        try {
+      try {
+        const updates: any = {};
+        let shouldUpdate = false;
+
+        if (needsWeight && currentExercise.recommendedWeight) {
+          const currentWeightInLbs = unitPreference === 'imperial' 
+            ? parseFloat(actualWeight) 
+            : parseFloat(actualWeight) / 0.453592;
+
+          if (actualRepsInt < repsMin) {
+            const repDeficit = repsMin - actualRepsInt;
+            const reductionPercent = repDeficit <= 2 ? 0.05 : 0.10;
+            updates.recommendedWeight = Math.round(currentWeightInLbs * (1 - reductionPercent));
+            shouldUpdate = true;
+          } else if (actualRepsInt > repsMax || (lastRir !== undefined && lastRir > 2)) {
+            const increaseAmount = lastRir !== undefined && lastRir >= 5 ? 10 : 5;
+            updates.recommendedWeight = Math.round(currentWeightInLbs + increaseAmount);
+            shouldUpdate = true;
+          }
+        } else if (!needsWeight) {
+          if (actualRepsInt < repsMin) {
+            updates.repsMin = Math.max(1, repsMin - 1);
+            updates.repsMax = Math.max(updates.repsMin, repsMax - 1);
+            shouldUpdate = true;
+          } else if (actualRepsInt > repsMax || (lastRir !== undefined && lastRir > 2)) {
+            updates.repsMin = repsMin + 1;
+            updates.repsMax = repsMax + 1;
+            shouldUpdate = true;
+          }
+        }
+
+        if (shouldUpdate) {
           const response = await fetch(`/api/programs/exercises/${currentExercise.id}/update-weight`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ 
-              recommendedWeight: suggestedWeightInLbs
-            }),
+            body: JSON.stringify(updates),
           });
           
           if (response.ok) {
-            const updatedWithSuggestion = exercises.map((ex, idx) => 
+            const updatedWithProgression = exercises.map((ex, idx) => 
               idx === currentExerciseIndex 
-                ? { ...ex, recommendedWeight: suggestedWeightInLbs }
+                ? { 
+                    ...ex, 
+                    recommendedWeight: updates.recommendedWeight || ex.recommendedWeight,
+                    reps: updates.repsMin && updates.repsMax 
+                      ? `${updates.repsMin}-${updates.repsMax}` 
+                      : ex.reps
+                  }
                 : ex
             );
-            setExercises(updatedWithSuggestion);
+            setExercises(updatedWithProgression);
           }
-        } catch (error) {
-          console.error('Failed to update recommended weight:', error);
         }
+      } catch (error) {
+        console.error('Failed to apply progressive overload:', error);
       }
     }
+
+    setLastRir(undefined);
 
     if (isLastSet) {
       if (isLastExercise) {
