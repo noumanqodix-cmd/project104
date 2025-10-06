@@ -910,9 +910,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
+      // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const sessionDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
       const validatedData = insertWorkoutSessionSchema.parse({
         ...req.body,
         userId: (req as any).session.userId,
+        sessionDayOfWeek,
       });
 
       // Validate that the programWorkoutId exists and belongs to user's program
@@ -930,11 +936,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Check for existing session for this programWorkoutId in the current ISO week
         const userSessions = await storage.getUserSessions((req as any).session.userId);
-        const today = new Date();
         
         // Calculate ISO week start (Monday)
-        const dayOfWeek = today.getDay();
-        const isoDay = dayOfWeek === 0 ? 7 : dayOfWeek; // Convert Sunday (0) to 7
+        const isoDay = sessionDayOfWeek;
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - (isoDay - 1));
         startOfWeek.setHours(0, 0, 0, 0);
