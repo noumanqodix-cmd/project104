@@ -990,13 +990,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userSessions = await storage.getUserSessions((req as any).session.userId);
         
         // Find the earliest incomplete pre-scheduled session for this workout
-        // This allows early completion while ensuring we update the correct session
+        // Filter: must be incomplete, have scheduledDate, AND sessionDate must be older (not created today)
+        // This prevents finding duplicate sessions created by previous failed attempts
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        
         const incompleteSessions = userSessions
-          .filter((s: any) => 
-            s.programWorkoutId === validatedData.programWorkoutId && 
-            s.completed === 0 && 
-            s.scheduledDate !== null
-          )
+          .filter((s: any) => {
+            const sessionDate = new Date(s.sessionDate);
+            return s.programWorkoutId === validatedData.programWorkoutId && 
+                   s.completed === 0 && 
+                   s.scheduledDate !== null &&
+                   sessionDate < todayStart; // Only pre-scheduled sessions (created before today)
+          })
           .sort((a: any, b: any) => {
             const dateA = new Date(a.scheduledDate).getTime();
             const dateB = new Date(b.scheduledDate).getTime();

@@ -22,6 +22,7 @@ export default function WorkoutSummary({
   completedExercises = 0,
 }: WorkoutSummaryProps) {
   const [difficulty, setDifficulty] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -103,11 +104,20 @@ export default function WorkoutSummary({
           <Button
             size="lg"
             className="w-full mt-6"
-            onClick={() => difficulty && onFinish(difficulty)}
-            disabled={!difficulty}
+            onClick={async () => {
+              if (difficulty && !isSubmitting) {
+                setIsSubmitting(true);
+                try {
+                  await onFinish(difficulty);
+                } catch (error) {
+                  setIsSubmitting(false);
+                }
+              }
+            }}
+            disabled={!difficulty || isSubmitting}
             data-testid="button-done"
           >
-            Done
+            {isSubmitting ? "Saving..." : "Done"}
           </Button>
         </div>
       </Card>
