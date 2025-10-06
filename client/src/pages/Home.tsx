@@ -70,7 +70,7 @@ export default function Home() {
   });
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
-  const completedWorkouts = completedSessions.length;
+  const totalCompletedSessions = completedSessions.length;
 
   const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString);
@@ -182,7 +182,7 @@ export default function Home() {
 
   const lastCompletedWorkout = getLastCompletedWorkout();
 
-  const workoutsThisWeek = sessionsThisWeek.length;
+  const sessionsThisWeekCount = sessionsThisWeek.length;
 
   const avgDuration = completedSessions.length > 0
     ? Math.round(
@@ -192,8 +192,8 @@ export default function Home() {
     : 0;
   
   const stats = [
-    { label: "Workouts This Week", value: workoutsThisWeek.toString(), icon: Dumbbell },
-    { label: "Total Workouts", value: completedWorkouts.toString(), icon: Target },
+    { label: "Sessions This Week", value: sessionsThisWeekCount.toString(), icon: Dumbbell },
+    { label: "Total Sessions", value: totalCompletedSessions.toString(), icon: Target },
     { label: "Avg Duration", value: avgDuration > 0 ? `${avgDuration}m` : "N/A", icon: Calendar },
     { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
   ];
@@ -357,12 +357,14 @@ export default function Home() {
               <Card>
                 <CardHeader>
                   <CardTitle>Last Completed</CardTitle>
-                  <CardDescription>Your most recent workout</CardDescription>
+                  <CardDescription>Your most recent session</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastCompletedWorkout.workout?.workoutName || "Rest Day"}
+                      {lastCompletedWorkout.workout?.workoutType === "rest" 
+                        ? "Rest Day" 
+                        : lastCompletedWorkout.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
                       {formatDate(lastCompletedWorkout.session.sessionDate)}

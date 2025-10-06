@@ -18,7 +18,7 @@ export default function History() {
   const completedSessions = sessions?.filter(s => s.completed) || [];
 
   const totalStats = {
-    totalWorkouts: completedSessions.length,
+    totalSessions: completedSessions.length,
     totalTime: completedSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0),
     avgDuration: completedSessions.length > 0 
       ? Math.round(completedSessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0) / completedSessions.length)
@@ -57,10 +57,10 @@ export default function History() {
                   <Dumbbell className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold" data-testid="stat-total-workouts">
-                    {totalStats.totalWorkouts}
+                  <p className="text-2xl font-bold" data-testid="stat-total-sessions">
+                    {totalStats.totalSessions}
                   </p>
-                  <p className="text-xs text-muted-foreground">Total Workouts</p>
+                  <p className="text-xs text-muted-foreground">Total Sessions</p>
                 </div>
               </div>
             </CardContent>
