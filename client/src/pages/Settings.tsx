@@ -241,6 +241,8 @@ export default function Settings() {
     }
   };
 
+  const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
+
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/generate", {});
@@ -522,31 +524,34 @@ export default function Settings() {
               <Label>Available Equipment</Label>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { value: "dumbbells", label: "Dumbbells" },
-                  { value: "barbell", label: "Barbell" },
-                  { value: "kettlebell", label: "Kettlebell" },
-                  { value: "resistance-bands", label: "Resistance Bands" },
-                  { value: "pull-up-bar", label: "Pull-up Bar" },
-                  { value: "trx", label: "TRX" },
-                  { value: "medicine-ball", label: "Medicine Ball" },
-                  { value: "box", label: "Box/Bench" },
-                  { value: "jumprope", label: "Jump Rope" },
-                  { value: "foam-roller", label: "Foam Roller" },
-                  { value: "yoga-mat", label: "Yoga Mat" },
                   { value: "bodyweight", label: "Bodyweight Only" },
-                ].map((eq) => (
-                  <div key={eq.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={eq.value}
-                      checked={selectedEquipment.includes(eq.value)}
-                      onCheckedChange={() => toggleEquipment(eq.value)}
-                      data-testid={`checkbox-equipment-${eq.value}`}
-                    />
-                    <Label htmlFor={eq.value} className="text-sm font-normal cursor-pointer">
-                      {eq.label}
-                    </Label>
-                  </div>
-                ))}
+                  { value: "dumbbells", label: "Dumbbells" },
+                  { value: "kettlebell", label: "Kettlebell" },
+                  { value: "barbell", label: "Barbell" },
+                  { value: "resistance bands", label: "Resistance Bands" },
+                  { value: "pull-up bar", label: "Pull-up Bar" },
+                  { value: "medicine ball", label: "Medicine Ball" },
+                  { value: "box", label: "Box/Bench" },
+                  { value: "trx", label: "TRX" },
+                  { value: "jump rope", label: "Jump Rope" },
+                  { value: "foam roller", label: "Foam Roller" },
+                  { value: "yoga mat", label: "Yoga Mat" },
+                ].map((eq) => {
+                  const domId = sanitizeId(eq.value);
+                  return (
+                    <div key={eq.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={domId}
+                        checked={selectedEquipment.includes(eq.value)}
+                        onCheckedChange={() => toggleEquipment(eq.value)}
+                        data-testid={`checkbox-equipment-${domId}`}
+                      />
+                      <Label htmlFor={domId} className="text-sm font-normal cursor-pointer">
+                        {eq.label}
+                      </Label>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

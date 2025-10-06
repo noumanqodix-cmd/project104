@@ -10,16 +10,9 @@ import {
   Cable, 
   Grid3x3,
   Link,
-  Circle,
-  Package,
-  Waves,
-  Square,
-  Bike,
-  Activity,
   Repeat,
-  Target,
-  Columns,
-  MoveRight
+  User,
+  CircleDot
 } from "lucide-react";
 
 interface EquipmentSelectorProps {
@@ -35,42 +28,23 @@ const equipmentCategories: EquipmentCategory[] = [
   {
     category: "Essential Equipment",
     items: [
+      { id: "bodyweight", label: "Bodyweight Only", icon: User },
       { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
-      { id: "kettlebell", label: "Kettlebell", icon: Box },
+      { id: "kettlebell", label: "Kettlebell", icon: CircleDot },
       { id: "barbell", label: "Barbell", icon: Anchor },
-      { id: "bands", label: "Resistance Bands", icon: Cable },
-      { id: "rack", label: "Squat Rack", icon: Grid3x3 },
-      { id: "cable", label: "Cable Machine", icon: Cable },
-      { id: "pullupbar", label: "Pull-up Bar", icon: Grid3x3 },
-      { id: "medicineball", label: "Medicine Ball", icon: Box },
+      { id: "resistance bands", label: "Resistance Bands", icon: Cable },
+      { id: "pull-up bar", label: "Pull-up Bar", icon: Grid3x3 },
+      { id: "medicine ball", label: "Medicine Ball", icon: Box },
+      { id: "box", label: "Box/Bench", icon: Box },
     ]
   },
   {
-    category: "Home Gym Equipment",
+    category: "Recovery & Mobility",
     items: [
       { id: "trx", label: "TRX/Suspension Trainer", icon: Link },
-      { id: "slamball", label: "Slam Ball", icon: Circle },
-      { id: "sandbag", label: "Sandbag", icon: Package },
-      { id: "battleropes", label: "Battle Ropes", icon: Waves },
-      { id: "plyobox", label: "Plyo Box", icon: Square },
-    ]
-  },
-  {
-    category: "Cardio Equipment",
-    items: [
-      { id: "rower", label: "Rowing Machine", icon: Waves },
-      { id: "assaultbike", label: "Assault Bike", icon: Bike },
-      { id: "treadmill", label: "Treadmill", icon: Activity },
-      { id: "jumprope", label: "Jump Rope", icon: Repeat },
-    ]
-  },
-  {
-    category: "Specialized Equipment",
-    items: [
-      { id: "landmine", label: "Landmine", icon: Target },
-      { id: "parallettes", label: "Parallettes", icon: Columns },
-      { id: "sled", label: "Sled", icon: MoveRight },
-      { id: "rope", label: "Climbing Rope", icon: Cable },
+      { id: "jump rope", label: "Jump Rope", icon: Repeat },
+      { id: "foam roller", label: "Foam Roller", icon: Cable },
+      { id: "yoga mat", label: "Yoga Mat", icon: Box },
     ]
   }
 ];
@@ -83,6 +57,8 @@ export default function EquipmentSelector({ onComplete }: EquipmentSelectorProps
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
+
+  const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -102,18 +78,19 @@ export default function EquipmentSelector({ onComplete }: EquipmentSelectorProps
                 {category.items.map((equipment) => {
                   const Icon = equipment.icon;
                   const isSelected = selected.includes(equipment.id);
+                  const domId = sanitizeId(equipment.id);
                   
                   return (
                     <Label
                       key={equipment.id}
-                      htmlFor={equipment.id}
+                      htmlFor={domId}
                       className={`flex flex-col items-center gap-3 border rounded-lg p-6 cursor-pointer hover-elevate ${
                         isSelected ? "border-primary bg-primary/10" : ""
                       }`}
-                      data-testid={`option-${equipment.id}`}
+                      data-testid={`option-${domId}`}
                     >
                       <Checkbox
-                        id={equipment.id}
+                        id={domId}
                         checked={isSelected}
                         onCheckedChange={() => toggleEquipment(equipment.id)}
                         className="sr-only"
