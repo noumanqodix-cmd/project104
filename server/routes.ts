@@ -3,8 +3,47 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment } from "@shared/schema";
+import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
 import bcrypt from "bcrypt";
+
+// Helper function to generate workout schedule for entire program duration
+async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0); // Start of today
+  
+  // Calculate the first Monday of the program
+  const dayOfWeek = startDate.getDay();
+  const daysUntilMonday = (dayOfWeek === 0 ? 1 : (8 - dayOfWeek)) % 7;
+  const firstMonday = new Date(startDate);
+  if (daysUntilMonday > 0) {
+    firstMonday.setDate(startDate.getDate() + daysUntilMonday);
+  }
+  
+  // Generate sessions for all weeks
+  const sessions = [];
+  for (let week = 0; week < durationWeeks; week++) {
+    for (const programWorkout of programWorkouts) {
+      const scheduledDate = new Date(firstMonday);
+      scheduledDate.setDate(firstMonday.getDate() + (week * 7) + (programWorkout.dayOfWeek - 1));
+      
+      sessions.push({
+        userId,
+        programWorkoutId: programWorkout.id,
+        scheduledDate,
+        sessionDayOfWeek: programWorkout.dayOfWeek,
+        completed: 0,
+        status: "scheduled" as const,
+      });
+    }
+  }
+  
+  // Create all sessions in database
+  for (const session of sessions) {
+    await storage.createWorkoutSession(session);
+  }
+  
+  return sessions.length;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
@@ -108,6 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           const scheduledDays = new Set<number>();
+          const createdProgramWorkouts: ProgramWorkout[] = [];
           
           for (const workout of programData.workouts) {
             scheduledDays.add(workout.dayOfWeek);
@@ -119,6 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               movementFocus: workout.movementFocus,
               workoutType: "workout",
             });
+            createdProgramWorkouts.push(programWorkout);
 
             for (let i = 0; i < workout.exercises.length; i++) {
               const exercise = workout.exercises[i];
@@ -144,15 +185,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
             if (!scheduledDays.has(dayOfWeek)) {
-              await storage.createProgramWorkout({
+              const restDay = await storage.createProgramWorkout({
                 programId: program.id,
                 dayOfWeek,
                 workoutName: "Rest Day",
                 movementFocus: [],
                 workoutType: "rest",
               });
+              createdProgramWorkouts.push(restDay);
             }
           }
+          
+          // Generate workout schedule for entire program duration
+          await generateWorkoutSchedule(program.id, user.id, createdProgramWorkouts, programData.durationWeeks);
         }
       } catch (programError) {
         console.log("Failed to generate/save program during signup:", programError);
@@ -597,6 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const scheduledDays = new Set<number>();
+      const createdProgramWorkouts: ProgramWorkout[] = [];
       
       for (const workout of generatedProgram.workouts) {
         scheduledDays.add(workout.dayOfWeek);
@@ -608,6 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           movementFocus: workout.movementFocus,
           workoutType: "workout",
         });
+        createdProgramWorkouts.push(programWorkout);
 
         for (let i = 0; i < workout.exercises.length; i++) {
           const exercise = workout.exercises[i];
@@ -646,15 +693,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
         if (!scheduledDays.has(dayOfWeek)) {
-          await storage.createProgramWorkout({
+          const restDay = await storage.createProgramWorkout({
             programId: program.id,
             dayOfWeek,
             workoutName: "Rest Day",
             movementFocus: [],
             workoutType: "rest",
           });
+          createdProgramWorkouts.push(restDay);
         }
       }
+
+      // Generate workout schedule for entire program duration
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
 
       res.json({ program, generatedProgram });
     } catch (error) {
