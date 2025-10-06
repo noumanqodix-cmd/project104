@@ -758,24 +758,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { recommendedWeight } = req.body;
-      if (recommendedWeight === undefined) {
-        return res.status(400).json({ error: "recommendedWeight is required" });
-      }
-
+      const { recommendedWeight, repsMin, repsMax } = req.body;
+      
       const exercise = await storage.getProgramExercise(req.params.exerciseId);
       if (!exercise) {
         return res.status(404).json({ error: "Exercise not found" });
       }
 
-      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, {
-        recommendedWeight: parseFloat(recommendedWeight),
-      });
+      const updates: Partial<any> = {};
+      if (recommendedWeight !== undefined) {
+        updates.recommendedWeight = parseFloat(recommendedWeight);
+      }
+      if (repsMin !== undefined) {
+        updates.repsMin = parseInt(repsMin);
+      }
+      if (repsMax !== undefined) {
+        updates.repsMax = parseInt(repsMax);
+      }
+
+      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, updates);
 
       res.json(updatedExercise);
     } catch (error) {
-      console.error("Update exercise weight error:", error);
-      res.status(500).json({ error: "Failed to update recommended weight" });
+      console.error("Update exercise error:", error);
+      res.status(500).json({ error: "Failed to update exercise" });
     }
   });
 
