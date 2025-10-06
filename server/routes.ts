@@ -915,6 +915,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: (req as any).session.userId,
       });
 
+      // Validate that the programWorkoutId exists and belongs to user's program
+      if (validatedData.programWorkoutId) {
+        const programWorkout = await storage.getProgramWorkout(validatedData.programWorkoutId);
+        if (!programWorkout) {
+          return res.status(404).json({ error: "Program workout not found" });
+        }
+
+        // Verify the workout belongs to a program owned by the user
+        const program = await storage.getProgram(programWorkout.programId);
+        if (!program || program.userId !== (req as any).session.userId) {
+          return res.status(403).json({ error: "Unauthorized access to program workout" });
+        }
+      }
+
       const session = await storage.createWorkoutSession(validatedData);
       res.json(session);
     } catch (error) {
