@@ -106,6 +106,8 @@ export default function Home() {
   );
 
   const todayISODay = getTodayISODay();
+  const userScheduledDays = user?.selectedDays || [];
+  const isTodayScheduledWorkoutDay = userScheduledDays.includes(todayISODay);
   
   const getActionableWorkout = () => {
     if (!programWorkouts || programWorkouts.length === 0) return null;
@@ -133,15 +135,19 @@ export default function Home() {
     const sortedFuture = [...future].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
     
     if (sortedBacklog.length > 0) {
-      return { workout: sortedBacklog[0], isToday: false };
+      return { workout: sortedBacklog[0], isToday: false, isBacklog: true };
     }
     
     if (current.length > 0) {
-      return { workout: current[0], isToday: true };
+      return { workout: current[0], isToday: true, isBacklog: false };
+    }
+    
+    if (!isTodayScheduledWorkoutDay && sortedFuture.length > 0) {
+      return null;
     }
     
     if (sortedFuture.length > 0) {
-      return { workout: sortedFuture[0], isToday: false };
+      return { workout: sortedFuture[0], isToday: false, isBacklog: false };
     }
     
     return null;
@@ -150,9 +156,8 @@ export default function Home() {
   const actionableWorkoutInfo = getActionableWorkout();
   const todaysWorkout = actionableWorkoutInfo?.workout;
   const isActuallyToday = actionableWorkoutInfo?.isToday ?? false;
+  const isBacklog = actionableWorkoutInfo?.isBacklog ?? false;
   
-  const userScheduledDays = user?.selectedDays || [];
-  const isTodayScheduledWorkoutDay = userScheduledDays.includes(todayISODay);
   const allWorkoutsCompletedThisWeek = programWorkouts && programWorkouts.length > 0 && 
     programWorkouts.every(w => completedWorkoutIdsThisWeek.has(w.id));
   
