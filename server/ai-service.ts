@@ -46,7 +46,7 @@ export async function generateWorkoutProgram(
 
   const equipmentList = user.equipment?.join(", ") || "bodyweight only";
   const workoutDuration = user.workoutDuration || 60;
-  const daysPerWeek = user.daysPerWeek || 3;
+  const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
   const assessmentSummary = `
@@ -86,6 +86,20 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
     .join("\n");
 
+  const daySchedules: { [key: number]: number[] } = {
+    1: [1],             // Monday only
+    2: [1, 4],          // Monday, Thursday
+    3: [1, 3, 5],       // Monday, Wednesday, Friday
+    4: [1, 2, 4, 5],    // Monday, Tuesday, Thursday, Friday
+    5: [1, 2, 3, 4, 5], // Monday-Friday
+    6: [1, 2, 3, 4, 5, 6], // Monday-Saturday
+    7: [1, 2, 3, 4, 5, 6, 7], // Every day
+  };
+
+  const scheduledDays = daySchedules[daysPerWeek] || daySchedules[3];
+  const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayScheduleText = scheduledDays.map(d => `Day ${d} (${dayNames[d]})`).join(', ');
+
   const prompt = `You are an expert strength and conditioning coach specializing in functional fitness and corrective exercises. Create a personalized workout program based on the following user profile:
 
 **User Profile:**
@@ -95,6 +109,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
 - Workout Duration: ${workoutDuration} minutes per session
 - Nutrition Goal: ${user.nutritionGoal || "maintain"}
 - Unit Preference: ${user.unitPreference}
+- Scheduled Training Days: ${dayScheduleText}
 
 ${assessmentSummary}
 
@@ -106,13 +121,17 @@ ${warmupList}
 
 **Program Requirements:**
 1. Create exactly ${daysPerWeek} workouts per week - this is CRITICAL
-2. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
-3. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
-4. Emphasize movement patterns: PUSH, PULL, HINGE, SQUAT, CARRY, ROTATION
-5. Progressive overload strategy built-in
-6. Appropriate for ${workoutDuration}-minute sessions
-7. Match the user's current fitness level based on assessment results
-8. Use available equipment: ${equipmentList}
+2. IMPORTANT: Use ONLY these specific dayOfWeek values: ${JSON.stringify(scheduledDays)}
+   - dayOfWeek uses ISO 8601 format: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
+   - For ${daysPerWeek} days per week, schedule workouts on: ${dayScheduleText}
+   - These days have been carefully selected to provide optimal recovery between sessions
+3. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
+4. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
+5. Emphasize movement patterns: PUSH, PULL, HINGE, SQUAT, CARRY, ROTATION
+6. Progressive overload strategy built-in
+7. Appropriate for ${workoutDuration}-minute sessions
+8. Match the user's current fitness level based on assessment results
+9. Use available equipment: ${equipmentList}
 
 **WARMUP REQUIREMENTS (CRITICAL):**
 - Each workout MUST include 2-3 dynamic warmup exercises at the beginning that specifically prepare for that day's movement patterns
@@ -181,7 +200,7 @@ IMPORTANT:
   "durationWeeks": 8,
   "workouts": [
     {
-      "dayOfWeek": 1,
+      "dayOfWeek": ${scheduledDays[0]},
       "workoutName": "Full Body Functional Day",
       "movementFocus": ["push", "pull", "hinge"],
       "exercises": [
@@ -243,7 +262,13 @@ IMPORTANT:
   ]
 }
 
-Create a complete program with exactly ${daysPerWeek} workouts for the week (one workout per day requested). Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis across all ${daysPerWeek} training days.`;
+Create a complete program with exactly ${daysPerWeek} workouts for the week. Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis across all ${daysPerWeek} training days.
+
+CRITICAL: Your response MUST include exactly ${daysPerWeek} workouts with dayOfWeek values matching this exact list: ${JSON.stringify(scheduledDays)}
+Example workout array structure:
+${scheduledDays.map((day, idx) => `  Workout ${idx + 1}: { "dayOfWeek": ${day}, "workoutName": "...", ... }`).join('\n')}
+
+Remember: dayOfWeek values MUST be ${JSON.stringify(scheduledDays)} - no other values are allowed.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",

@@ -104,6 +104,12 @@ export default function Home() {
   const todayISODay = getTodayISODay();
   const todaysWorkout = programWorkouts?.find(w => w.dayOfWeek === todayISODay);
   const isWorkoutDoneToday = todaysWorkout && completedWorkoutIdsThisWeek.has(todaysWorkout.id);
+  
+  const todaysWorkoutSession = todaysWorkout && sessions?.find(
+    s => s.programWorkoutId === todaysWorkout.id && 
+    new Date(s.sessionDate) >= getStartOfWeek()
+  );
+  const wasSkipped = todaysWorkoutSession?.notes === "Skipped";
 
   const nextWorkout = programWorkouts?.find(w => 
     w.dayOfWeek > todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
@@ -232,14 +238,25 @@ export default function Home() {
                       </>
                     ) : (
                       <div className="text-center py-4">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
-                          <Target className="h-6 w-6 text-primary" />
+                        <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 ${wasSkipped ? 'bg-muted' : 'bg-primary/10'}`}>
+                          <Target className={`h-6 w-6 ${wasSkipped ? 'text-muted-foreground' : 'text-primary'}`} />
                         </div>
-                        <h3 className="font-semibold mb-1" data-testid="text-workout-complete">Workout Complete!</h3>
+                        <h3 className="font-semibold mb-1" data-testid={wasSkipped ? "text-workout-skipped" : "text-workout-complete"}>
+                          {wasSkipped ? "Workout Skipped" : "Workout Complete!"}
+                        </h3>
                         <p className="text-sm text-muted-foreground mb-4">
-                          {nextWorkout 
-                            ? `Next workout: ${nextWorkout.workoutName} on ${getDayName(nextWorkout.dayOfWeek)}`
-                            : "All workouts for this week are complete! Great job!"}
+                          {nextWorkout ? (
+                            <>
+                              Next workout: {nextWorkout.workoutName} on {getDayName(nextWorkout.dayOfWeek)}
+                            </>
+                          ) : nextScheduledWorkout ? (
+                            <>
+                              All workouts complete this week!<br />
+                              Next: {nextScheduledWorkout.workoutName} on {getDayName(nextScheduledWorkout.dayOfWeek)}
+                            </>
+                          ) : (
+                            "All workouts for this week are complete! Great job!"
+                          )}
                         </p>
                         <Link href="/program">
                           <Button variant="outline" data-testid="button-view-program-details">
