@@ -96,14 +96,18 @@ export default function Home() {
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const completedWorkouts = completedSessions.length;
 
-  const getDayName = (dayOfWeek: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek % 7];
+  const formatDate = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
-  const getTodayISODay = () => {
-    const jsDay = new Date().getDay();
-    return jsDay === 0 ? 7 : jsDay;
+  const getDayName = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
   };
 
   const getStartOfWeek = () => {
@@ -117,124 +121,41 @@ export default function Home() {
   };
 
   const sessionsThisWeek = sessions?.filter((s: any) => {
-    const sessionDate = new Date(s.sessionDate);
-    return sessionDate >= getStartOfWeek();
+    if (!s.scheduledDate) return false;
+    const scheduledDate = new Date(s.scheduledDate);
+    return scheduledDate >= getStartOfWeek();
   }) || [];
 
-  const completedWorkoutIdsThisWeek = new Set(
-    sessionsThisWeek
-      .filter((s: any) => s.completed === 1)
-      .map((s: any) => s.programWorkoutId)
-  );
+  // Find the next actionable session (incomplete, with earliest scheduledDate >= today or past due)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const nextSession = sessions
+    ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+    .sort((a: any, b: any) => {
+      const dateA = new Date(a.scheduledDate).getTime();
+      const dateB = new Date(b.scheduledDate).getTime();
+      return dateA - dateB;
+    })[0];
 
-  const todayISODay = getTodayISODay();
-  const userScheduledDays = user?.selectedDays || [];
+  const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
+  const isRestDay = nextWorkout?.workoutType === "rest" || false;
   
-  const completedDaysThisWeek = new Set(
-    sessionsThisWeek
-      .filter((s: any) => s.completed === 1)
-      .map((s: any) => {
-        // Use explicit sessionDayOfWeek field if available, otherwise fall back to calculating from workout
-        if (s.sessionDayOfWeek) {
-          return s.sessionDayOfWeek;
-        } else if (s.programWorkoutId) {
-          const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
-          return workout ? workout.dayOfWeek : null;
-        } else {
-          const sessionDate = new Date(s.sessionDate);
-          const jsDay = sessionDate.getDay();
-          return jsDay === 0 ? 7 : jsDay;
-        }
-      })
-      .filter((day): day is number => day !== null)
-  );
+  const isToday = nextSession && nextSession.scheduledDate ? 
+    new Date(nextSession.scheduledDate).toDateString() === today.toDateString() : 
+    false;
   
-  const restDaysThisWeek = new Set(
-    sessionsThisWeek
-      .filter((s: any) => {
-        if (s.completed !== 1) return false;
-        if (!s.programWorkoutId) return true;
-        const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
-        return workout?.workoutType === "rest";
-      })
-      .map((s: any) => {
-        // Use explicit sessionDayOfWeek field if available, otherwise fall back to calculating from workout
-        if (s.sessionDayOfWeek) {
-          return s.sessionDayOfWeek;
-        } else if (s.programWorkoutId) {
-          const workout = programWorkouts?.find(w => w.id === s.programWorkoutId);
-          return workout ? workout.dayOfWeek : null;
-        } else {
-          const sessionDate = new Date(s.sessionDate);
-          const jsDay = sessionDate.getDay();
-          return jsDay === 0 ? 7 : jsDay;
-        }
-      })
-      .filter((day): day is number => day !== null)
-  );
+  const isPastDue = nextSession && nextSession.scheduledDate ? 
+    new Date(nextSession.scheduledDate) < today : 
+    false;
   
   const isProgramComplete = () => {
-    if (!activeProgram) return false;
-    
-    const programStart = new Date(activeProgram.createdDate);
-    const programDurationMs = activeProgram.durationWeeks * 7 * 24 * 60 * 60 * 1000;
-    const programEnd = new Date(programStart.getTime() + programDurationMs);
-    
-    return new Date() >= programEnd;
-  };
-
-  const getActionableDay = () => {
-    if (!programWorkouts || programWorkouts.length === 0) return null;
-    
-    const allCompletedDays = new Set([
-      ...Array.from(completedDaysThisWeek), 
-      ...Array.from(restDaysThisWeek)
-    ]);
-    
-    const scheduledDays = new Set(programWorkouts.map(w => w.dayOfWeek));
-    
-    for (let offset = 0; offset < 7; offset++) {
-      const checkDay = ((todayISODay + offset - 1) % 7) + 1;
-      
-      if (!allCompletedDays.has(checkDay)) {
-        const workout = programWorkouts.find(w => w.dayOfWeek === checkDay);
-        const isScheduledRestDay = workout?.workoutType === "rest";
-        const isAutoRestDay = !scheduledDays.has(checkDay);
-        const isRestDay = isScheduledRestDay || isAutoRestDay;
-        
-        return { 
-          dayOfWeek: checkDay, 
-          workout: workout || null,
-          isRestDay,
-          isAutoRestDay,
-          isToday: offset === 0
-        };
-      }
-    }
-    
-    const mondayWorkout = programWorkouts.find(w => w.dayOfWeek === 1);
-    const isMondayScheduled = scheduledDays.has(1);
-    
-    return {
-      dayOfWeek: 1,
-      workout: mondayWorkout || null,
-      isRestDay: mondayWorkout?.workoutType === "rest" || !isMondayScheduled,
-      isAutoRestDay: !isMondayScheduled,
-      isToday: todayISODay === 1
-    };
+    if (!sessions || sessions.length === 0) return false;
+    // Program is complete if all sessions are completed
+    return sessions.every((s: any) => s.completed === 1);
   };
 
   const programComplete = isProgramComplete();
-  const actionableInfo = programComplete ? null : getActionableDay();
-  const todaysWorkout = actionableInfo?.workout;
-  const isRestDay = actionableInfo?.isRestDay ?? false;
-  const actionableDayOfWeek = actionableInfo?.dayOfWeek ?? todayISODay;
-  
-  const allCompletedDays = new Set([
-    ...Array.from(completedDaysThisWeek), 
-    ...Array.from(restDaysThisWeek)
-  ]);
-  const isShowingNextWeek = allCompletedDays.size === 7 && actionableInfo && !actionableInfo.isToday && actionableDayOfWeek === 1;
 
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
@@ -314,19 +235,18 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {isShowingNextWeek
-                    ? "Next Week's Workout"
-                    : actionableInfo?.isToday
+                  {isToday
                     ? "Today's Workout"
+                    : isPastDue
+                    ? "Missed Workout"
                     : "Upcoming Workout"}
                 </CardTitle>
                 <CardDescription>
-                  {getDayName(actionableDayOfWeek)}
-                  {isShowingNextWeek ? " (Next Week)" : ""}
+                  {nextSession?.scheduledDate ? formatDate(nextSession.scheduledDate) : "No scheduled workout"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {actionableInfo ? (
+                {nextSession && nextWorkout ? (
                   isRestDay ? (
                     <>
                       <div className="text-center py-2">
@@ -335,7 +255,7 @@ export default function Home() {
                         </div>
                         <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
                         <p className="text-sm text-muted-foreground">
-                          {actionableInfo.isAutoRestDay ? "Off-day for recovery" : "Recovery is part of the program"}
+                          Recovery is part of the program
                         </p>
                       </div>
                       <Button 
@@ -343,19 +263,15 @@ export default function Home() {
                         size="lg"
                         className="w-full"
                         onClick={() => {
-                          if (actionableInfo.isAutoRestDay) {
-                            completeRestDayMutation.mutate();
-                          } else {
-                            if (!todaysWorkout?.id) {
-                              toast({
-                                title: "Error",
-                                description: "Workout data not loaded. Please refresh.",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-                            skipDayMutation.mutate({ workoutId: todaysWorkout.id, isRestDay: true });
+                          if (!nextWorkout?.id) {
+                            toast({
+                              title: "Error",
+                              description: "Workout data not loaded. Please refresh.",
+                              variant: "destructive",
+                            });
+                            return;
                           }
+                          skipDayMutation.mutate({ workoutId: nextWorkout.id, isRestDay: true });
                         }}
                         disabled={skipDayMutation.isPending || completeRestDayMutation.isPending}
                         data-testid="button-skip-rest"
@@ -367,9 +283,9 @@ export default function Home() {
                   ) : (
                     <>
                       <div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{todaysWorkout?.workoutName}</h3>
+                        <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{nextWorkout?.workoutName}</h3>
                         <p className="text-sm text-muted-foreground">
-                          Focus: {todaysWorkout?.movementFocus.join(", ")}
+                          Focus: {nextWorkout?.movementFocus.join(", ")}
                         </p>
                       </div>
 
@@ -387,7 +303,7 @@ export default function Home() {
                           variant="outline"
                           size="lg"
                           onClick={() => {
-                            if (!todaysWorkout?.id) {
+                            if (!nextWorkout?.id) {
                               toast({
                                 title: "Error",
                                 description: "Workout data not loaded. Please refresh.",
@@ -395,9 +311,9 @@ export default function Home() {
                               });
                               return;
                             }
-                            skipDayMutation.mutate({ workoutId: todaysWorkout.id, isRestDay: false });
+                            skipDayMutation.mutate({ workoutId: nextWorkout.id, isRestDay: false });
                           }}
-                          disabled={skipDayMutation.isPending || !todaysWorkout?.id}
+                          disabled={skipDayMutation.isPending || !nextWorkout?.id}
                           data-testid="button-skip-workout"
                         >
                           <SkipForward className="h-5 w-5" />
