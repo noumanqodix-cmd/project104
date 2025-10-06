@@ -148,6 +148,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   userId: varchar("user_id").notNull(),
   programWorkoutId: varchar("program_workout_id"),
   sessionDate: timestamp("session_date").notNull().defaultNow(),
+  sessionDayOfWeek: integer("session_day_of_week"),
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
   durationMinutes: integer("duration_minutes"),
