@@ -119,8 +119,8 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
                         </h4>
                         
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {ex.exercise.equipment?.map((eq, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
+                          {ex.exercise.equipment?.map((eq) => (
+                            <Badge key={eq} variant="outline" className="text-xs">
                               {eq}
                             </Badge>
                           ))}
