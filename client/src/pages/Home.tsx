@@ -1,15 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles } from "lucide-react";
-import { Link } from "wouter";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { WorkoutProgram, WorkoutSession } from "@shared/schema";
+import type { WorkoutProgram, WorkoutSession, ProgramWorkout } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: activeProgram, isLoading: programLoading } = useQuery<WorkoutProgram>({
     queryKey: ["/api/programs/active"],
@@ -17,6 +18,35 @@ export default function Home() {
 
   const { data: sessions } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
+  });
+
+  const { data: programWorkouts } = useQuery<ProgramWorkout[]>({
+    queryKey: ["/api/program-workouts", activeProgram?.id],
+    enabled: !!activeProgram?.id,
+  });
+
+  const skipWorkoutMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      return await apiRequest("POST", "/api/workout-sessions", {
+        programWorkoutId: workoutId,
+        completed: 1,
+        notes: "Skipped",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Workout Skipped",
+        description: "This workout has been marked as skipped.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Skip",
+        description: error.message || "Failed to skip workout",
+        variant: "destructive",
+      });
+    },
   });
 
   const generateProgramMutation = useMutation({
@@ -41,7 +71,17 @@ export default function Home() {
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const completedWorkouts = completedSessions.length;
-  
+
+  const getDayName = (dayOfWeek: number) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayOfWeek % 7];
+  };
+
+  const getTodayISODay = () => {
+    const jsDay = new Date().getDay();
+    return jsDay === 0 ? 7 : jsDay;
+  };
+
   const getStartOfWeek = () => {
     const now = new Date();
     const dayOfWeek = now.getDay();
@@ -52,10 +92,41 @@ export default function Home() {
     return startOfWeek;
   };
 
-  const workoutsThisWeek = completedSessions.filter((s: any) => {
+  const sessionsThisWeek = sessions?.filter((s: any) => {
     const sessionDate = new Date(s.sessionDate);
     return sessionDate >= getStartOfWeek();
-  }).length;
+  }) || [];
+
+  const completedWorkoutIdsThisWeek = new Set(
+    sessionsThisWeek.map((s: any) => s.programWorkoutId)
+  );
+
+  const todayISODay = getTodayISODay();
+  const todaysWorkout = programWorkouts?.find(w => w.dayOfWeek === todayISODay);
+  const isWorkoutDoneToday = todaysWorkout && completedWorkoutIdsThisWeek.has(todaysWorkout.id);
+
+  const nextWorkout = programWorkouts?.find(w => 
+    w.dayOfWeek > todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
+  ) || programWorkouts?.find(w => 
+    w.dayOfWeek < todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
+  );
+
+  const getDaysSinceLastWorkout = () => {
+    if (completedSessions.length === 0) return null;
+    const lastSession = completedSessions.reduce((latest: any, session: any) => {
+      const sessionDate = new Date(session.sessionDate);
+      const latestDate = new Date(latest.sessionDate);
+      return sessionDate > latestDate ? session : latest;
+    });
+    const daysSince = Math.floor(
+      (Date.now() - new Date(lastSession.sessionDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSince;
+  };
+
+  const daysSinceLastWorkout = getDaysSinceLastWorkout();
+
+  const workoutsThisWeek = sessionsThisWeek.length;
 
   const avgDuration = completedSessions.length > 0
     ? Math.round(
@@ -68,7 +139,7 @@ export default function Home() {
     { label: "Workouts This Week", value: workoutsThisWeek.toString(), icon: Dumbbell },
     { label: "Total Workouts", value: completedWorkouts.toString(), icon: Target },
     { label: "Avg Duration", value: avgDuration > 0 ? `${avgDuration}m` : "N/A", icon: Calendar },
-    { label: "Streak", value: "0 days", icon: TrendingUp },
+    { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
   ];
 
   if (programLoading) {
@@ -114,35 +185,98 @@ export default function Home() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>{activeProgram.programType}</CardTitle>
-              <CardDescription>{activeProgram.weeklyStructure}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Program Duration</span>
-                  <span className="font-medium">{activeProgram.durationWeeks} weeks</span>
-                </div>
-              </div>
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Today's Workout</CardTitle>
+                <CardDescription>{getDayName(todayISODay)}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {todaysWorkout ? (
+                  <>
+                    {!isWorkoutDoneToday ? (
+                      <>
+                        <div>
+                          <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{todaysWorkout.workoutName}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Focus: {todaysWorkout.movementFocus.join(", ")}
+                          </p>
+                        </div>
 
-              <div className="pt-4 border-t">
-                <div className="space-y-2">
-                  <Link href="/program">
-                    <Button variant="outline" className="w-full" data-testid="button-view-program-details">
-                      View Program Details
-                    </Button>
-                  </Link>
-                  <Link href="/workout">
-                    <Button className="w-full" size="lg" data-testid="button-start-workout">
-                      Start Workout
-                    </Button>
-                  </Link>
+                        <div className="flex gap-2">
+                          <Button 
+                            className="flex-1" 
+                            size="lg"
+                            onClick={() => setLocation('/workout')}
+                            data-testid="button-start-workout"
+                          >
+                            <PlayCircle className="h-5 w-5 mr-2" />
+                            Start Workout
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            size="lg"
+                            onClick={() => skipWorkoutMutation.mutate(todaysWorkout.id)}
+                            disabled={skipWorkoutMutation.isPending}
+                            data-testid="button-skip-workout"
+                          >
+                            <SkipForward className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
+                          <Target className="h-6 w-6 text-primary" />
+                        </div>
+                        <h3 className="font-semibold mb-1" data-testid="text-workout-complete">Workout Complete!</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {nextWorkout 
+                            ? `Next workout: ${nextWorkout.workoutName} on ${getDayName(nextWorkout.dayOfWeek)}`
+                            : "All workouts for this week are complete! Great job!"}
+                        </p>
+                        <Link href="/program">
+                          <Button variant="outline" data-testid="button-view-program-details">
+                            View Program Details
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                      <Calendar className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {nextWorkout 
+                        ? `Next workout: ${nextWorkout.workoutName} on ${getDayName(nextWorkout.dayOfWeek)}`
+                        : "No upcoming workouts scheduled"}
+                    </p>
+                    <Link href="/program">
+                      <Button variant="outline" data-testid="button-view-program-details">
+                        View Program Details
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Program</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div>
+                  <p className="font-semibold" data-testid="text-program-type">{activeProgram.programType}</p>
+                  <p className="text-sm text-muted-foreground">{activeProgram.weeklyStructure}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{activeProgram.durationWeeks} weeks</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-4">
