@@ -96,7 +96,9 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     7: [1, 2, 3, 4, 5, 6, 7], // Every day
   };
 
-  const scheduledDays = daySchedules[daysPerWeek] || daySchedules[3];
+  const scheduledDays = user.selectedDays && user.selectedDays.length === daysPerWeek 
+    ? user.selectedDays 
+    : daySchedules[daysPerWeek] || daySchedules[3];
   const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const dayScheduleText = scheduledDays.map(d => `Day ${d} (${dayNames[d]})`).join(', ');
 

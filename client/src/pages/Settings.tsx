@@ -61,6 +61,7 @@ export default function Settings() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [workoutDuration, setWorkoutDuration] = useState(60);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
@@ -73,6 +74,7 @@ export default function Settings() {
       setSelectedEquipment(user.equipment || []);
       setDaysPerWeek(user.daysPerWeek || 3);
       setWorkoutDuration(user.workoutDuration || 60);
+      setSelectedDays(user.selectedDays || []);
       setSelectedUnitPreference(user.unitPreference || "imperial");
       
       const isMetric = unitPreference === 'metric';
@@ -204,10 +206,20 @@ export default function Settings() {
       return;
     }
 
+    if (selectedDays.length !== daysPerWeek) {
+      toast({
+        title: "Error",
+        description: `Please select exactly ${daysPerWeek} workout days.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateProfileMutation.mutate({
       equipment: selectedEquipment,
       daysPerWeek,
       workoutDuration,
+      selectedDays,
     });
   };
 
@@ -217,6 +229,16 @@ export default function Settings() {
         ? prev.filter(e => e !== equipment)
         : [...prev, equipment]
     );
+  };
+
+  const handleDayToggle = (dayValue: number) => {
+    if (selectedDays.includes(dayValue)) {
+      setSelectedDays(selectedDays.filter(d => d !== dayValue));
+    } else {
+      if (selectedDays.length < daysPerWeek) {
+        setSelectedDays([...selectedDays, dayValue].sort((a, b) => a - b));
+      }
+    }
   };
 
   const generateNewProgramMutation = useMutation({
@@ -559,6 +581,49 @@ export default function Settings() {
                     <SelectItem value="90">90 minutes</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">
+                Select your {daysPerWeek} workout days
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Choose which days of the week you want to work out ({selectedDays.length}/{daysPerWeek} selected)
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 1, label: "Monday" },
+                  { value: 2, label: "Tuesday" },
+                  { value: 3, label: "Wednesday" },
+                  { value: 4, label: "Thursday" },
+                  { value: 5, label: "Friday" },
+                  { value: 6, label: "Saturday" },
+                  { value: 7, label: "Sunday" },
+                ].map((day) => {
+                  const isSelected = selectedDays.includes(day.value);
+                  const isDisabled = !isSelected && selectedDays.length >= daysPerWeek;
+                  
+                  return (
+                    <Label
+                      key={day.value}
+                      htmlFor={`settings-day-${day.value}`}
+                      className={`flex items-center space-x-3 border rounded-lg p-3 cursor-pointer ${
+                        isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover-elevate'
+                      }`}
+                      data-testid={`option-day-${day.value}`}
+                    >
+                      <Checkbox
+                        id={`settings-day-${day.value}`}
+                        checked={isSelected}
+                        onCheckedChange={() => handleDayToggle(day.value)}
+                        disabled={isDisabled}
+                        data-testid={`checkbox-day-${day.value}`}
+                      />
+                      <span className="font-medium text-sm">{day.label}</span>
+                    </Label>
+                  );
+                })}
               </div>
             </div>
 
