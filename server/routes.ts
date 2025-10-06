@@ -963,6 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const dayOfWeek = today.getDay();
       const sessionDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
@@ -985,10 +986,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ error: "Unauthorized access to program workout" });
         }
 
-        // Check for existing session for this programWorkoutId in the current ISO week
+        // Look for existing pre-scheduled session (calendar-based system)
         const userSessions = await storage.getUserSessions((req as any).session.userId);
         
-        // Calculate ISO week start (Monday)
+        // First try to find a pre-scheduled session for today or near today
+        const todayStart = new Date(today);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+        
+        const existingScheduledSession = userSessions.find((s: any) => {
+          if (!s.scheduledDate || s.programWorkoutId !== validatedData.programWorkoutId) {
+            return false;
+          }
+          const scheduledDate = new Date(s.scheduledDate);
+          scheduledDate.setHours(0, 0, 0, 0);
+          // Find session scheduled for today or earlier (to handle missed workouts)
+          return scheduledDate <= today && s.completed === 0;
+        });
+
+        // If we found a pre-scheduled session, update it instead of creating new
+        if (existingScheduledSession) {
+          const updatedSession = await storage.updateWorkoutSession(existingScheduledSession.id, {
+            ...validatedData,
+            sessionDate: new Date(),
+          });
+          return res.json(updatedSession);
+        }
+
+        // Fallback: Check for duplicate in current week (legacy behavior for old data)
         const isoDay = sessionDayOfWeek;
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - (isoDay - 1));
@@ -998,14 +1023,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         endOfWeek.setHours(23, 59, 59, 999);
         
-        const existingSession = userSessions.find((s: any) => {
+        const existingWeekSession = userSessions.find((s: any) => {
           const sessionDate = new Date(s.sessionDate);
           return s.programWorkoutId === validatedData.programWorkoutId && 
                  sessionDate >= startOfWeek &&
                  sessionDate <= endOfWeek;
         });
 
-        if (existingSession) {
+        if (existingWeekSession) {
           return res.status(409).json({ error: "Session already exists for this workout this week" });
         }
       }
