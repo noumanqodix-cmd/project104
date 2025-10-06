@@ -111,6 +111,12 @@ export default function Home() {
     w.dayOfWeek < todayISODay && !completedWorkoutIdsThisWeek.has(w.id)
   );
 
+  const nextScheduledWorkout = programWorkouts?.find(w => 
+    w.dayOfWeek > todayISODay
+  ) || programWorkouts?.find(w => 
+    w.dayOfWeek < todayISODay
+  );
+
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
     const lastSession = completedSessions.reduce((latest: any, session: any) => {
@@ -250,12 +256,12 @@ export default function Home() {
                     </div>
                     <h3 className="font-semibold mb-1" data-testid="text-rest-day">Rest Day</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      {nextWorkout 
-                        ? `Next workout: ${nextWorkout.workoutName} on ${getDayName(nextWorkout.dayOfWeek)}`
+                      {nextScheduledWorkout 
+                        ? `Next workout: ${nextScheduledWorkout.workoutName} on ${getDayName(nextScheduledWorkout.dayOfWeek)}`
                         : "No upcoming workouts scheduled"}
                     </p>
                     <div className="flex flex-col gap-2">
-                      {nextWorkout && (
+                      {nextScheduledWorkout && (
                         <Button 
                           className="w-full"
                           onClick={() => setLocation('/workout')}
