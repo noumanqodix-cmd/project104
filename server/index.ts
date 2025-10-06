@@ -1,11 +1,18 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import cors from "cors";
 import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -23,7 +30,7 @@ app.use(
       createTableIfMissing: false,
     }),
     cookie: {
-      secure: false, // Always false in development
+      secure: false,
       httpOnly: true,
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
