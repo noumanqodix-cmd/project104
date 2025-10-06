@@ -30,12 +30,10 @@ export default function Home() {
   });
 
   const skipDayMutation = useMutation({
-    mutationFn: async ({ workoutId, isRestDay }: { workoutId: string; isRestDay: boolean }) => {
-      return await apiRequest("POST", "/api/workout-sessions", {
-        programWorkoutId: workoutId,
+    mutationFn: async ({ sessionId }: { sessionId: string }) => {
+      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
         completed: 1,
         status: "skipped",
-        notes: isRestDay ? "Rest Day" : "Skipped",
       });
     },
     onSuccess: () => {
@@ -46,28 +44,6 @@ export default function Home() {
       toast({
         title: "Failed to Skip",
         description: error.message || "Failed to skip day",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const completeRestDayMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/workout-sessions", {
-        programWorkoutId: null,
-        completed: 1,
-        status: "skipped",
-        notes: "Auto Rest Day",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Complete Rest Day",
-        description: error.message || "Failed to complete rest day",
         variant: "destructive",
       });
     },
@@ -263,21 +239,21 @@ export default function Home() {
                         size="lg"
                         className="w-full"
                         onClick={() => {
-                          if (!nextWorkout?.id) {
+                          if (!nextSession?.id) {
                             toast({
                               title: "Error",
-                              description: "Workout data not loaded. Please refresh.",
+                              description: "Session data not loaded. Please refresh.",
                               variant: "destructive",
                             });
                             return;
                           }
-                          skipDayMutation.mutate({ workoutId: nextWorkout.id, isRestDay: true });
+                          skipDayMutation.mutate({ sessionId: nextSession.id });
                         }}
-                        disabled={skipDayMutation.isPending || completeRestDayMutation.isPending}
+                        disabled={skipDayMutation.isPending}
                         data-testid="button-skip-rest"
                       >
                         <SkipForward className="h-5 w-5 mr-2" />
-                        {completeRestDayMutation.isPending || skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
+                        {skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
                       </Button>
                     </>
                   ) : (
@@ -303,17 +279,17 @@ export default function Home() {
                           variant="outline"
                           size="lg"
                           onClick={() => {
-                            if (!nextWorkout?.id) {
+                            if (!nextSession?.id) {
                               toast({
                                 title: "Error",
-                                description: "Workout data not loaded. Please refresh.",
+                                description: "Session data not loaded. Please refresh.",
                                 variant: "destructive",
                               });
                               return;
                             }
-                            skipDayMutation.mutate({ workoutId: nextWorkout.id, isRestDay: false });
+                            skipDayMutation.mutate({ sessionId: nextSession.id });
                           }}
-                          disabled={skipDayMutation.isPending || !nextWorkout?.id}
+                          disabled={skipDayMutation.isPending || !nextSession?.id}
                           data-testid="button-skip-workout"
                         >
                           <SkipForward className="h-5 w-5" />
