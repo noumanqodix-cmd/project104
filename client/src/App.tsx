@@ -221,7 +221,7 @@ function OnboardingFlow() {
         return (
           <WelcomePage
             onGetStarted={() => setCurrentStep("questionnaire")}
-            onLogin={() => setCurrentStep("login")}
+            onLogin={() => window.location.href = "/api/login"}
           />
         );
     }

@@ -644,7 +644,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tempUser = {
         id: "temp-preview-user",
         username: "preview",
-        password: "",
         equipment: equipment,
         workoutDuration: workoutDuration || 60,
         daysPerWeek: daysPerWeek || 3,
