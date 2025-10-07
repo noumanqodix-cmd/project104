@@ -130,7 +130,8 @@ function OnboardingFlow() {
         return (
           <SubscriptionSelector
             onSelect={async (tier, billingPeriod) => {
-              setQuestionnaireData({ ...questionnaireData, subscriptionTier: tier, billingPeriod });
+              const updatedData = { ...questionnaireData, subscriptionTier: tier, billingPeriod };
+              setQuestionnaireData(updatedData);
               setCurrentStep("programPreview");
               
               // Generate program preview
@@ -140,15 +141,15 @@ function OnboardingFlow() {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    experienceLevel: questionnaireData.experienceLevel,
-                    fitnessTest: questionnaireData.fitnessTest,
-                    weightsTest: questionnaireData.weightsTest,
-                    nutritionGoal: questionnaireData.nutrition?.goal,
-                    equipment: questionnaireData.equipment || [],
-                    workoutDuration: questionnaireData.availability?.minutesPerSession,
-                    daysPerWeek: questionnaireData.availability?.daysPerWeek,
-                    selectedDays: questionnaireData.availability?.selectedDays,
-                    unitPreference: questionnaireData.unitPreference || "imperial",
+                    experienceLevel: updatedData.experienceLevel,
+                    fitnessTest: updatedData.fitnessTest,
+                    weightsTest: updatedData.weightsTest,
+                    nutritionGoal: updatedData.nutrition?.goal,
+                    equipment: updatedData.equipment || [],
+                    workoutDuration: updatedData.availability?.minutesPerSession,
+                    daysPerWeek: updatedData.availability?.daysPerWeek,
+                    selectedDays: updatedData.availability?.selectedDays,
+                    unitPreference: updatedData.unitPreference || "imperial",
                   }),
                 });
 
