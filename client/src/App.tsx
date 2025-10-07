@@ -219,6 +219,33 @@ function OnboardingFlow() {
         return (
           <SignUpPage
             onLoginRedirect={() => setCurrentStep("login")}
+            generatedProgram={generatedProgram}
+            questionnaireData={questionnaireData}
+            onGenerateProgram={async () => {
+              // Generate program using the same logic as preview
+              const response = await fetch("/api/programs/preview", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  experienceLevel: questionnaireData.experienceLevel,
+                  fitnessTest: questionnaireData.fitnessTest,
+                  weightsTest: questionnaireData.weightsTest,
+                  nutritionGoal: questionnaireData.nutrition?.goal,
+                  equipment: questionnaireData.equipment || [],
+                  workoutDuration: questionnaireData.availability?.minutesPerSession,
+                  daysPerWeek: questionnaireData.availability?.daysPerWeek,
+                  selectedDays: questionnaireData.availability?.selectedDays,
+                  unitPreference: questionnaireData.unitPreference || "imperial",
+                }),
+              });
+
+              if (response.ok) {
+                const program = await response.json();
+                setGeneratedProgram(program); // Replace any existing program
+              } else {
+                throw new Error("Failed to generate program");
+              }
+            }}
             onSignUp={async (email, password) => {
               try {
                 const response = await fetch("/api/auth/signup", {
