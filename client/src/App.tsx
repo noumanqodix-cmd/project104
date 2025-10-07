@@ -12,7 +12,7 @@ import EquipmentSelector from "./components/EquipmentSelector";
 import AvailabilityForm from "./components/AvailabilityForm";
 import SubscriptionSelector from "./components/SubscriptionSelector";
 import SignUpPage from "./components/SignUpPage";
-import LoginPage from "./components/LoginPage";
+import OIDCCallbackPage from "./components/OIDCCallbackPage";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
 import WorkoutSession from "./components/WorkoutSession";
@@ -43,7 +43,7 @@ function OnboardingFlow() {
         return (
           <WelcomePage
             onGetStarted={() => setCurrentStep("questionnaire")}
-            onLogin={() => setCurrentStep("login")}
+            onLogin={() => window.location.href = "/api/login"}
           />
         );
 
@@ -184,41 +184,9 @@ function OnboardingFlow() {
           />
         );
 
-      case "login":
-        return (
-          <LoginPage
-            onLogin={async (email, password) => {
-              try {
-                const response = await fetch("/api/auth/login", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({ email, password }),
-                });
-
-                if (!response.ok) {
-                  const error = await response.json();
-                  throw new Error(error.error || "Login failed");
-                }
-
-                // Wait for session cookie to propagate
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Navigate to home
-                setLocation("/home");
-              } catch (error) {
-                console.error("Login error:", error);
-                throw error;
-              }
-            }}
-            onBack={() => setCurrentStep("welcome")}
-          />
-        );
-
       case "signup":
         return (
           <SignUpPage
-            onLoginRedirect={() => setCurrentStep("login")}
             generatedProgram={generatedProgram}
             questionnaireData={questionnaireData}
             onGenerateProgram={async () => {
@@ -241,54 +209,9 @@ function OnboardingFlow() {
 
               if (response.ok) {
                 const program = await response.json();
-                setGeneratedProgram(program); // Replace any existing program
+                setGeneratedProgram(program);
               } else {
                 throw new Error("Failed to generate program");
-              }
-            }}
-            onSignUp={async (email, password) => {
-              try {
-                const response = await fetch("/api/auth/signup", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({
-                    email,
-                    password,
-                    subscriptionTier: questionnaireData.subscriptionTier || "free",
-                    height: questionnaireData.nutrition?.height,
-                    weight: questionnaireData.nutrition?.weight,
-                    age: questionnaireData.nutrition?.age,
-                    bmr: questionnaireData.nutrition?.bmr,
-                    targetCalories: questionnaireData.nutrition?.calories,
-                    nutritionGoal: questionnaireData.nutrition?.goal,
-                    unitPreference: questionnaireData.unitPreference || "imperial",
-                    equipment: questionnaireData.equipment || [],
-                    workoutDuration: questionnaireData.availability?.minutesPerSession,
-                    daysPerWeek: questionnaireData.availability?.daysPerWeek,
-                    selectedDays: questionnaireData.availability?.selectedDays,
-                    fitnessLevel: questionnaireData.experienceLevel,
-                    experienceLevel: questionnaireData.experienceLevel,
-                    fitnessTest: questionnaireData.fitnessTest,
-                    weightsTest: questionnaireData.weightsTest,
-                    generatedProgram: generatedProgram, // Pass pre-generated program
-                  }),
-                });
-
-                if (!response.ok) {
-                  const error = await response.json();
-                  console.error("Signup failed:", error);
-                  throw new Error(error.error || "Signup failed");
-                }
-
-                // Wait for session cookie to propagate to browser
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Navigate to home - program has been generated server-side
-                setLocation("/home");
-              } catch (error) {
-                console.error("Signup error:", error);
-                throw error; // Re-throw so SignUpPage can handle it
               }
             }}
           />
@@ -473,6 +396,10 @@ function AppRoutes() {
 
           <Route path="/progress">
             <ProgressView onBack={() => setLocation("/home")} />
+          </Route>
+
+          <Route path="/auth/callback">
+            <OIDCCallbackPage />
           </Route>
 
           <Route path="/">
