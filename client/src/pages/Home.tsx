@@ -24,7 +24,7 @@ export default function Home() {
     queryKey: ["/api/workout-sessions"],
   });
 
-  const { data: programWorkouts } = useQuery<ProgramWorkout[]>({
+  const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<ProgramWorkout[]>({
     queryKey: ["/api/program-workouts", activeProgram?.id],
     enabled: !!activeProgram?.id,
   });
@@ -206,7 +206,7 @@ export default function Home() {
     { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
   ];
 
-  if (programLoading) {
+  if (programLoading || workoutsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
