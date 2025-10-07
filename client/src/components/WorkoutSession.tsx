@@ -91,6 +91,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
   const sessionInitializedRef = useRef(false);
+  const previousWorkoutIdRef = useRef<string>("");
 
   const startSessionMutation = useMutation({
     mutationFn: async (programWorkoutId: string) => {
@@ -193,11 +194,16 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   }, [programDetails, sessions, unitPreference]);
 
-  // Reset session initialization flag when workout changes
+  // Reset session initialization flag when workout changes (only when switching between workouts)
   useEffect(() => {
-    sessionInitializedRef.current = false;
-    setSessionId("");
-    setSessionError("");
+    // Only reset if we're switching to a different workout (not on initial mount)
+    if (previousWorkoutIdRef.current && previousWorkoutIdRef.current !== currentWorkoutId) {
+      sessionInitializedRef.current = false;
+      setSessionId("");
+      setSessionError("");
+    }
+    // Update the previous workout ID
+    previousWorkoutIdRef.current = currentWorkoutId;
   }, [currentWorkoutId]);
 
   // Start the workout session when workout is loaded
