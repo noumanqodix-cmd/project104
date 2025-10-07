@@ -128,6 +128,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const existingPrograms = await storage.getUserPrograms(userId);
           for (const oldProgram of existingPrograms) {
             if (oldProgram.isActive === 1) {
+              // Delete incomplete workout sessions from old program before archiving
+              await storage.deleteIncompleteProgramSessions(oldProgram.id);
+              
               await storage.updateWorkoutProgram(oldProgram.id, { 
                 isActive: 0,
                 archivedDate: new Date(),
@@ -538,6 +541,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingPrograms = await storage.getUserPrograms(userId);
       for (const oldProgram of existingPrograms) {
         if (oldProgram.isActive === 1) {
+          // Delete incomplete workout sessions from old program before archiving
+          await storage.deleteIncompleteProgramSessions(oldProgram.id);
+          
           await storage.updateWorkoutProgram(oldProgram.id, { 
             isActive: 0,
             archivedDate: new Date(),

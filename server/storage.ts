@@ -57,6 +57,7 @@ export interface IStorage {
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
   shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void>;
+  deleteIncompleteProgramSessions(programId: string): Promise<void>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
   getSessionSets(sessionId: string): Promise<WorkoutSet[]>;
@@ -307,6 +308,23 @@ export class DbStorage implements IStorage {
         }
       }
     }
+  }
+
+  async deleteIncompleteProgramSessions(programId: string): Promise<void> {
+    // Get all program workouts for this program
+    const programWorkouts = await this.getProgramWorkouts(programId);
+    const programWorkoutIds = programWorkouts.map(pw => pw.id);
+    
+    if (programWorkoutIds.length === 0) {
+      return;
+    }
+
+    // Delete all incomplete sessions for this program
+    await db.delete(workoutSessions)
+      .where(and(
+        inArray(workoutSessions.programWorkoutId, programWorkoutIds),
+        eq(workoutSessions.completed, 0)
+      ));
   }
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {
