@@ -59,6 +59,8 @@ export default function Home() {
         description: "Your personalized workout program is ready.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
     },
     onError: (error: any) => {
       toast({

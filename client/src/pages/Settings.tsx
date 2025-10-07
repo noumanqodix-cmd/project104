@@ -249,6 +249,8 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
       setShowRegenerateDialog(false);
       toast({
         title: "Program Generated",
