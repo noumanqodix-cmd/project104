@@ -8,38 +8,36 @@ import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkout
 
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
-  const startDate = new Date();
-  startDate.setHours(0, 0, 0, 0); // Start of today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   
-  // Start scheduling from today instead of waiting for next Monday
-  const programStartDate = new Date(startDate);
+  // Find the start of current week (Monday)
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Sunday is 6 days from Monday
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - daysFromMonday);
   
   // Generate sessions for all weeks
   const sessions = [];
   for (let week = 0; week < durationWeeks; week++) {
     for (const programWorkout of programWorkouts) {
-      // Calculate the actual date for this workout based on day of week
+      // Calculate date for this workout in this week
+      const scheduledDate = new Date(weekStart);
       // dayOfWeek: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
-      const scheduledDate = new Date(programStartDate);
-      const currentDay = programStartDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      const targetDay = programWorkout.dayOfWeek === 7 ? 0 : programWorkout.dayOfWeek; // Convert 7 (Sunday) to 0
+      const dayOffset = programWorkout.dayOfWeek === 7 ? 6 : programWorkout.dayOfWeek - 1;
+      scheduledDate.setDate(weekStart.getDate() + (week * 7) + dayOffset);
       
-      // Calculate days until target day in current week
-      let daysUntilTarget = targetDay - currentDay;
-      if (daysUntilTarget < 0) {
-        daysUntilTarget += 7; // Move to next week if day has passed
+      // Only include workouts that are today or in the future
+      if (scheduledDate >= today) {
+        sessions.push({
+          userId,
+          programWorkoutId: programWorkout.id,
+          scheduledDate,
+          sessionDayOfWeek: programWorkout.dayOfWeek,
+          completed: 0,
+          status: "scheduled" as const,
+        });
       }
-      
-      scheduledDate.setDate(programStartDate.getDate() + (week * 7) + daysUntilTarget);
-      
-      sessions.push({
-        userId,
-        programWorkoutId: programWorkout.id,
-        scheduledDate,
-        sessionDayOfWeek: programWorkout.dayOfWeek,
-        completed: 0,
-        status: "scheduled" as const,
-      });
     }
   }
   
