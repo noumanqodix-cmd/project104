@@ -95,11 +95,12 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   const startSessionMutation = useMutation({
     mutationFn: async (programWorkoutId: string) => {
-      return await apiRequest("POST", "/api/workout-sessions", {
+      const response = await apiRequest("POST", "/api/workout-sessions", {
         programWorkoutId,
         completed: 0,
         status: "in_progress",
       });
+      return await response.json();
     },
     onSuccess: (data: any) => {
       setSessionId(data.id);
