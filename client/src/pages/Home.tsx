@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Dumbbell, Target, Settings, Sparkles, PlayCircle, SkipForward, Eye, CheckCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -71,6 +71,9 @@ export default function Home() {
     },
   });
 
+  const completedSessions = sessions?.filter((s: any) => s.completed) || [];
+  const totalCompletedSessions = completedSessions.length;
+
   const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -80,69 +83,128 @@ export default function Home() {
     });
   };
 
-  const formatDateTime = (dateString: string | Date) => {
+  const getDayName = (dateString: string | Date) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
   };
 
-  // Get today's date normalized
+  const getStartOfWeek = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0 days back, Sunday = 6 days back
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+    return startOfWeek;
+  };
+
+  const sessionsThisWeek = sessions?.filter((s: any) => {
+    if (!s.scheduledDate) return false;
+    const scheduledDate = new Date(s.scheduledDate);
+    return scheduledDate >= getStartOfWeek();
+  }) || [];
+
+  // Find the next actionable session (prioritize today, then upcoming, then past due)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  // Find today's session (exact date match)
-  const todaySession = sessions
-    ?.filter((s: any) => {
-      if (!s.scheduledDate) return false;
-      const sessionDate = new Date(s.scheduledDate);
-      sessionDate.setHours(0, 0, 0, 0);
-      return sessionDate.getTime() === today.getTime();
-    })[0];
-
-  const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
-  const isTodayComplete = todaySession?.completed === 1;
-
-  // Find tomorrow's/next session (first session after today)
-  const tomorrowSession = sessions
-    ?.filter((s: any) => {
-      if (!s.scheduledDate || s.completed === 1) return false;
-      const sessionDate = new Date(s.scheduledDate);
-      sessionDate.setHours(0, 0, 0, 0);
-      return sessionDate.getTime() > today.getTime();
-    })
+  
+  // Find calendar-based sessions (with scheduledDate)
+  const nextSession = sessions
+    ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
     .sort((a: any, b: any) => {
       const dateA = new Date(a.scheduledDate).getTime();
       const dateB = new Date(b.scheduledDate).getTime();
+      
+      // Prioritize today's session, then upcoming, then past due
+      const aDate = new Date(a.scheduledDate);
+      aDate.setHours(0, 0, 0, 0);
+      const bDate = new Date(b.scheduledDate);
+      bDate.setHours(0, 0, 0, 0);
+      
+      const aIsToday = aDate.getTime() === today.getTime();
+      const bIsToday = bDate.getTime() === today.getTime();
+      const aIsFuture = aDate.getTime() > today.getTime();
+      const bIsFuture = bDate.getTime() > today.getTime();
+      
+      // Today's workout comes first
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+      
+      // Future workouts come before past due
+      if (aIsFuture && !bIsFuture) return -1;
+      if (!aIsFuture && bIsFuture) return 1;
+      
+      // Within same category, sort by date
       return dateA - dateB;
     })[0];
 
-  const tomorrowWorkout = tomorrowSession ? programWorkouts?.find(w => w.id === tomorrowSession.programWorkoutId) : null;
-
-  // Find last completed session
-  const completedSessions = sessions?.filter((s: any) => s.completed === 1) || [];
-  const lastCompletedSession = completedSessions.length > 0
-    ? completedSessions.reduce((latest: any, session: any) => {
-        const sessionDate = new Date(session.sessionDate);
-        const latestDate = new Date(latest.sessionDate);
-        return sessionDate > latestDate ? session : latest;
-      })
-    : null;
-
-  const lastCompletedWorkout = lastCompletedSession 
-    ? programWorkouts?.find(w => w.id === lastCompletedSession.programWorkoutId) 
-    : null;
-
+  const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
+  const isRestDay = nextWorkout?.workoutType === "rest" || false;
+  
+  const isToday = nextSession && nextSession.scheduledDate ? 
+    new Date(nextSession.scheduledDate).toDateString() === today.toDateString() : 
+    false;
+  
+  const isPastDue = nextSession && nextSession.scheduledDate && !isToday ? 
+    (() => {
+      const sessionDate = new Date(nextSession.scheduledDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate < today;
+    })() : 
+    false;
+  
   const isProgramComplete = () => {
     if (!sessions || sessions.length === 0) return false;
+    // Program is complete if all sessions are completed
     return sessions.every((s: any) => s.completed === 1);
   };
 
   const programComplete = isProgramComplete();
+
+  const getDaysSinceLastWorkout = () => {
+    if (completedSessions.length === 0) return null;
+    const lastSession = completedSessions.reduce((latest: any, session: any) => {
+      const sessionDate = new Date(session.sessionDate);
+      const latestDate = new Date(latest.sessionDate);
+      return sessionDate > latestDate ? session : latest;
+    });
+    const daysSince = Math.floor(
+      (Date.now() - new Date(lastSession.sessionDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSince;
+  };
+
+  const daysSinceLastWorkout = getDaysSinceLastWorkout();
+
+  // Get last completed workout details
+  const getLastCompletedWorkout = () => {
+    if (completedSessions.length === 0) return null;
+    const lastSession = completedSessions.reduce((latest: any, session: any) => {
+      const sessionDate = new Date(session.sessionDate);
+      const latestDate = new Date(latest.sessionDate);
+      return sessionDate > latestDate ? session : latest;
+    });
+    const workout = programWorkouts?.find(w => w.id === lastSession.programWorkoutId);
+    return { session: lastSession, workout };
+  };
+
+  const lastCompletedWorkout = getLastCompletedWorkout();
+
+  const sessionsThisWeekCount = sessionsThisWeek.length;
+
+  const avgDuration = completedSessions.length > 0
+    ? Math.round(
+        completedSessions.reduce((sum: number, s: any) => sum + (s.durationMinutes || 0), 0) / 
+        completedSessions.length
+      )
+    : 0;
+  
+  const stats = [
+    { label: "Sessions This Week", value: sessionsThisWeekCount.toString(), icon: Dumbbell },
+    { label: "Total Sessions", value: totalCompletedSessions.toString(), icon: Target },
+    { label: "Avg Duration", value: avgDuration > 0 ? `${avgDuration}m` : "N/A", icon: Calendar },
+    { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
+  ];
 
   if (programLoading) {
     return (
@@ -195,143 +257,28 @@ export default function Home() {
           </Card>
         ) : (
           <>
-            {/* Today's Workout Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Today's Workout</CardTitle>
-                <CardDescription>{formatDate(today)}</CardDescription>
+                <CardTitle>
+                  {isToday
+                    ? "Today's Workout"
+                    : isPastDue
+                    ? "Missed Workout"
+                    : "Upcoming Workout"}
+                </CardTitle>
+                <CardDescription>
+                  {nextSession?.scheduledDate ? formatDate(nextSession.scheduledDate) : "No scheduled workout"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {todaySession && todayWorkout ? (
-                  <>
-                    {todayWorkout.workoutType === "rest" ? (
-                      <>
-                        <div className="text-center py-2">
-                          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-                            <Calendar className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                          <h3 className="font-semibold text-lg mb-1" data-testid="text-today-rest-day">Rest Day</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Recovery is part of the program
-                          </p>
-                        </div>
-                        {isTodayComplete ? (
-                          <div className="flex items-center justify-center gap-2 py-2">
-                            <Badge variant="default" className="text-sm" data-testid="badge-today-complete">
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Complete
-                            </Badge>
-                          </div>
-                        ) : (
-                          <Button 
-                            variant="outline"
-                            size="lg"
-                            className="w-full"
-                            onClick={() => skipDayMutation.mutate({ sessionId: todaySession.id })}
-                            disabled={skipDayMutation.isPending}
-                            data-testid="button-complete-rest-today"
-                          >
-                            <SkipForward className="h-5 w-5 mr-2" />
-                            {skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <h3 className="font-semibold text-lg mb-1" data-testid="text-today-workout-name">
-                            {todayWorkout.workoutName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Focus: {todayWorkout.movementFocus.join(", ")}
-                          </p>
-                        </div>
-
-                        {isTodayComplete ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-center gap-2 py-2">
-                              <Badge variant="default" className="text-sm" data-testid="badge-today-complete">
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Complete
-                              </Badge>
-                            </div>
-                            <Link href="/history">
-                              <Button 
-                                variant="outline"
-                                size="lg"
-                                className="w-full"
-                                data-testid="button-view-today-workout"
-                              >
-                                <Eye className="h-5 w-5 mr-2" />
-                                View Workout
-                              </Button>
-                            </Link>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <Button 
-                              className="flex-1" 
-                              size="lg"
-                              onClick={() => setLocation('/workout')}
-                              data-testid="button-start-today-workout"
-                            >
-                              <PlayCircle className="h-5 w-5 mr-2" />
-                              Start Workout
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              size="lg"
-                              onClick={() => skipDayMutation.mutate({ sessionId: todaySession.id })}
-                              disabled={skipDayMutation.isPending}
-                              data-testid="button-skip-today-workout"
-                            >
-                              <SkipForward className="h-5 w-5" />
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </>
-                ) : programComplete ? (
-                  <div className="text-center py-4">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
-                      <Target className="h-6 w-6 text-primary" />
-                    </div>
-                    <h3 className="font-semibold mb-1" data-testid="text-program-complete">Program Complete!</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Congratulations on completing your {activeProgram?.durationWeeks}-week program
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-muted-foreground" data-testid="text-no-workout-today">No workout scheduled for today</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Tomorrow's/Next Workout Card */}
-            {tomorrowSession && tomorrowWorkout && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {tomorrowSession.scheduledDate && 
-                     new Date(tomorrowSession.scheduledDate).getTime() === new Date(today.getTime() + 24*60*60*1000).getTime()
-                      ? "Tomorrow's Workout"
-                      : "Next Workout"}
-                  </CardTitle>
-                  <CardDescription>
-                    {tomorrowSession.scheduledDate ? formatDate(tomorrowSession.scheduledDate) : "Upcoming"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {tomorrowWorkout.workoutType === "rest" ? (
+                {nextSession && nextWorkout ? (
+                  isRestDay ? (
                     <>
                       <div className="text-center py-2">
                         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
                           <Calendar className="h-6 w-6 text-muted-foreground" />
                         </div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid="text-tomorrow-rest-day">Rest Day</h3>
+                        <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
                         <p className="text-sm text-muted-foreground">
                           Recovery is part of the program
                         </p>
@@ -340,9 +287,19 @@ export default function Home() {
                         variant="outline"
                         size="lg"
                         className="w-full"
-                        onClick={() => skipDayMutation.mutate({ sessionId: tomorrowSession.id })}
+                        onClick={() => {
+                          if (!nextSession?.id) {
+                            toast({
+                              title: "Error",
+                              description: "Session data not loaded. Please refresh.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          skipDayMutation.mutate({ sessionId: nextSession.id });
+                        }}
                         disabled={skipDayMutation.isPending}
-                        data-testid="button-complete-rest-tomorrow"
+                        data-testid="button-skip-rest"
                       >
                         <SkipForward className="h-5 w-5 mr-2" />
                         {skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
@@ -351,11 +308,9 @@ export default function Home() {
                   ) : (
                     <>
                       <div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid="text-tomorrow-workout-name">
-                          {tomorrowWorkout.workoutName}
-                        </h3>
+                        <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{nextWorkout?.workoutName}</h3>
                         <p className="text-sm text-muted-foreground">
-                          Focus: {tomorrowWorkout.movementFocus.join(", ")}
+                          Focus: {nextWorkout?.movementFocus.join(", ")}
                         </p>
                       </div>
 
@@ -364,7 +319,7 @@ export default function Home() {
                           className="flex-1" 
                           size="lg"
                           onClick={() => setLocation('/workout')}
-                          data-testid="button-start-tomorrow-workout"
+                          data-testid="button-start-workout"
                         >
                           <PlayCircle className="h-5 w-5 mr-2" />
                           Start Workout
@@ -372,49 +327,66 @@ export default function Home() {
                         <Button 
                           variant="outline"
                           size="lg"
-                          onClick={() => skipDayMutation.mutate({ sessionId: tomorrowSession.id })}
-                          disabled={skipDayMutation.isPending}
-                          data-testid="button-skip-tomorrow-workout"
+                          onClick={() => {
+                            if (!nextSession?.id) {
+                              toast({
+                                title: "Error",
+                                description: "Session data not loaded. Please refresh.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            skipDayMutation.mutate({ sessionId: nextSession.id });
+                          }}
+                          disabled={skipDayMutation.isPending || !nextSession?.id}
+                          data-testid="button-skip-workout"
                         >
                           <SkipForward className="h-5 w-5" />
                         </Button>
                       </div>
                     </>
-                  )}
+                  )
+                ) : isProgramComplete() ? (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
+                      <Target className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="font-semibold mb-1" data-testid="text-program-complete">Program Complete!</h3>
+                    <p className="text-sm text-muted-foreground">Congratulations on completing your {activeProgram?.durationWeeks}-week program</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Generate a new program to continue your fitness journey
+                    </p>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            {lastCompletedWorkout && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Last Completed</CardTitle>
+                  <CardDescription>Your most recent session</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="font-semibold" data-testid="text-last-workout-name">
+                      {lastCompletedWorkout.workout?.workoutType === "rest" 
+                        ? "Rest Day" 
+                        : lastCompletedWorkout.workout?.workoutName || "Session"}
+                    </p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
+                      {formatDate(lastCompletedWorkout.session.sessionDate)}
+                    </p>
+                    {lastCompletedWorkout.session.durationMinutes && (
+                      <p className="text-sm text-muted-foreground">
+                        Duration: {lastCompletedWorkout.session.durationMinutes} minutes
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Last Completed Workout Card */}
-            {lastCompletedSession && (
-              <Link href="/history">
-                <Card className="hover-elevate active-elevate-2 cursor-pointer" data-testid="card-last-completed">
-                  <CardHeader>
-                    <CardTitle>Last Completed Workout</CardTitle>
-                    <CardDescription>Your most recent session</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p className="font-semibold" data-testid="text-last-completed-name">
-                        {lastCompletedWorkout?.workoutType === "rest" 
-                          ? "Rest Day" 
-                          : lastCompletedWorkout?.workoutName || "Session"}
-                      </p>
-                      <p className="text-sm text-muted-foreground" data-testid="text-last-completed-date">
-                        {formatDateTime(lastCompletedSession.sessionDate)}
-                      </p>
-                      {lastCompletedSession.durationMinutes && (
-                        <p className="text-sm text-muted-foreground">
-                          Duration: {lastCompletedSession.durationMinutes} minutes
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )}
-
-            {/* Current Program Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Current Program</CardTitle>
@@ -426,15 +398,57 @@ export default function Home() {
                   <p className="text-sm text-muted-foreground mt-1">{activeProgram.durationWeeks} weeks</p>
                 </div>
                 <Link href="/program">
-                  <Button variant="outline" className="w-full" data-testid="button-view-program">
-                    <Dumbbell className="h-4 w-4 mr-2" />
-                    View Program
+                  <Button variant="outline" className="w-full" data-testid="button-view-program-details">
+                    View Program Details
                   </Button>
                 </Link>
               </CardContent>
             </Card>
           </>
         )}
+
+        <div className="grid grid-cols-2 gap-4">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={stat.label}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                        {stat.value}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link href="/program">
+              <Button variant="outline" className="w-full justify-start" data-testid="button-view-program">
+                <Calendar className="h-4 w-4 mr-2" />
+                View Full Program
+              </Button>
+            </Link>
+            <Link href="/history">
+              <Button variant="outline" className="w-full justify-start" data-testid="button-view-history">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                View Progress
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
