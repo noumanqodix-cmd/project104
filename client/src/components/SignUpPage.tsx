@@ -3,23 +3,56 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dumbbell, AlertCircle, LogIn } from "lucide-react";
+import { Dumbbell, AlertCircle, LogIn, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SignUpPageProps {
   onSignUp: (email: string, password: string) => Promise<void>;
   onLoginRedirect?: () => void;
+  generatedProgram?: any;
+  questionnaireData?: any;
+  onGenerateProgram?: () => Promise<void>;
 }
 
-export default function SignUpPage({ onSignUp, onLoginRedirect }: SignUpPageProps) {
+export default function SignUpPage({ 
+  onSignUp, 
+  onLoginRedirect,
+  generatedProgram,
+  questionnaireData,
+  onGenerateProgram
+}: SignUpPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDuplicateUser, setIsDuplicateUser] = useState(false);
+  const [isGeneratingProgram, setIsGeneratingProgram] = useState(false);
+
+  const handleGenerateProgram = async () => {
+    if (onGenerateProgram) {
+      setIsGeneratingProgram(true);
+      setError(null);
+      try {
+        await onGenerateProgram();
+      } catch (error) {
+        console.error("Program generation error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate program";
+        setError(errorMessage);
+      } finally {
+        setIsGeneratingProgram(false);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Require generated program before signup
+    if (!generatedProgram) {
+      setError("Please generate a workout program before signing up.");
+      return;
+    }
+    
     if (email && password && !isSubmitting) {
       setIsSubmitting(true);
       setError(null);
@@ -54,6 +87,26 @@ export default function SignUpPage({ onSignUp, onLoginRedirect }: SignUpPageProp
         <p className="text-muted-foreground text-center mb-8">
           Create your account to get your personalized program
         </p>
+
+        {!generatedProgram && (
+          <Alert className="mb-4">
+            <Sparkles className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm">No program generated yet. Generate one before signing up.</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleGenerateProgram}
+                  disabled={isGeneratingProgram}
+                  data-testid="button-generate-program"
+                >
+                  {isGeneratingProgram ? "Generating..." : "Generate Program"}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert variant="destructive" className="mb-4">
@@ -113,11 +166,17 @@ export default function SignUpPage({ onSignUp, onLoginRedirect }: SignUpPageProp
             type="submit"
             size="lg"
             className="w-full"
-            disabled={!email || !password || isSubmitting}
+            disabled={!email || !password || isSubmitting || !generatedProgram}
             data-testid="button-create-account"
           >
             {isSubmitting ? "Building Your Program..." : "Create Account"}
           </Button>
+          
+          {!generatedProgram && (email || password) && (
+            <p className="text-sm text-muted-foreground text-center" data-testid="text-program-required">
+              Generate a workout program above to enable signup
+            </p>
+          )}
         </form>
       </Card>
     </div>
