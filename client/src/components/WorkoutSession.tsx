@@ -522,17 +522,6 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        {!sessionId && (
-          <Card className="p-6 border-warning bg-warning/10">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-warning" />
-              <div className="flex-1">
-                <p className="font-semibold">Initializing workout session...</p>
-                <p className="text-sm text-muted-foreground">Please wait while we set up your workout</p>
-              </div>
-            </div>
-          </Card>
-        )}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
