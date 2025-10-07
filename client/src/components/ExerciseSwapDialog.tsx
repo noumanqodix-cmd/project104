@@ -72,12 +72,12 @@ export default function ExerciseSwapDialog({
                     <h3 className="font-semibold mb-1">{suggestion.name}</h3>
                     <div className="flex gap-2 flex-wrap">
                       {suggestion.equipment?.map((eq: string, idx: number) => (
-                        <Badge key={idx} variant="secondary">{eq}</Badge>
+                        <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
                       ))}
                     </div>
                     <div className="flex gap-2 flex-wrap mt-2">
                       {suggestion.primaryMuscles?.map((muscle: string, idx: number) => (
-                        <Badge key={idx} variant="outline" className="text-xs">{muscle}</Badge>
+                        <Badge key={`${muscle}-${idx}`} variant="outline" className="text-xs">{muscle}</Badge>
                       ))}
                     </div>
                   </div>

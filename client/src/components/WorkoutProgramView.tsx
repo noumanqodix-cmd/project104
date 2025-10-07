@@ -196,7 +196,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
                       <div className="flex gap-2 flex-wrap">
                         {ex.exercise.equipment?.map((eq, idx) => (
-                          <Badge key={idx} variant="secondary">{eq}</Badge>
+                          <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
                         ))}
                       </div>
                     </div>
@@ -262,7 +262,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
                       <div className="flex gap-2 flex-wrap">
                         {ex.exercise.equipment?.map((eq, idx) => (
-                          <Badge key={idx} variant="secondary">{eq}</Badge>
+                          <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
                         ))}
                       </div>
                     </div>
