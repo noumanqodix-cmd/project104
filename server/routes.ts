@@ -108,23 +108,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Generate or use provided workout program
+      // Require pre-generated workout program
+      if (!generatedProgram) {
+        console.log("No pre-generated program provided in signup request");
+        return res.status(400).json({ 
+          error: "No workout program provided. Please generate a program before signing up." 
+        });
+      }
+      
+      // Use provided workout program
       try {
         const latestAssessment = await storage.getCompleteFitnessProfile(user.id);
+        
         if (latestAssessment) {
-          let programData;
-          
-          if (generatedProgram) {
-            console.log("Using pre-generated program provided in signup request");
-            programData = generatedProgram;
-          } else {
-            console.log("Generating new program using AI with complete fitness profile");
-            programData = await generateWorkoutProgram({
-              user: updatedUser,
-              latestAssessment,
-              availableExercises,
-            });
-          }
+          console.log("Using pre-generated program provided in signup request");
+          const programData = generatedProgram;
 
           const existingPrograms = await storage.getUserPrograms(user.id);
           for (const oldProgram of existingPrograms) {
