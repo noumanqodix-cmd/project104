@@ -1,10 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
-import bcrypt from "bcrypt";
 
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
@@ -46,56 +46,53 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Replit Auth
+  await setupAuth(app);
+
   // Auth routes
-  app.post("/api/auth/signup", async (req: Request, res: Response) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const { email, password, fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
-      
-      const existingUser = await storage.getUserByUsername(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "User already exists" });
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
       }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
 
-      // Hash password before storing
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ username: email, password: hashedPassword });
+  // Complete onboarding after OIDC login - saves assessment and program data
+  app.post("/api/auth/complete-onboarding", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
       
+      // Update user profile with onboarding data
       if (Object.keys(profileData).length > 0) {
-        await storage.updateUser(user.id, profileData);
+        await storage.updateUser(userId, profileData);
       }
-
-      (req as any).session.userId = user.id;
       
-      await new Promise<void>((resolve, reject) => {
-        (req as any).session.save((err: any) => {
-          if (err) {
-            console.error("Session save error:", err);
-            reject(err);
-          } else {
-            console.log("Session saved successfully. SessionID:", (req as any).session.id, "UserID:", user.id);
-            resolve();
-          }
-        });
-      });
-      
-      const updatedUser = await storage.getUser(user.id);
-      if (!updatedUser) {
-        return res.status(500).json({ error: "Failed to retrieve user after creation" });
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(500).json({ error: "Failed to retrieve user after profile update" });
       }
       
       // Save fitness assessment if provided
       if (fitnessTest || weightsTest) {
         try {
           const assessmentData = {
-            userId: user.id,
+            userId,
             experienceLevel: experienceLevel || profileData.fitnessLevel,
             ...fitnessTest,
             ...weightsTest,
           };
           await storage.createFitnessAssessment(assessmentData);
         } catch (assessmentError) {
-          console.error("Failed to save fitness assessment during signup:", assessmentError);
-          // Don't fail signup, but log the error
+          console.error("Failed to save fitness assessment during onboarding:", assessmentError);
+          // Don't fail onboarding, but log the error
         }
       }
       
@@ -118,13 +115,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use provided workout program
       try {
-        const latestAssessment = await storage.getCompleteFitnessProfile(user.id);
+        const latestAssessment = await storage.getCompleteFitnessProfile(userId);
         
         if (latestAssessment) {
-          console.log("Using pre-generated program provided in signup request");
+          console.log("Using pre-generated program provided in onboarding request");
           const programData = generatedProgram;
 
-          const existingPrograms = await storage.getUserPrograms(user.id);
+          const existingPrograms = await storage.getUserPrograms(userId);
           for (const oldProgram of existingPrograms) {
             if (oldProgram.isActive === 1) {
               await storage.updateWorkoutProgram(oldProgram.id, { 
@@ -136,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const program = await storage.createWorkoutProgram({
-            userId: user.id,
+            userId,
             fitnessAssessmentId: latestAssessment.id,
             programType: programData.programType,
             weeklyStructure: programData.weeklyStructure,
@@ -195,77 +192,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Generate workout schedule for entire program duration
-          await generateWorkoutSchedule(program.id, user.id, createdProgramWorkouts, programData.durationWeeks);
+          await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
         }
       } catch (programError) {
-        console.log("Failed to generate/save program during signup:", programError);
-        // Don't fail signup, program can be generated later
+        console.log("Failed to generate/save program during onboarding:", programError);
+        // Don't fail onboarding, program can be generated later
       }
       
-      res.json(updatedUser);
+      res.json(user);
     } catch (error) {
-      console.error("Signup error:", error);
-      res.status(500).json({ error: "Failed to create user" });
-    }
-  });
-
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
-      }
-
-      const user = await storage.getUserByUsername(email);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-
-      // Verify password using bcrypt
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: "Invalid email or password" });
-      }
-
-      // Set up session
-      (req as any).session.userId = user.id;
-
-      await new Promise<void>((resolve, reject) => {
-        (req as any).session.save((err: any) => {
-          if (err) {
-            console.error("Session save error during login:", err);
-            reject(err);
-          } else {
-            console.log("Login session saved. SessionID:", (req as any).session.id, "UserID:", user.id);
-            resolve();
-          }
-        });
-      });
-
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Failed to log in" });
-    }
-  });
-
-  app.get("/api/auth/user", async (req: Request, res: Response) => {
-    try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
-      const user = await storage.getUser((req as any).session.userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch user" });
+      console.error("Onboarding completion error:", error);
+      res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
 
