@@ -14,8 +14,15 @@ The frontend uses React 18 with TypeScript, Vite for fast development, and Woute
 ### Backend
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support and custom logging. It integrates with Vite for development HMR and serves static files in production. Replit-specific plugins are used for development tooling.
 
+### Authentication
+The application uses **Replit Auth (OpenID Connect)** for authentication, allowing users to sign in via multiple providers (Google, GitHub, X, Apple, Email). 
+- **Onboarding Flow**: Users complete the multi-step questionnaire → fitness test → nutrition → equipment → availability → subscription → program preview → **Sign in with Replit** → callback handler saves all data
+- **Implementation**: Uses Passport.js with OpenID Client strategy, database-backed sessions via `connect-pg-simple`
+- **User Identification**: `req.user.claims.sub` (OIDC subject claim) stored as `users.id`
+- **Session Management**: Persistent sessions with automatic refresh token rotation
+
 ### Data Storage
-PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users, Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
+PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users (with OIDC fields: email, firstName, lastName, profileImageUrl), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
 
 **Calendar-Based Scheduling (October 2025)**: The system now uses actual calendar dates (`scheduledDate`) instead of day-of-week numbers. When a program is created, all workout sessions for the entire program duration are pre-generated with specific scheduled dates, eliminating ambiguity about which workout belongs to which day and enabling accurate program completion detection.
 
