@@ -90,6 +90,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [sessionError, setSessionError] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
+  const sessionInitializedRef = useRef(false);
 
   const startSessionMutation = useMutation({
     mutationFn: async (programWorkoutId: string) => {
@@ -116,6 +117,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   const retrySessionCreation = () => {
     if (currentWorkoutId) {
+      sessionInitializedRef.current = false;
       startSessionMutation.mutate(currentWorkoutId);
     }
   };
@@ -191,9 +193,17 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   }, [programDetails, sessions, unitPreference]);
 
+  // Reset session initialization flag when workout changes
+  useEffect(() => {
+    sessionInitializedRef.current = false;
+    setSessionId("");
+    setSessionError("");
+  }, [currentWorkoutId]);
+
   // Start the workout session when workout is loaded
   useEffect(() => {
-    if (currentWorkoutId && !sessionId && !startSessionMutation.isPending) {
+    if (currentWorkoutId && !sessionId && !sessionInitializedRef.current && !startSessionMutation.isPending) {
+      sessionInitializedRef.current = true;
       startSessionMutation.mutate(currentWorkoutId);
     }
   }, [currentWorkoutId, sessionId]);
