@@ -102,7 +102,7 @@ export default function Home() {
     return scheduledDate >= getStartOfWeek();
   }) || [];
 
-  // Find the next actionable session (incomplete, with earliest scheduledDate >= today or past due)
+  // Find the next actionable session (prioritize today, then upcoming, then past due)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
@@ -112,6 +112,27 @@ export default function Home() {
     .sort((a: any, b: any) => {
       const dateA = new Date(a.scheduledDate).getTime();
       const dateB = new Date(b.scheduledDate).getTime();
+      
+      // Prioritize today's session, then upcoming, then past due
+      const aDate = new Date(a.scheduledDate);
+      aDate.setHours(0, 0, 0, 0);
+      const bDate = new Date(b.scheduledDate);
+      bDate.setHours(0, 0, 0, 0);
+      
+      const aIsToday = aDate.getTime() === today.getTime();
+      const bIsToday = bDate.getTime() === today.getTime();
+      const aIsFuture = aDate.getTime() > today.getTime();
+      const bIsFuture = bDate.getTime() > today.getTime();
+      
+      // Today's workout comes first
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+      
+      // Future workouts come before past due
+      if (aIsFuture && !bIsFuture) return -1;
+      if (!aIsFuture && bIsFuture) return 1;
+      
+      // Within same category, sort by date
       return dateA - dateB;
     })[0];
 
@@ -141,8 +162,12 @@ export default function Home() {
     new Date(nextSession.scheduledDate).toDateString() === today.toDateString() : 
     false;
   
-  const isPastDue = nextSession && nextSession.scheduledDate ? 
-    new Date(nextSession.scheduledDate) < today : 
+  const isPastDue = nextSession && nextSession.scheduledDate && !isToday ? 
+    (() => {
+      const sessionDate = new Date(nextSession.scheduledDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate < today;
+    })() : 
     false;
   
   const isProgramComplete = () => {

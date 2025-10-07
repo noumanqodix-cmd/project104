@@ -9,7 +9,7 @@ import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from 
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { useQuery } from "@tanstack/react-query";
-import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise } from "@shared/schema";
+import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession as WorkoutSessionType } from "@shared/schema";
 
 interface ExerciseData {
   id: string;
@@ -59,6 +59,10 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     enabled: !!activeProgram?.id,
   });
 
+  const { data: sessions } = useQuery<WorkoutSessionType[]>({
+    queryKey: ["/api/workout-sessions"],
+  });
+
   const showAds = user?.subscriptionTier === "free" || !user?.subscriptionTier;
   
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
@@ -82,20 +86,54 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   useEffect(() => {
     if (programDetails?.workouts) {
-      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
-      const jsDay = new Date().getDay();
-      const isoDay = jsDay === 0 ? 7 : jsDay;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      // Find next workout (today or later), or fall back to first workout
-      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
-      if (!nextWorkout) {
-        nextWorkout = programDetails.workouts[0];
+      // Try to find today's session using calendar-based scheduling (prioritize today, then upcoming, then past due)
+      let todaySession = sessions
+        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.scheduledDate).getTime();
+          const dateB = new Date(b.scheduledDate).getTime();
+          
+          // Prioritize today's session, then upcoming, then past due
+          const aDate = new Date(a.scheduledDate);
+          aDate.setHours(0, 0, 0, 0);
+          const bDate = new Date(b.scheduledDate);
+          bDate.setHours(0, 0, 0, 0);
+          
+          const aIsToday = aDate.getTime() === today.getTime();
+          const bIsToday = bDate.getTime() === today.getTime();
+          const aIsFuture = aDate.getTime() > today.getTime();
+          const bIsFuture = bDate.getTime() > today.getTime();
+          
+          // Today's workout comes first
+          if (aIsToday && !bIsToday) return -1;
+          if (!aIsToday && bIsToday) return 1;
+          
+          // Future workouts come before past due
+          if (aIsFuture && !bIsFuture) return -1;
+          if (!aIsFuture && bIsFuture) return 1;
+          
+          // Within same category, sort by date
+          return dateA - dateB;
+        })[0];
+      
+      let workout;
+      
+      if (todaySession) {
+        workout = programDetails.workouts.find(w => w.id === todaySession.programWorkoutId);
+      } else {
+        // Fallback for legacy data: use day-of-week logic
+        const jsDay = new Date().getDay();
+        const isoDay = jsDay === 0 ? 7 : jsDay;
+        workout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay) || programDetails.workouts[0];
       }
       
-      if (nextWorkout && nextWorkout.exercises) {
-        setCurrentWorkoutId(nextWorkout.id);
-        setProgramExercises(nextWorkout.exercises);
-        const mappedExercises: ExerciseData[] = nextWorkout.exercises.map(pe => {
+      if (workout && workout.exercises) {
+        setCurrentWorkoutId(workout.id);
+        setProgramExercises(workout.exercises);
+        const mappedExercises: ExerciseData[] = workout.exercises.map(pe => {
           return {
             id: pe.id,
             name: pe.exercise.name,
@@ -115,7 +153,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         setExercises(mappedExercises);
       }
     }
-  }, [programDetails, unitPreference]);
+  }, [programDetails, sessions, unitPreference]);
 
   const currentExercise = exercises[currentExerciseIndex];
   const isLastSet = currentExercise && currentSet === currentExercise.sets;
