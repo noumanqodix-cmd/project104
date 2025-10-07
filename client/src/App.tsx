@@ -294,8 +294,8 @@ function AppRoutes() {
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
   const saveWorkoutMutation = useMutation({
-    mutationFn: async (workoutData: any) => {
-      return await apiRequest("POST", "/api/workout-sessions", workoutData);
+    mutationFn: async ({ sessionId, ...workoutData }: any) => {
+      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, workoutData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
@@ -378,8 +378,9 @@ function AppRoutes() {
               onFinish={async (difficulty) => {
                 if (workoutSummaryData) {
                   await saveWorkoutMutation.mutateAsync({
-                    programWorkoutId: workoutSummaryData.programWorkoutId,
+                    sessionId: workoutSummaryData.sessionId,
                     completed: 1,
+                    status: workoutSummaryData.incomplete ? "incomplete" : "completed",
                     durationMinutes: Math.floor(workoutSummaryData.duration / 60),
                     notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
                   });

@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession as WorkoutSessionType } from "@shared/schema";
 
 interface ExerciseData {
@@ -38,6 +39,7 @@ export interface WorkoutSummary {
   incomplete?: boolean;
   completedExercises?: number;
   programWorkoutId: string;
+  sessionId: string;
 }
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
@@ -81,8 +83,22 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [recommendedRepIncrease, setRecommendedRepIncrease] = useState<number>(0);
   const [lastRir, setLastRir] = useState<number | undefined>(undefined);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
+  const [sessionId, setSessionId] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
+
+  const startSessionMutation = useMutation({
+    mutationFn: async (programWorkoutId: string) => {
+      return await apiRequest("POST", "/api/workout-sessions", {
+        programWorkoutId,
+        completed: 0,
+        status: "in_progress",
+      });
+    },
+    onSuccess: (data: any) => {
+      setSessionId(data.id);
+    },
+  });
 
   useEffect(() => {
     if (programDetails?.workouts) {
@@ -154,6 +170,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       }
     }
   }, [programDetails, sessions, unitPreference]);
+
+  // Start the workout session when workout is loaded
+  useEffect(() => {
+    if (currentWorkoutId && !sessionId && !startSessionMutation.isPending) {
+      startSessionMutation.mutate(currentWorkoutId);
+    }
+  }, [currentWorkoutId, sessionId]);
 
   const currentExercise = exercises[currentExerciseIndex];
   const isLastSet = currentExercise && currentSet === currentExercise.sets;
@@ -324,6 +347,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           exercises: exercises.length,
           totalVolume: Math.round(totalVolume),
           programWorkoutId: currentWorkoutId,
+          sessionId: sessionId,
         });
       } else {
         setCurrentExerciseIndex(prev => prev + 1);
@@ -373,6 +397,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       incomplete: true,
       completedExercises: currentExerciseIndex,
       programWorkoutId: currentWorkoutId,
+      sessionId: sessionId,
     });
   };
 
