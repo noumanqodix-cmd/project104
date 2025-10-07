@@ -4,18 +4,43 @@ import { Calendar, Clock, Dumbbell, TrendingUp, FileText, Archive } from "lucide
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import type { WorkoutSession, WorkoutProgram } from "@shared/schema";
+import type { WorkoutSession, WorkoutProgram, ProgramWorkout } from "@shared/schema";
 
 export default function History() {
   const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
   });
 
-  const { data: archivedPrograms, isLoading: programsLoading } = useQuery<WorkoutProgram[]>({
+  const { data: activeProgram, isLoading: activeProgramLoading } = useQuery<WorkoutProgram>({
+    queryKey: ["/api/programs/active"],
+  });
+
+  const { data: activeProgramWorkouts } = useQuery<ProgramWorkout[]>({
+    queryKey: ["/api/program-workouts", activeProgram?.id],
+    queryFn: async () => {
+      if (!activeProgram?.id) return [];
+      const response = await fetch(`/api/program-workouts/${activeProgram.id}`, {
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    },
+    enabled: !!activeProgram?.id,
+  });
+
+  const { data: archivedPrograms, isLoading: archivedProgramsLoading } = useQuery<WorkoutProgram[]>({
     queryKey: ["/api/programs/archived"],
   });
 
-  const completedSessions = sessions?.filter(s => s.completed) || [];
+  // Get IDs of workouts in the active program
+  const activeProgramWorkoutIds = new Set(activeProgramWorkouts?.map(w => w.id) || []);
+
+  // Filter sessions to only show completed ones from the active program
+  const completedSessions = sessions?.filter(s => {
+    if (!s.completed) return false;
+    if (!s.programWorkoutId) return false;
+    return activeProgramWorkoutIds.has(s.programWorkoutId);
+  }) || [];
 
   const totalStats = {
     totalSessions: completedSessions.length,
@@ -25,7 +50,7 @@ export default function History() {
       : 0,
   };
 
-  const isLoading = sessionsLoading || programsLoading;
+  const isLoading = sessionsLoading || activeProgramLoading || archivedProgramsLoading;
 
   if (isLoading) {
     return (
