@@ -11,20 +11,26 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
   const startDate = new Date();
   startDate.setHours(0, 0, 0, 0); // Start of today
   
-  // Calculate the first Monday of the program
-  const dayOfWeek = startDate.getDay();
-  const daysUntilMonday = (dayOfWeek === 0 ? 1 : (8 - dayOfWeek)) % 7;
-  const firstMonday = new Date(startDate);
-  if (daysUntilMonday > 0) {
-    firstMonday.setDate(startDate.getDate() + daysUntilMonday);
-  }
+  // Start scheduling from today instead of waiting for next Monday
+  const programStartDate = new Date(startDate);
   
   // Generate sessions for all weeks
   const sessions = [];
   for (let week = 0; week < durationWeeks; week++) {
     for (const programWorkout of programWorkouts) {
-      const scheduledDate = new Date(firstMonday);
-      scheduledDate.setDate(firstMonday.getDate() + (week * 7) + (programWorkout.dayOfWeek - 1));
+      // Calculate the actual date for this workout based on day of week
+      // dayOfWeek: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
+      const scheduledDate = new Date(programStartDate);
+      const currentDay = programStartDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const targetDay = programWorkout.dayOfWeek === 7 ? 0 : programWorkout.dayOfWeek; // Convert 7 (Sunday) to 0
+      
+      // Calculate days until target day in current week
+      let daysUntilTarget = targetDay - currentDay;
+      if (daysUntilTarget < 0) {
+        daysUntilTarget += 7; // Move to next week if day has passed
+      }
+      
+      scheduledDate.setDate(programStartDate.getDate() + (week * 7) + daysUntilTarget);
       
       sessions.push({
         userId,
