@@ -137,38 +137,43 @@ export default function History() {
                 </div>
               </Card>
             ) : (
-              completedSessions.map((session) => (
-                <Card key={session.id} data-testid={`workout-${session.id}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">Workout Session</CardTitle>
-                        <CardDescription className="flex items-center gap-1 mt-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(session.sessionDate), "MMM d, yyyy")}
-                        </CardDescription>
+              completedSessions.map((session) => {
+                const workoutName = session.workoutName || "Workout Session";
+                const isSkipped = session.status === "skipped";
+                
+                return (
+                  <Card key={session.id} data-testid={`workout-${session.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{workoutName}</CardTitle>
+                          <CardDescription className="flex items-center gap-1 mt-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(session.sessionDate), "MMM d, yyyy 'at' h:mm a")}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={isSkipped ? "secondary" : "default"}>
+                          {isSkipped ? "Skipped" : "Completed"}
+                        </Badge>
                       </div>
-                      <Badge variant="default">Completed</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex gap-4 text-sm text-muted-foreground">
-                      {session.durationMinutes && (
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {session.durationMinutes} min
+                          {session.durationMinutes ? `${session.durationMinutes} min` : "No duration recorded"}
+                        </div>
+                      </div>
+                      {session.notes && (
+                        <div className="flex items-start gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <p className="text-sm text-muted-foreground">{session.notes}</p>
                         </div>
                       )}
-                    </div>
-                    {session.notes && (
-                      <div className="flex items-start gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
-                        <p className="text-sm text-muted-foreground">{session.notes}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
 

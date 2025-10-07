@@ -32,6 +32,7 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
         sessions.push({
           userId,
           programWorkoutId: programWorkout.id,
+          workoutName: programWorkout.workoutName,
           scheduledDate,
           sessionDayOfWeek: programWorkout.dayOfWeek,
           completed: 0,
@@ -879,11 +880,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Validate that the programWorkoutId exists and belongs to user's program
+      let workoutName: string | undefined;
       if (validatedData.programWorkoutId) {
         const programWorkout = await storage.getProgramWorkout(validatedData.programWorkoutId);
         if (!programWorkout) {
           return res.status(404).json({ error: "Program workout not found" });
         }
+
+        workoutName = programWorkout.workoutName;
 
         // Verify the workout belongs to a program owned by the user
         const program = await storage.getWorkoutProgram(programWorkout.programId);
@@ -943,7 +947,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const session = await storage.createWorkoutSession(validatedData);
+      const session = await storage.createWorkoutSession({
+        ...validatedData,
+        workoutName,
+      });
       res.json(session);
     } catch (error) {
       console.error("Create session error:", error);

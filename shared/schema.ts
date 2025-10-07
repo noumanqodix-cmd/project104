@@ -160,6 +160,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   programWorkoutId: varchar("program_workout_id"),
+  workoutName: text("workout_name"),
   sessionDate: timestamp("session_date").notNull().defaultNow(),
   scheduledDate: timestamp("scheduled_date"),
   sessionDayOfWeek: integer("session_day_of_week"),
