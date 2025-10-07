@@ -89,7 +89,7 @@ export default function Home() {
   const getStartOfWeek = () => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0 days back, Sunday = 6 days back
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - diff);
     startOfWeek.setHours(0, 0, 0, 0);
@@ -106,8 +106,8 @@ export default function Home() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  // First try to find calendar-based sessions (with scheduledDate)
-  let nextSession = sessions
+  // Find calendar-based sessions (with scheduledDate)
+  const nextSession = sessions
     ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
     .sort((a: any, b: any) => {
       const dateA = new Date(a.scheduledDate).getTime();
@@ -135,25 +135,6 @@ export default function Home() {
       // Within same category, sort by date
       return dateA - dateB;
     })[0];
-
-  // Fallback: If no calendar-based sessions exist, find next incomplete session (for old data)
-  if (!nextSession && programWorkouts && programWorkouts.length > 0) {
-    const incompleteSessions = sessions?.filter((s: any) => s.completed === 0 && !s.scheduledDate) || [];
-    
-    // Find the first workout that hasn't been completed yet
-    const nextProgramWorkout = programWorkouts.find(workout => 
-      !incompleteSessions.some(session => session.programWorkoutId === workout.id)
-    ) || programWorkouts[0];
-    
-    if (nextProgramWorkout) {
-      // Use the workout info to show next workout even if no session exists
-      nextSession = {
-        programWorkoutId: nextProgramWorkout.id,
-        completed: 0,
-        scheduledDate: null,
-      } as any;
-    }
-  }
 
   const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
   const isRestDay = nextWorkout?.workoutType === "rest" || false;

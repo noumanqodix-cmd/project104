@@ -935,27 +935,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             error: "No incomplete sessions available for this workout" 
           });
         }
-
-        // Fallback: Check for duplicate in current week (legacy behavior for old data)
-        const isoDay = sessionDayOfWeek;
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - (isoDay - 1));
-        startOfWeek.setHours(0, 0, 0, 0);
-        
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23, 59, 59, 999);
-        
-        const existingWeekSession = userSessions.find((s: any) => {
-          const sessionDate = new Date(s.sessionDate);
-          return s.programWorkoutId === validatedData.programWorkoutId && 
-                 sessionDate >= startOfWeek &&
-                 sessionDate <= endOfWeek;
-        });
-
-        if (existingWeekSession) {
-          return res.status(409).json({ error: "Session already exists for this workout this week" });
-        }
       }
 
       const session = await storage.createWorkoutSession(validatedData);

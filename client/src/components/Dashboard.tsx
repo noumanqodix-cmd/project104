@@ -45,10 +45,25 @@ export default function Dashboard({
 
   const completedWorkouts = workoutSessions?.filter(s => s.completed === 1)?.length || 0;
   const totalWorkouts = (fullProgram?.durationWeeks || 0) * (fullProgram?.workouts?.length || 0);
-  const currentWeek = Math.min(
-    Math.floor(completedWorkouts / (fullProgram?.workouts?.length || 1)) + 1,
-    fullProgram?.durationWeeks || 1
-  );
+  
+  // Calculate current week from calendar dates
+  const programStartDate = workoutSessions && workoutSessions.length > 0
+    ? workoutSessions
+        .filter(s => s.scheduledDate)
+        .map(s => new Date(s.scheduledDate!))
+        .sort((a, b) => a.getTime() - b.getTime())[0]
+    : null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const currentWeek = programStartDate 
+    ? Math.min(
+        Math.floor((today.getTime() - programStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+        fullProgram?.durationWeeks || 1
+      )
+    : 1;
+  
   const weekProgress = totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0;
   
   const nextWorkout = fullProgram?.workouts?.[0]?.workoutName || "Your First Workout";

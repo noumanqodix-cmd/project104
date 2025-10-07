@@ -128,8 +128,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Try to find today's session using calendar-based scheduling (prioritize today, then upcoming, then past due)
-      let todaySession = sessions
+      // Find today's session using calendar-based scheduling (prioritize today, then upcoming, then past due)
+      const todaySession = sessions
         ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
         .sort((a: any, b: any) => {
           const dateA = new Date(a.scheduledDate).getTime();
@@ -158,16 +158,9 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           return dateA - dateB;
         })[0];
       
-      let workout;
-      
-      if (todaySession) {
-        workout = programDetails.workouts.find(w => w.id === todaySession.programWorkoutId);
-      } else {
-        // Fallback for legacy data: use day-of-week logic
-        const jsDay = new Date().getDay();
-        const isoDay = jsDay === 0 ? 7 : jsDay;
-        workout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay) || programDetails.workouts[0];
-      }
+      const workout = todaySession 
+        ? programDetails.workouts.find(w => w.id === todaySession.programWorkoutId)
+        : null;
       
       if (workout && workout.exercises) {
         setCurrentWorkoutId(workout.id);

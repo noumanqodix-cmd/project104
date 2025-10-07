@@ -54,15 +54,38 @@ export default function WorkoutPreview() {
   const [exerciseIdForQuery, setExerciseIdForQuery] = useState<string | null>(null);
 
   useEffect(() => {
-    if (programDetails?.workouts) {
-      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
-      const jsDay = new Date().getDay();
-      const isoDay = jsDay === 0 ? 7 : jsDay;
-      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
+    if (programDetails?.workouts && workoutSessions) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      if (!nextWorkout) {
-        nextWorkout = programDetails.workouts[0];
-      }
+      // Find next scheduled session
+      const nextSession = workoutSessions
+        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.scheduledDate).getTime();
+          const dateB = new Date(b.scheduledDate).getTime();
+          
+          const aDate = new Date(a.scheduledDate);
+          aDate.setHours(0, 0, 0, 0);
+          const bDate = new Date(b.scheduledDate);
+          bDate.setHours(0, 0, 0, 0);
+          
+          const aIsToday = aDate.getTime() === today.getTime();
+          const bIsToday = bDate.getTime() === today.getTime();
+          const aIsFuture = aDate.getTime() > today.getTime();
+          const bIsFuture = bDate.getTime() > today.getTime();
+          
+          if (aIsToday && !bIsToday) return -1;
+          if (!aIsToday && bIsToday) return 1;
+          if (aIsFuture && !bIsFuture) return -1;
+          if (!aIsFuture && bIsFuture) return 1;
+          
+          return dateA - dateB;
+        })[0];
+      
+      const nextWorkout = nextSession 
+        ? programDetails.workouts.find(w => w.id === nextSession.programWorkoutId)
+        : null;
       
       if (nextWorkout && nextWorkout.exercises) {
         setWorkoutName(nextWorkout.workoutName);
@@ -84,18 +107,40 @@ export default function WorkoutPreview() {
         setExercises(mappedExercises);
       }
     }
-  }, [programDetails]);
+  }, [programDetails, workoutSessions]);
 
   useEffect(() => {
-    if (programDetails?.workouts && exercises.length > 0) {
-      // Convert JavaScript day (0=Sunday) to ISO 8601 (1=Monday, 7=Sunday)
-      const jsDay = new Date().getDay();
-      const isoDay = jsDay === 0 ? 7 : jsDay;
-      let nextWorkout = programDetails.workouts.find(w => w.dayOfWeek >= isoDay);
+    if (programDetails?.workouts && exercises.length > 0 && workoutSessions) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      if (!nextWorkout) {
-        nextWorkout = programDetails.workouts[0];
-      }
+      const nextSession = workoutSessions
+        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        .sort((a: any, b: any) => {
+          const dateA = new Date(a.scheduledDate).getTime();
+          const dateB = new Date(b.scheduledDate).getTime();
+          
+          const aDate = new Date(a.scheduledDate);
+          aDate.setHours(0, 0, 0, 0);
+          const bDate = new Date(b.scheduledDate);
+          bDate.setHours(0, 0, 0, 0);
+          
+          const aIsToday = aDate.getTime() === today.getTime();
+          const bIsToday = bDate.getTime() === today.getTime();
+          const aIsFuture = aDate.getTime() > today.getTime();
+          const bIsFuture = bDate.getTime() > today.getTime();
+          
+          if (aIsToday && !bIsToday) return -1;
+          if (!aIsToday && bIsToday) return 1;
+          if (aIsFuture && !bIsFuture) return -1;
+          if (!aIsFuture && bIsFuture) return 1;
+          
+          return dateA - dateB;
+        })[0];
+      
+      const nextWorkout = nextSession 
+        ? programDetails.workouts.find(w => w.id === nextSession.programWorkoutId)
+        : null;
 
       if (nextWorkout && nextWorkout.exercises) {
         nextWorkout.exercises.forEach(async (pe, index) => {
@@ -131,7 +176,7 @@ export default function WorkoutPreview() {
         });
       }
     }
-  }, [programDetails]);
+  }, [programDetails, workoutSessions]);
 
   const handleSwap = (newExercise: any) => {
     setExercises(prev =>
