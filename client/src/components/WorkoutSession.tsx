@@ -10,6 +10,7 @@ import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession as WorkoutSessionType } from "@shared/schema";
 
 interface ExerciseData {
@@ -43,6 +44,8 @@ export interface WorkoutSummary {
 }
 
 export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
+  const { toast } = useToast();
+  
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
   });
@@ -84,6 +87,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [lastRir, setLastRir] = useState<number | undefined>(undefined);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
+  const [sessionError, setSessionError] = useState<string>("");
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
 
@@ -97,8 +101,24 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     },
     onSuccess: (data: any) => {
       setSessionId(data.id);
+      setSessionError("");
+    },
+    onError: (error: any) => {
+      const errorMsg = error.message || "Could not create workout session. Please try again.";
+      setSessionError(errorMsg);
+      toast({
+        title: "Failed to Start Workout",
+        description: errorMsg,
+        variant: "destructive",
+      });
     },
   });
+
+  const retrySessionCreation = () => {
+    if (currentWorkoutId) {
+      startSessionMutation.mutate(currentWorkoutId);
+    }
+  };
 
   useEffect(() => {
     if (programDetails?.workouts) {
@@ -342,6 +362,15 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           return total + (ex.sets * parseFloat(ex.weight || '0'));
         }, 0);
         
+        if (!sessionId) {
+          toast({
+            title: "Cannot Complete Workout",
+            description: "Workout session not properly initialized. Please restart the workout.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         onComplete({
           duration: workoutTime,
           exercises: exercises.length,
@@ -386,6 +415,15 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleEndEarly = () => {
+    if (!sessionId) {
+      toast({
+        title: "Cannot End Workout",
+        description: "Workout session not properly initialized. Please restart the workout.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const completedVolume = exercises.slice(0, currentExerciseIndex).reduce((total, ex) => {
       return total + (ex.sets * parseFloat(ex.weight || '0'));
     }, 0);
@@ -435,6 +473,39 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     );
   }
 
+  // Show error state if session creation failed
+  if (sessionError && !sessionId) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="p-12 text-center">
+            <AlertCircle className="h-16 w-16 mx-auto text-destructive mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Failed to Start Workout</h2>
+            <p className="text-muted-foreground mb-6">
+              {sessionError}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button 
+                onClick={retrySessionCreation}
+                disabled={startSessionMutation.isPending}
+                data-testid="button-retry-session"
+              >
+                {startSessionMutation.isPending ? "Retrying..." : "Retry"}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/home'}
+                data-testid="button-back-home"
+              >
+                Back to Home
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const completedSets = exercises.slice(0, currentExerciseIndex).reduce((acc, ex) => acc + ex.sets, 0);
   const progressPercent = ((completedSets + (currentSet - 1)) / 
     (exercises.reduce((acc, ex) => acc + ex.sets, 0))) * 100;
@@ -442,6 +513,17 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
+        {!sessionId && (
+          <Card className="p-6 border-warning bg-warning/10">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <div className="flex-1">
+                <p className="font-semibold">Initializing workout session...</p>
+                <p className="text-sm text-muted-foreground">Please wait while we set up your workout</p>
+              </div>
+            </div>
+          </Card>
+        )}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">

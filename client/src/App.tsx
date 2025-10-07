@@ -4,6 +4,7 @@ import { QueryClientProvider, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import WelcomePage from "./components/WelcomePage";
 import QuestionnaireFlow from "./components/QuestionnaireFlow";
 import FitnessTestForm from "./components/FitnessTestForm";
@@ -290,6 +291,7 @@ function WeightsTestRoute() {
 }
 
 function AppRoutes() {
+  const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
@@ -377,6 +379,16 @@ function AppRoutes() {
               {...workoutSummaryData}
               onFinish={async (difficulty) => {
                 if (workoutSummaryData) {
+                  if (!workoutSummaryData.sessionId) {
+                    toast({
+                      title: "Cannot Save Workout",
+                      description: "Workout session not properly initialized. Progress was not saved.",
+                      variant: "destructive",
+                    });
+                    setLocation("/home");
+                    return;
+                  }
+                  
                   await saveWorkoutMutation.mutateAsync({
                     sessionId: workoutSummaryData.sessionId,
                     completed: 1,
