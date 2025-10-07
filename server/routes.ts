@@ -84,7 +84,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to retrieve user after profile update" });
       }
       
-      // Save fitness assessment if provided
+      // Save fitness assessment if provided (best effort - don't fail if this errors)
+      let savedAssessmentId: string | undefined;
       if (fitnessTest || weightsTest) {
         try {
           const assessmentData = {
@@ -93,10 +94,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...fitnessTest,
             ...weightsTest,
           };
-          await storage.createFitnessAssessment(assessmentData);
+          const savedAssessment = await storage.createFitnessAssessment(assessmentData);
+          savedAssessmentId = savedAssessment.id;
         } catch (assessmentError) {
           console.error("Failed to save fitness assessment during onboarding:", assessmentError);
-          // Don't fail onboarding, but log the error
+          // Continue without assessment - program can still be created
         }
       }
       
@@ -117,94 +119,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Use provided workout program
-      try {
-        const latestAssessment = await storage.getCompleteFitnessProfile(userId);
-        
-        if (latestAssessment) {
-          console.log("Using pre-generated program provided in onboarding request");
-          const programData = generatedProgram;
+      // Save the pre-generated workout program - this MUST succeed
+      console.log("Saving pre-generated program provided in onboarding request");
+      const programData = generatedProgram;
 
-          const existingPrograms = await storage.getUserPrograms(userId);
-          for (const oldProgram of existingPrograms) {
-            if (oldProgram.isActive === 1) {
-              // Delete incomplete workout sessions from old program before archiving
-              await storage.deleteIncompleteProgramSessions(oldProgram.id);
-              
-              await storage.updateWorkoutProgram(oldProgram.id, { 
-                isActive: 0,
-                archivedDate: new Date(),
-                archivedReason: "replaced"
-              });
-            }
-          }
-
-          const program = await storage.createWorkoutProgram({
-            userId,
-            fitnessAssessmentId: latestAssessment.id,
-            programType: programData.programType,
-            weeklyStructure: programData.weeklyStructure,
-            durationWeeks: programData.durationWeeks,
-            isActive: 1,
+      // Archive any existing active programs
+      const existingPrograms = await storage.getUserPrograms(userId);
+      for (const oldProgram of existingPrograms) {
+        if (oldProgram.isActive === 1) {
+          await storage.deleteIncompleteProgramSessions(oldProgram.id);
+          await storage.updateWorkoutProgram(oldProgram.id, { 
+            isActive: 0,
+            archivedDate: new Date(),
+            archivedReason: "replaced"
           });
-
-          const scheduledDays = new Set<number>();
-          const createdProgramWorkouts: ProgramWorkout[] = [];
-          
-          for (const workout of programData.workouts) {
-            scheduledDays.add(workout.dayOfWeek);
-            
-            const programWorkout = await storage.createProgramWorkout({
-              programId: program.id,
-              dayOfWeek: workout.dayOfWeek,
-              workoutName: workout.workoutName,
-              movementFocus: workout.movementFocus,
-              workoutType: "workout",
-            });
-            createdProgramWorkouts.push(programWorkout);
-
-            for (let i = 0; i < workout.exercises.length; i++) {
-              const exercise = workout.exercises[i];
-              const matchingExercise = availableExercises.find(
-                ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
-              );
-
-              if (matchingExercise) {
-                await storage.createProgramExercise({
-                  workoutId: programWorkout.id,
-                  exerciseId: matchingExercise.id,
-                  orderIndex: i,
-                  sets: exercise.sets,
-                  repsMin: exercise.repsMin,
-                  repsMax: exercise.repsMax,
-                  recommendedWeight: exercise.recommendedWeight,
-                  restSeconds: exercise.restSeconds,
-                  notes: exercise.notes,
-                });
-              }
-            }
-          }
-          
-          for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
-            if (!scheduledDays.has(dayOfWeek)) {
-              const restDay = await storage.createProgramWorkout({
-                programId: program.id,
-                dayOfWeek,
-                workoutName: "Rest Day",
-                movementFocus: [],
-                workoutType: "rest",
-              });
-              createdProgramWorkouts.push(restDay);
-            }
-          }
-          
-          // Generate workout schedule for entire program duration
-          await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
         }
-      } catch (programError) {
-        console.log("Failed to generate/save program during onboarding:", programError);
-        // Don't fail onboarding, program can be generated later
       }
+
+      // Create the workout program
+      const program = await storage.createWorkoutProgram({
+        userId,
+        fitnessAssessmentId: savedAssessmentId, // Will be undefined if assessment save failed
+        programType: programData.programType,
+        weeklyStructure: programData.weeklyStructure,
+        durationWeeks: programData.durationWeeks,
+        isActive: 1,
+      });
+
+      const scheduledDays = new Set<number>();
+      const createdProgramWorkouts: ProgramWorkout[] = [];
+      
+      // Create all workout days
+      for (const workout of programData.workouts) {
+        scheduledDays.add(workout.dayOfWeek);
+        
+        const programWorkout = await storage.createProgramWorkout({
+          programId: program.id,
+          dayOfWeek: workout.dayOfWeek,
+          workoutName: workout.workoutName,
+          movementFocus: workout.movementFocus,
+          workoutType: "workout",
+        });
+        createdProgramWorkouts.push(programWorkout);
+
+        // Create exercises for this workout
+        for (let i = 0; i < workout.exercises.length; i++) {
+          const exercise = workout.exercises[i];
+          const matchingExercise = availableExercises.find(
+            ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+          );
+
+          if (matchingExercise) {
+            await storage.createProgramExercise({
+              workoutId: programWorkout.id,
+              exerciseId: matchingExercise.id,
+              orderIndex: i,
+              sets: exercise.sets,
+              repsMin: exercise.repsMin,
+              repsMax: exercise.repsMax,
+              recommendedWeight: exercise.recommendedWeight,
+              restSeconds: exercise.restSeconds,
+              notes: exercise.notes,
+            });
+          } else {
+            console.warn(`Exercise not found in database: ${exercise.exerciseName}`);
+          }
+        }
+      }
+      
+      // Create rest days for any days not scheduled
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+        if (!scheduledDays.has(dayOfWeek)) {
+          const restDay = await storage.createProgramWorkout({
+            programId: program.id,
+            dayOfWeek,
+            workoutName: "Rest Day",
+            movementFocus: [],
+            workoutType: "rest",
+          });
+          createdProgramWorkouts.push(restDay);
+        }
+      }
+      
+      // Generate workout schedule for entire program duration
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
+      
+      console.log(`Successfully created program ${program.id} with ${createdProgramWorkouts.length} workouts for user ${userId}`);
       
       res.json(user);
     } catch (error) {
