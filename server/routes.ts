@@ -206,14 +206,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/user/profile", async (req: Request, res: Response) => {
+  app.put("/api/user/profile", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
+      const userId = req.user.claims.sub;
       const updates = req.body;
-      const user = await storage.getUser((req as any).session.userId);
+      const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -246,32 +243,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updatedUser = await storage.updateUser((req as any).session.userId, updates);
+      const updatedUser = await storage.updateUser(userId, updates);
       
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+      res.json(updatedUser);
     } catch (error) {
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
 
-  app.put("/api/user/unit-preference", async (req: Request, res: Response) => {
+  app.put("/api/user/unit-preference", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
+      const userId = req.user.claims.sub;
       const { unitPreference } = req.body;
       
       if (!unitPreference || !['imperial', 'metric'].includes(unitPreference)) {
         return res.status(400).json({ error: "Invalid unit preference. Must be 'imperial' or 'metric'" });
       }
 
-      const updatedUser = await storage.updateUser((req as any).session.userId, {
+      const updatedUser = await storage.updateUser(userId, {
         unitPreference
       });
       
@@ -279,30 +272,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+      res.json(updatedUser);
     } catch (error) {
       console.error("Update unit preference error:", error);
       res.status(500).json({ error: "Failed to update unit preference" });
     }
   });
 
-  app.post("/api/auth/logout", async (req: Request, res: Response) => {
-    (req as any).session.destroy();
-    res.json({ success: true });
-  });
 
   // Fitness Assessment routes
-  app.post("/api/fitness-assessments", async (req: Request, res: Response) => {
+  app.post("/api/fitness-assessments", isAuthenticated, async (req: any, res: Response) => {
     try {
-      console.log("Fitness assessment request. SessionID:", (req as any).session?.id, "UserID:", (req as any).session?.userId);
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
+      console.log("Fitness assessment request. UserID:", userId);
 
       const validatedData = insertFitnessAssessmentSchema.parse({
         ...req.body,
-        userId: (req as any).session.userId,
+        userId,
       });
 
       const assessment = await storage.createFitnessAssessment(validatedData);
@@ -313,26 +299,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/fitness-assessments", async (req: Request, res: Response) => {
+  app.get("/api/fitness-assessments", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
-      const assessments = await storage.getUserFitnessAssessments((req as any).session.userId);
+      const assessments = await storage.getUserFitnessAssessments(userId);
       res.json(assessments);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch assessments" });
     }
   });
 
-  app.get("/api/fitness-assessments/latest", async (req: Request, res: Response) => {
+  app.get("/api/fitness-assessments/latest", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
-      const assessment = await storage.getLatestFitnessAssessment((req as any).session.userId);
+      const assessment = await storage.getLatestFitnessAssessment(userId);
       res.json(assessment || null);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch latest assessment" });
@@ -340,18 +322,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Exercise routes
-  app.post("/api/exercises/seed", async (req: Request, res: Response) => {
+  app.post("/api/exercises/seed", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const existingExercises = await storage.getAllExercises();
       if (existingExercises.length > 0) {
         return res.json({ count: existingExercises.length, exercises: existingExercises, message: "Exercises already seeded" });
       }
 
-      const userId = (req as any).session.userId;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -518,13 +497,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Workout Program routes
-  app.post("/api/programs/generate", async (req: Request, res: Response) => {
+  app.post("/api/programs/generate", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
-      const userId = (req as any).session.userId;
+      const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -741,26 +716,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/programs/active", async (req: Request, res: Response) => {
+  app.get("/api/programs/active", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
-      const program = await storage.getUserActiveProgram((req as any).session.userId);
+      const program = await storage.getUserActiveProgram(userId);
       res.json(program || null);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch active program" });
     }
   });
 
-  app.get("/api/programs/archived", async (req: Request, res: Response) => {
+  app.get("/api/programs/archived", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
-      const allPrograms = await storage.getUserPrograms((req as any).session.userId);
+      const allPrograms = await storage.getUserPrograms(userId);
       const archivedPrograms = allPrograms.filter(p => p.isActive === 0 && p.archivedDate !== null);
       res.json(archivedPrograms);
     } catch (error) {
@@ -768,18 +739,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/program-workouts/:programId", async (req: Request, res: Response) => {
+  app.get("/api/program-workouts/:programId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
         return res.status(404).json({ error: "Program not found" });
       }
 
-      if (program.userId !== (req as any).session.userId) {
+      if (program.userId !== userId) {
         return res.status(403).json({ error: "Not authorized to access this program" });
       }
 
@@ -791,11 +760,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/programs/:programId", async (req: Request, res: Response) => {
+  app.get("/api/programs/:programId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
@@ -823,11 +790,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/programs/exercises/:exerciseId/update-weight", async (req: Request, res: Response) => {
+  app.patch("/api/programs/exercises/:exerciseId/update-weight", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const { recommendedWeight, repsMin, repsMax } = req.body;
       
@@ -856,11 +821,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/programs/exercises/:exerciseId/swap", async (req: Request, res: Response) => {
+  app.patch("/api/programs/exercises/:exerciseId/swap", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const { newExerciseId } = req.body;
       
@@ -890,11 +853,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Workout Session routes
-  app.post("/api/workout-sessions", async (req: Request, res: Response) => {
+  app.post("/api/workout-sessions", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
       const today = new Date();
@@ -904,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertWorkoutSessionSchema.parse({
         ...req.body,
-        userId: (req as any).session.userId,
+        userId,
         sessionDayOfWeek,
       });
 
@@ -917,12 +878,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Verify the workout belongs to a program owned by the user
         const program = await storage.getWorkoutProgram(programWorkout.programId);
-        if (!program || program.userId !== (req as any).session.userId) {
+        if (!program || program.userId !== userId) {
           return res.status(403).json({ error: "Unauthorized access to program workout" });
         }
 
         // Look for existing pre-scheduled session (calendar-based system)
-        const userSessions = await storage.getUserSessions((req as any).session.userId);
+        const userSessions = await storage.getUserSessions(userId);
         
         // Find the earliest incomplete pre-scheduled session for this workout
         // Pre-scheduled sessions have status="scheduled" and scheduledDate set
@@ -955,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const programWorkout = await storage.getProgramWorkout(existingScheduledSession.programWorkoutId);
             if (programWorkout && existingScheduledSession.scheduledDate) {
               await storage.shiftRemainingSchedule(
-                (req as any).session.userId,
+                userId,
                 existingScheduledSession.scheduledDate,
                 programWorkout.programId
               );
@@ -1002,11 +963,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/workout-sessions/:sessionId", async (req: Request, res: Response) => {
+  app.put("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const session = await storage.updateWorkoutSession(req.params.sessionId, req.body);
       if (!session) {
@@ -1019,11 +978,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/workout-sessions/:sessionId", async (req: Request, res: Response) => {
+  app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       // Get the old session to check if completion status is changing
       const oldSession = await storage.getWorkoutSession(req.params.sessionId);
@@ -1044,7 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const programWorkout = await storage.getProgramWorkout(session.programWorkoutId);
         if (programWorkout) {
           await storage.shiftRemainingSchedule(
-            (req as any).session.userId,
+            userId,
             session.scheduledDate,
             programWorkout.programId
           );
@@ -1058,13 +1015,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions", async (req: Request, res: Response) => {
+  app.get("/api/workout-sessions", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
-      const sessions = await storage.getUserSessions((req as any).session.userId);
+      const sessions = await storage.getUserSessions(userId);
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sessions" });
@@ -1072,11 +1027,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Workout Set routes
-  app.post("/api/workout-sets", async (req: Request, res: Response) => {
+  app.post("/api/workout-sets", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const validatedData = insertWorkoutSetSchema.parse(req.body);
       const set = await storage.createWorkoutSet(validatedData);
@@ -1087,11 +1040,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/workout-sets/:setId", async (req: Request, res: Response) => {
+  app.put("/api/workout-sets/:setId", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const set = await storage.updateWorkoutSet(req.params.setId, req.body);
       if (!set) {
@@ -1104,11 +1055,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions/:sessionId/sets", async (req: Request, res: Response) => {
+  app.get("/api/workout-sessions/:sessionId/sets", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const sets = await storage.getSessionSets(req.params.sessionId);
       res.json(sets);
@@ -1117,18 +1066,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sets", async (req: Request, res: Response) => {
+  app.get("/api/workout-sets", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const exerciseId = req.query.exerciseId as string;
       if (!exerciseId) {
         return res.status(400).json({ error: "exerciseId query parameter required" });
       }
 
-      const sets = await storage.getUserRecentSets((req as any).session.userId, exerciseId, 10);
+      const sets = await storage.getUserRecentSets(userId, exerciseId, 10);
       res.json(sets);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch workout sets" });
@@ -1136,11 +1083,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Recommendation routes
-  app.post("/api/ai/progression-recommendation", async (req: Request, res: Response) => {
+  app.post("/api/ai/progression-recommendation", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const { exerciseName, recentPerformance } = req.body;
       const recommendation = await generateProgressionRecommendation(
@@ -1154,11 +1099,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/exercise-swap", async (req: Request, res: Response) => {
+  app.post("/api/ai/exercise-swap", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const { currentExerciseName, targetMovementPattern, availableEquipment, reason } = req.body;
       const suggestions = await suggestExerciseSwap(
@@ -1174,11 +1117,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/exercises/similar", async (req: Request, res: Response) => {
+  app.post("/api/exercises/similar", isAuthenticated, async (req: any, res: Response) => {
     try {
-      if (!(req as any).session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
+      const userId = req.user.claims.sub;
 
       const { exerciseId, movementPattern, primaryMuscles } = req.body;
       
