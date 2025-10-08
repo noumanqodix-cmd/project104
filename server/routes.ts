@@ -543,13 +543,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasPullups: !!latestAssessment.pullups,
         hasBenchPress1RM: !!latestAssessment.benchPress1rm,
         hasSquat1RM: !!latestAssessment.squat1rm,
+        nutritionGoal: user.nutritionGoal,
       });
 
+      console.log("[TEMPLATE] Starting program generation with nutrition goal:", user.nutritionGoal);
       const generatedProgram = await generateWorkoutProgram({
         user,
         latestAssessment,
         availableExercises,
       });
+      console.log("[TEMPLATE] Program generation completed successfully");
 
       const existingPrograms = await storage.getUserPrograms(userId);
       for (const oldProgram of existingPrograms) {
