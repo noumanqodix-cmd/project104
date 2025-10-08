@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
+import HIITIntervalTimer from "@/components/HIITIntervalTimer";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -220,6 +221,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const currentProgramExercise = programExercises[currentExerciseIndex];
+  const isHIIT = currentProgramExercise?.workSeconds !== null && currentProgramExercise?.workSeconds !== undefined;
   const isDurationBased = currentProgramExercise?.exercise?.trackingType === 'duration' 
     || currentExercise?.movementPattern === 'cardio'
     || currentExercise?.equipment.some(eq => eq.toLowerCase().includes('cardio'));
@@ -320,6 +322,63 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     } else {
       setRecommendedWeightIncrease(0);
       setRecommendedRepIncrease(0);
+    }
+  };
+
+  const handleHIITComplete = async () => {
+    // HIIT exercises complete all sets automatically via the timer
+    // Just move to next exercise or complete workout
+    const updatedExercises = exercises.map((ex, idx) => 
+      idx === currentExerciseIndex 
+        ? { ...ex, weight: "0" } // HIIT exercises don't track weight
+        : ex
+    );
+    
+    setExercises(updatedExercises);
+
+    if (isLastExercise) {
+      // Workout complete - calculate total volume from all exercises (including previous strength exercises)
+      const totalVolume = updatedExercises.reduce((total, ex) => {
+        return total + (ex.sets * parseFloat(ex.weight || '0'));
+      }, 0);
+      
+      if (!sessionId) {
+        toast({
+          title: "Cannot Complete Workout",
+          description: "Workout session not properly initialized. Please restart the workout.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Calculate calories burned
+      let caloriesBurned: number | undefined;
+      if (user?.weight && activeProgram?.intensityLevel) {
+        const weightKg = unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
+        const durationMinutes = Math.floor(workoutTime / 60);
+        caloriesBurned = calculateCaloriesBurned(
+          durationMinutes,
+          weightKg,
+          activeProgram.intensityLevel as any
+        );
+      }
+      
+      onComplete({
+        duration: workoutTime,
+        exercises: exercises.length,
+        totalVolume: Math.round(totalVolume),
+        caloriesBurned,
+        programWorkoutId: currentWorkoutId,
+        sessionId: sessionId,
+      });
+    } else {
+      // Move to next exercise
+      setCurrentExerciseIndex(prev => prev + 1);
+      setCurrentSet(1);
+      setActualReps("");
+      setActualWeight("");
+      setActualDuration("");
+      setShowRestTimer(true);
     }
   };
 
@@ -742,6 +801,16 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           </div>
 
           <div className="space-y-6">
+            {isHIIT ? (
+              <HIITIntervalTimer
+                workSeconds={currentProgramExercise.workSeconds!}
+                restSeconds={currentProgramExercise.restSeconds}
+                totalSets={currentExercise.sets}
+                onComplete={handleHIITComplete}
+                exerciseName={currentExercise.name}
+              />
+            ) : (
+              <>
             {recommendedWeightIncrease > 0 && (
               <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg" data-testid="weight-increase-banner">
                 <div className="flex items-start gap-3">
@@ -888,6 +957,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             >
               End Workout Early
             </Button>
+            </>
+          )}
           </div>
         </Card>
       </div>
