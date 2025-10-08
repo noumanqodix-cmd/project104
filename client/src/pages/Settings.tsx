@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   User, 
   Target, 
@@ -113,8 +114,8 @@ export default function Settings() {
   });
 
   const handleLogout = () => {
-    localStorage.clear();
-    setLocation("/");
+    // Properly logout from Replit Auth session
+    window.location.href = "/api/logout";
   };
 
   const calculateBMR = (heightValue: number, weightValue: number, ageValue: number) => {
@@ -321,16 +322,41 @@ export default function Settings() {
               <User className="h-5 w-5" />
               <CardTitle>Account Information</CardTitle>
             </div>
-            <CardDescription>View your account details</CardDescription>
+            <CardDescription>Your Replit Auth profile details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <p className="text-lg font-semibold" data-testid="text-email">
-                {user?.username || '-'}
-              </p>
-              <p className="text-sm text-muted-foreground">Email cannot be changed</p>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={user?.profileImageUrl} alt={user?.firstName || 'User'} />
+                <AvatarFallback>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <p className="text-xl font-semibold" data-testid="text-full-name">
+                  {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || '-'}
+                </p>
+                <p className="text-sm text-muted-foreground" data-testid="text-email">
+                  {user?.email || '-'}
+                </p>
+              </div>
             </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Account managed by Replit Auth</p>
+                <p className="text-sm text-muted-foreground">Profile details are synced from your Replit account</p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              className="w-full"
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Log Out
+            </Button>
           </CardContent>
         </Card>
 
