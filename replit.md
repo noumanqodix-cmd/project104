@@ -32,7 +32,12 @@ The application uses **Replit Auth (OpenID Connect)** for authentication, allowi
 ### Data Storage
 PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users (with OIDC fields: email, firstName, lastName, profileImageUrl), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
 
-**Calendar-Based Scheduling (October 2025)**: The system now uses actual calendar dates (`scheduledDate`) instead of day-of-week numbers. When a program is created, all workout sessions for the entire program duration are pre-generated with specific scheduled dates, eliminating ambiguity about which workout belongs to which day and enabling accurate program completion detection.
+**Calendar-Based Scheduling (October 2025)**: The system uses actual calendar dates (`scheduledDate`) instead of day-of-week numbers. When a program is created, all workout sessions for the entire program duration are pre-generated with specific scheduled dates.
+- **Session Generation**: Creates exactly `durationWeeks × 7` sessions (56 for 8-week programs) starting from TODAY's calendar date, not Monday of current week
+- **Date Matching**: Each calendar date is matched to the correct programWorkout using JavaScript's day-of-week conversion (0=Sunday through 6=Saturday → 1=Monday through 7=Sunday)
+- **No Past Filtering**: All sessions are created regardless of date, ensuring consistent session counts
+- **Duplicate Prevention**: Route registration guard prevents HMR from registering routes twice, which was causing duplicate session creation
+- **Implementation**: `generateWorkoutSchedule()` in `server/routes.ts` handles session generation with proper calendar-based logic
 
 ### AI-Powered Adaptive Training System
 FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalized workout program generation and adaptation.
