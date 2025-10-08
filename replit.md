@@ -27,19 +27,18 @@ FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout progr
 - **Intelligent Program Generation**: GPT-4 creates custom programs based on user input, including corrective exercises, with a typical duration of 8 weeks.
 - **Smart Weight Recommendations**: AI calculates and recommends starting weights for exercises, utilizing 1RM data or bodyweight test results.
 - **Master Exercise Database**: A pre-populated database of 143 exercises categorized by equipment and movement pattern is used for program generation.
-- **Difficulty-Based Exercise Filtering (October 2025)**: Smart filtering system ensures exercises match user skill level for safety:
-  - **Beginner users**: Only beginner-level exercises (78 exercises) to build proper movement foundations
-  - **Intermediate users**: Beginner + intermediate exercises (150 exercises) for progressive challenge
-  - **Advanced users**: Access to all difficulty levels (171 exercises) including complex movements
-  - **Safety Override - Bodyweight Tests**: If bodyweight test results are weak (<5 pushups, <2 pullups, <15 squats), users are automatically restricted to beginner exercises regardless of self-reported experience
-  - **Safety Override - Weighted Tests**: If 1RM lifts are below beginner standards relative to bodyweight, users are restricted to beginner exercises:
-    - Squat 1RM < 1.0x bodyweight
-    - Deadlift 1RM < 1.25x bodyweight
-    - Bench Press 1RM < 0.75x bodyweight
-    - Overhead Press 1RM < 0.5x bodyweight
-    - Barbell Row 1RM < 0.75x bodyweight
-  - **AI Integration**: Exercise lists are pre-filtered before being sent to GPT-4, ensuring the AI cannot recommend movements beyond user capability
-  - **Implementation**: `server/ai-service.ts` applies difficulty filtering to all exercise categories (functional, warmup, cardio) with automatic unit conversion for accurate bodyweight ratio calculations
+- **Category-Specific Difficulty Filtering (October 2025)**: Advanced filtering system enables independent progression across movement patterns for targeted safety and development:
+  - **Movement Pattern Independence**: Each movement category (push, pull, squat, lunge, hinge, cardio, core, rotation, carry) has its own difficulty threshold based on related test results
+  - **Push Exercises**: Difficulty controlled by pushup test (<5 reps) or bench/OHP 1RM ratios (bench <0.75x, OHP <0.5x bodyweight)
+  - **Pull Exercises**: Difficulty controlled by pullup test (<2 reps) or barbell row 1RM ratio (<0.75x bodyweight)
+  - **Squat/Lunge Exercises**: Difficulty controlled by bodyweight squat test (<15 reps) or squat 1RM ratio (<1.0x bodyweight)
+  - **Hinge Exercises**: Difficulty controlled by bodyweight squat test (<15 reps, restricts hinge independently) or deadlift 1RM ratio (<1.25x bodyweight)
+  - **Cardio Exercises**: Difficulty controlled by mile time (>12min = beginner, 9-12min = intermediate, <9min = advanced)
+  - **Core/Rotation/Carry**: Uses user's self-reported fitness level or defaults to beginner for safety
+  - **Independent Progression**: Users can be intermediate in upper body (good pushup/pullup scores) while beginner in lower body (weak squat scores), or vice versa
+  - **Safety Override Logging**: System logs which specific metrics triggered difficulty restrictions for each movement pattern
+  - **AI Integration**: Exercise lists are pre-filtered by movement pattern before being sent to GPT-4, with the AI receiving pattern-specific difficulty breakdowns
+  - **Implementation**: `server/ai-service.ts` creates a `movementDifficulties` map tracking allowed difficulties per pattern, with `isExerciseAllowed()` helper function checking each exercise against its pattern's thresholds. Automatic unit conversion ensures accurate bodyweight ratio calculations
 - **Automatic Program Generation**: Programs are automatically generated and saved upon signup.
 - **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
 - **Smart Workout Input**: Input fields dynamically adjust based on exercise equipment.
