@@ -9,46 +9,54 @@ import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg 
 
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  // Find the start of current week (Monday)
-  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Sunday is 6 days from Monday
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - daysFromMonday);
-  
-  // Generate sessions for all weeks
-  const sessions = [];
-  for (let week = 0; week < durationWeeks; week++) {
-    for (const programWorkout of programWorkouts) {
-      // Calculate date for this workout in this week
-      const scheduledDate = new Date(weekStart);
-      // dayOfWeek: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
-      const dayOffset = programWorkout.dayOfWeek === 7 ? 6 : programWorkout.dayOfWeek - 1;
-      scheduledDate.setDate(weekStart.getDate() + (week * 7) + dayOffset);
-      
-      // Only include workouts that are today or in the future
-      if (scheduledDate >= today) {
-        sessions.push({
-          userId,
-          programWorkoutId: programWorkout.id,
-          workoutName: programWorkout.workoutName,
-          scheduledDate,
-          sessionDayOfWeek: programWorkout.dayOfWeek,
-          completed: 0,
-          status: "scheduled" as const,
-        });
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find the start of current week (Monday)
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Sunday is 6 days from Monday
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - daysFromMonday);
+    
+    // Generate sessions for all weeks
+    const sessions = [];
+    for (let week = 0; week < durationWeeks; week++) {
+      for (const programWorkout of programWorkouts) {
+        // Calculate date for this workout in this week
+        const scheduledDate = new Date(weekStart);
+        // dayOfWeek: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
+        const dayOffset = programWorkout.dayOfWeek === 7 ? 6 : programWorkout.dayOfWeek - 1;
+        scheduledDate.setDate(weekStart.getDate() + (week * 7) + dayOffset);
+        
+        // Only include workouts that are today or in the future
+        if (scheduledDate >= today) {
+          sessions.push({
+            userId,
+            programWorkoutId: programWorkout.id,
+            workoutName: programWorkout.workoutName,
+            scheduledDate,
+            sessionDayOfWeek: programWorkout.dayOfWeek,
+            completed: 0,
+            status: "scheduled" as const,
+          });
+        }
       }
     }
+    
+    console.log(`Creating ${sessions.length} workout sessions for program ${programId}`);
+    
+    // Create all sessions in database
+    for (const session of sessions) {
+      await storage.createWorkoutSession(session);
+    }
+    
+    console.log(`Successfully created ${sessions.length} workout sessions`);
+    return sessions.length;
+  } catch (error) {
+    console.error("Error in generateWorkoutSchedule:", error);
+    throw error;
   }
-  
-  // Create all sessions in database
-  for (const session of sessions) {
-    await storage.createWorkoutSession(session);
-  }
-  
-  return sessions.length;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
