@@ -199,7 +199,7 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
                 <RadioGroupItem value="maintain" id="maintain" />
                 <div>
                   <div className="font-semibold">Maintain Weight</div>
-                  <div className="text-sm text-muted-foreground">Recomp: lose fat & build muscle</div>
+                  <div className="text-sm text-muted-foreground">Burn fat & build muscle</div>
                 </div>
               </Label>
 
