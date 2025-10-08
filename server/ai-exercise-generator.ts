@@ -17,6 +17,7 @@ interface GeneratedExerciseData {
   isFunctional: number;
   isCorrective: number;
   formTips: string[];
+  trackingType?: "reps" | "duration" | "both";
 }
 
 export async function generateExercisesForEquipment(
@@ -62,11 +63,12 @@ export async function generateExercisesForEquipment(
       "movementPattern": "push|pull|hinge|squat|carry|rotation|core|hang|lunge|cardio|plyometric|crawl",
       "equipment": ["${equipment}"],
       "difficulty": "beginner|intermediate|advanced",
-      "primaryMuscles": ["muscle1", "muscle2"],
-      "secondaryMuscles": ["muscle3", "muscle4"],
+      "primaryMuscles": ["broad muscle group(s)"],
+      "secondaryMuscles": ["specific anatomical muscles"],
       "exerciseType": "warmup|main|cooldown",
       "isFunctional": 1,
       "isCorrective": 0,
+      "trackingType": "reps|duration|both",
       "formTips": [
         "Specific cue 1",
         "Specific cue 2",
@@ -75,6 +77,15 @@ export async function generateExercisesForEquipment(
     }
   ]
 }
+
+**Muscle Group Guidelines:**
+- primaryMuscles: Use ONLY broad groups: "chest", "shoulders", "back", "core", "legs", "arms", "grip", "cardio", "full body"
+- secondaryMuscles: Use specific anatomical names like "pectorals", "anterior deltoid", "latissimus dorsi", "rectus abdominis", "quadriceps", etc.
+
+**Tracking Type Guidelines:**
+- "reps": Strength exercises tracked by repetitions (push-ups, squats, rows)
+- "duration": Time-based exercises (planks, dead hangs, stretches, cardio)
+- "both": Can be tracked either way (carries, some cardio)
 
 **Important:**
 - isFunctional: 1 for functional exercises, 0 for isolation
@@ -119,6 +130,7 @@ export async function generateExercisesForEquipment(
     exerciseType: ex.exerciseType,
     formTips: ex.formTips,
     videoUrl: null,
+    trackingType: ex.trackingType || "reps",
   }));
 }
 
