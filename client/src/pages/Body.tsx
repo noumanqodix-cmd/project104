@@ -6,7 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Activity, Heart, TrendingUp, Weight, Ruler, Flame, AlertCircle, Apple, Plus, Dumbbell } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { calculateAge } from "@shared/utils";
 
 export default function Body() {
   const { data: user } = useQuery<any>({
@@ -16,6 +22,9 @@ export default function Body() {
   const { data: todayCaloriesData } = useQuery<{ calories: number }>({
     queryKey: ["/api/workout-sessions/calories/today"],
   });
+
+  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const unitPreference = user?.unitPreference || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
@@ -90,7 +99,7 @@ export default function Body() {
   const vitals = [
     { label: "Weight", value: `${healthStats.weight} ${weightUnit}`, icon: Weight, change: `-2 ${weightUnit} this week` },
     { label: "Height", value: `${healthStats.height} ${heightUnit}`, icon: Ruler, change: null },
-    { label: "BMI", value: healthStats.bmi.toFixed(1), icon: Activity, change: "Normal range" },
+    { label: "Age", value: userAge ? `${userAge} years` : "N/A", icon: Activity, change: null },
     { label: "BMR", value: `${healthStats.bmr} cal`, icon: Flame, change: "Daily baseline" },
   ];
 
@@ -99,6 +108,64 @@ export default function Body() {
     { label: "Steps", value: healthStats.steps.toLocaleString(), icon: TrendingUp },
     { label: "Calories", value: `${healthStats.calories} cal`, icon: Flame },
   ];
+
+  // Form for updating metrics
+  const form = useForm({
+    defaultValues: {
+      height: displayHeight.toString(),
+      weight: displayWeight.toString(),
+    }
+  });
+
+  const updateMetricsMutation = useMutation({
+    mutationFn: async (data: { height: string; weight: string }) => {
+      let heightValue = parseFloat(data.height);
+      let weightValue = parseFloat(data.weight);
+
+      // Convert to metric if user is using imperial
+      if (!isMetric) {
+        heightValue = heightValue * 2.54; // inches to cm
+        weightValue = weightValue * 0.453592; // lbs to kg
+      }
+
+      const response = await fetch("/api/auth/user/metrics", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          height: heightValue,
+          weight: weightValue
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update metrics");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Metrics Updated",
+        description: "Your body metrics have been updated successfully.",
+      });
+      setDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update metrics. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const onSubmitMetrics = (data: { height: string; weight: string }) => {
+    updateMetricsMutation.mutate(data);
+  };
+
+  // Calculate age from dateOfBirth
+  const userAge = user?.dateOfBirth ? calculateAge(new Date(user.dateOfBirth)) : null;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -379,9 +446,81 @@ export default function Body() {
                 );
               })}
             </div>
-            <Button variant="outline" className="w-full" data-testid="button-update-metrics">
-              Update Metrics
-            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full" data-testid="button-update-metrics">
+                  Update Metrics
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Update Body Metrics</DialogTitle>
+                  <DialogDescription>
+                    Update your height and weight. Values are stored in metric units (cm/kg).
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmitMetrics)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="height"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Height ({heightUnit})</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.1" 
+                              placeholder={`Enter height in ${heightUnit}`}
+                              data-testid="input-update-height"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="weight"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Weight ({weightUnit})</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              step="0.1" 
+                              placeholder={`Enter weight in ${weightUnit}`}
+                              data-testid="input-update-weight"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex gap-2">
+                      <Button 
+                        type="submit" 
+                        className="flex-1"
+                        disabled={updateMetricsMutation.isPending}
+                        data-testid="button-save-metrics"
+                      >
+                        {updateMetricsMutation.isPending ? "Saving..." : "Save"}
+                      </Button>
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        onClick={() => setDialogOpen(false)}
+                        data-testid="button-cancel-metrics"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 
