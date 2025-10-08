@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, TrendingUp, Award, Target, AlertCircle, Dumbbell } from "lucide-react";
+import { ArrowLeft, TrendingUp, Award, Target, AlertCircle, Dumbbell, Flame } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -123,6 +123,55 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
           week: weekLabel,
           workouts: data.count,
           volume: (data.count * 100) + (index * 50),
+        };
+      });
+  }, [sortedSessions]);
+
+  const caloriesData = useMemo(() => {
+    if (!sortedSessions || sortedSessions.length === 0) return [];
+
+    const completedSessions = sortedSessions.filter(s => s.completed === 1 && s.caloriesBurned);
+
+    if (completedSessions.length === 0) return [];
+
+    const weeklyData: { [key: string]: { calories: number; weekStart: Date; weekEnd: Date } } = {};
+    
+    completedSessions.forEach((session) => {
+      const date = new Date(session.sessionDate);
+      const currentDay = date.getDay();
+      const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+      
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - daysFromMonday);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = { 
+          calories: 0, 
+          weekStart,
+          weekEnd
+        };
+      }
+      weeklyData[weekKey].calories += session.caloriesBurned || 0;
+    });
+
+    return Object.entries(weeklyData)
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .map(([_, data]) => {
+        const startMonth = data.weekStart.getMonth();
+        const endMonth = data.weekEnd.getMonth();
+        const weekLabel = startMonth === endMonth
+          ? `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'd')}`
+          : `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'MMM d')}`;
+        
+        return {
+          week: weekLabel,
+          calories: Math.round(data.calories),
         };
       });
   }, [sortedSessions]);
@@ -323,6 +372,36 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
                   stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   name="Estimated Volume"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+
+        {caloriesData.length > 0 && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <Flame className="h-5 w-5 text-orange-500" />
+              <h3 className="text-xl font-semibold">Calories Burned</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={caloriesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "6px",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="calories"
+                  stroke="hsl(var(--chart-3))"
+                  strokeWidth={2}
+                  name="Calories Burned"
                 />
               </LineChart>
             </ResponsiveContainer>
