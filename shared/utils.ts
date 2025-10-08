@@ -39,11 +39,81 @@ interface AssessmentData {
   benchPress1rm?: number | null;
   overheadPress1rm?: number | null;
   barbellRow1rm?: number | null;
+  pushOverride?: string | null;
+  pullOverride?: string | null;
+  lowerBodyOverride?: string | null;
+  hingeOverride?: string | null;
+  cardioOverride?: string | null;
 }
 
 interface UserData {
   weight?: number | null;
   unitPreference?: string;
+}
+
+export interface ProgressionTarget {
+  bodyweightTest: string;
+  bodyweightIntermediate: string;
+  bodyweightAdvanced: string;
+  weightedTest: string;
+  weightedIntermediate: string;
+  weightedAdvanced: string;
+}
+
+export interface ProgressionTargets {
+  push: ProgressionTarget;
+  pull: ProgressionTarget;
+  lowerBody: ProgressionTarget;
+  hinge: ProgressionTarget;
+  cardio: ProgressionTarget;
+}
+
+export function getProgressionTargets(userWeight?: number, unitPreference?: string): ProgressionTargets {
+  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
+  const weight = userWeight || 0;
+  
+  return {
+    push: {
+      bodyweightTest: 'Pushups',
+      bodyweightIntermediate: '10+ pushups',
+      bodyweightAdvanced: '20+ pushups',
+      weightedTest: 'Bench Press or OHP 1RM',
+      weightedIntermediate: `Bench: ${(weight * 1.0).toFixed(0)}${weightUnit} (1.0×BW) or OHP: ${(weight * 0.6).toFixed(0)}${weightUnit} (0.6×BW)`,
+      weightedAdvanced: `Bench: ${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW) or OHP: ${(weight * 0.9).toFixed(0)}${weightUnit} (0.9×BW)`,
+    },
+    pull: {
+      bodyweightTest: 'Pullups',
+      bodyweightIntermediate: '5+ pullups',
+      bodyweightAdvanced: '10+ pullups',
+      weightedTest: 'Barbell Row 1RM',
+      weightedIntermediate: `${(weight * 1.0).toFixed(0)}${weightUnit} (1.0×BW)`,
+      weightedAdvanced: `${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW)`,
+    },
+    lowerBody: {
+      bodyweightTest: 'Bodyweight Squats',
+      bodyweightIntermediate: '25+ squats',
+      bodyweightAdvanced: '40+ squats',
+      weightedTest: 'Squat 1RM',
+      weightedIntermediate: `${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW)`,
+      weightedAdvanced: `${(weight * 2.0).toFixed(0)}${weightUnit} (2.0×BW)`,
+    },
+    hinge: {
+      bodyweightTest: 'Bodyweight Squats (stability indicator)',
+      bodyweightIntermediate: '25+ squats',
+      bodyweightAdvanced: '40+ squats',
+      weightedTest: 'Deadlift 1RM',
+      weightedIntermediate: `${(weight * 1.75).toFixed(0)}${weightUnit} (1.75×BW)`,
+      weightedAdvanced: `${(weight * 2.5).toFixed(0)}${weightUnit} (2.5×BW)`,
+    },
+    cardio: {
+      bodyweightTest: 'Mile Run Time',
+      bodyweightIntermediate: '7-9 minutes',
+      bodyweightAdvanced: 'Under 7 minutes',
+      weightedTest: 'N/A',
+      weightedIntermediate: 'N/A',
+      weightedAdvanced: 'N/A',
+    },
+  };
 }
 
 export function calculateMovementPatternLevels(
@@ -166,11 +236,22 @@ export function calculateMovementPatternLevels(
     }
   }
   
+  // Apply manual overrides - use the higher of performance level or override
+  function getMaxLevel(performanceLevel: MovementPatternLevel, override?: string | null): MovementPatternLevel {
+    if (!override) return performanceLevel;
+    
+    const levels: MovementPatternLevel[] = ['beginner', 'intermediate', 'advanced'];
+    const performanceIndex = levels.indexOf(performanceLevel);
+    const overrideIndex = levels.indexOf(override as MovementPatternLevel);
+    
+    return overrideIndex > performanceIndex ? override as MovementPatternLevel : performanceLevel;
+  }
+  
   return {
-    push: pushLevel,
-    pull: pullLevel,
-    lowerBody: lowerBodyLevel,
-    hinge: hingeLevel,
-    cardio: cardioLevel,
+    push: getMaxLevel(pushLevel, assessment.pushOverride),
+    pull: getMaxLevel(pullLevel, assessment.pullOverride),
+    lowerBody: getMaxLevel(lowerBodyLevel, assessment.lowerBodyOverride),
+    hinge: getMaxLevel(hingeLevel, assessment.hingeOverride),
+    cardio: getMaxLevel(cardioLevel, assessment.cardioOverride),
   };
 }
