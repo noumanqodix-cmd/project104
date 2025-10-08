@@ -12,7 +12,10 @@ import {
   Link,
   Repeat,
   User,
-  CircleDot
+  CircleDot,
+  Activity,
+  Bike,
+  Wind
 } from "lucide-react";
 
 interface EquipmentSelectorProps {
@@ -26,25 +29,30 @@ interface EquipmentCategory {
 
 const equipmentCategories: EquipmentCategory[] = [
   {
-    category: "Essential Equipment",
+    category: "Strength Equipment",
     items: [
       { id: "bodyweight", label: "Bodyweight Only", icon: User },
       { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
       { id: "kettlebell", label: "Kettlebell", icon: CircleDot },
       { id: "barbell", label: "Barbell", icon: Anchor },
       { id: "resistance bands", label: "Resistance Bands", icon: Cable },
+      { id: "cable machine", label: "Cable Machine", icon: Cable },
       { id: "pull-up bar", label: "Pull-up Bar", icon: Grid3x3 },
+      { id: "trx", label: "TRX/Suspension Trainer", icon: Link },
       { id: "medicine ball", label: "Medicine Ball", icon: Box },
       { id: "box", label: "Box/Bench", icon: Box },
+      { id: "jump rope", label: "Jump Rope", icon: Repeat },
     ]
   },
   {
-    category: "Recovery & Mobility",
+    category: "Cardio Equipment",
     items: [
-      { id: "trx", label: "TRX/Suspension Trainer", icon: Link },
-      { id: "jump rope", label: "Jump Rope", icon: Repeat },
-      { id: "foam roller", label: "Foam Roller", icon: Cable },
-      { id: "yoga mat", label: "Yoga Mat", icon: Box },
+      { id: "rower", label: "Rower", icon: Activity },
+      { id: "bike", label: "Bike", icon: Bike },
+      { id: "treadmill", label: "Treadmill", icon: Activity },
+      { id: "elliptical", label: "Elliptical", icon: Activity },
+      { id: "assault bike", label: "Assault Bike", icon: Wind },
+      { id: "stair climber", label: "Stair Climber", icon: Activity },
     ]
   }
 ];
