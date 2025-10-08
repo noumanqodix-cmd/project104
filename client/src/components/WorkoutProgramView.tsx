@@ -41,9 +41,10 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
   });
 
   const swapExerciseMutation = useMutation({
-    mutationFn: async ({ programExerciseId, newExerciseId }: { programExerciseId: string; newExerciseId: string }) => {
+    mutationFn: async ({ programExerciseId, newExerciseId, equipment }: { programExerciseId: string; newExerciseId: string; equipment?: string }) => {
       return await apiRequest("PATCH", `/api/programs/exercises/${programExerciseId}/swap`, {
         newExerciseId,
+        equipment,
       });
     },
     onSuccess: () => {
@@ -73,10 +74,11 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
     ex => ex.exercise && (ex.exercise.exerciseType === 'main' || !ex.exercise.exerciseType)
   ) || [];
 
-  const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise) => {
+  const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise & { selectedEquipment?: string }) => {
     swapExerciseMutation.mutate({
       programExerciseId: oldExercise.id,
       newExerciseId: newExercise.id,
+      equipment: newExercise.selectedEquipment,
     });
     setSwapExercise(null);
   };

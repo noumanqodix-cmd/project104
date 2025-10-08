@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
+import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout, type Exercise } from "@shared/schema";
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
@@ -1102,7 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      const { newExerciseId } = req.body;
+      const { newExerciseId, equipment } = req.body;
       
       if (!newExerciseId) {
         return res.status(400).json({ error: "New exercise ID is required" });
@@ -1118,9 +1118,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "New exercise not found" });
       }
 
-      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, {
+      const updates: any = { 
         exerciseId: newExerciseId,
-      });
+        equipment: equipment || null, // Always update equipment field, clear if not provided
+      };
+
+      const updatedExercise = await storage.updateProgramExercise(req.params.exerciseId, updates);
 
       res.json(updatedExercise);
     } catch (error) {
@@ -1452,7 +1455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      const { exerciseId, movementPattern, primaryMuscles } = req.body;
+      const { exerciseId, movementPattern, primaryMuscles, currentEquipment } = req.body;
       
       // Fetch user data and fitness assessment for difficulty filtering
       const user = await storage.getUser(userId);
@@ -1486,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Note: primaryMuscles now contains broad groups (chest, shoulders, back, core, legs, arms, grip)
       // while secondaryMuscles contains specific anatomical details
       const similarExercises = allExercises.filter(ex => {
-        if (ex.id === exerciseId) return false;
+        // Include same exercise (for equipment variants) OR different exercises
         if (ex.movementPattern !== movementPattern) return false;
         
         // Match broad muscle groups (e.g., "chest" matches exercises with "chest" in primaryMuscles)
@@ -1499,8 +1502,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Apply difficulty filtering based on user's movement pattern level
         return checkExerciseAllowed(ex, movementDifficulties, fitnessLevel);
       });
+
+      // Build results with equipment variants
+      const results: Array<Exercise & { selectedEquipment?: string }> = [];
       
-      res.json(similarExercises);
+      for (const ex of similarExercises) {
+        if (ex.id === exerciseId) {
+          // Same exercise: show equipment variants different from current
+          const userEquipment = user.equipment || [];
+          const availableEquipment = ex.equipment.filter(eq => 
+            userEquipment.includes(eq) && eq !== currentEquipment
+          );
+          
+          // Add one entry per equipment variant
+          for (const equipment of availableEquipment) {
+            results.push({ ...ex, selectedEquipment: equipment });
+          }
+        } else {
+          // Different exercise: show with first available equipment option
+          const userEquipment = user.equipment || [];
+          const firstAvailable = ex.equipment.find(eq => userEquipment.includes(eq));
+          
+          if (firstAvailable) {
+            results.push({ ...ex, selectedEquipment: firstAvailable });
+          }
+        }
+      }
+      
+      res.json(results);
     } catch (error) {
       console.error("Similar exercises error:", error);
       res.status(500).json({ error: "Failed to fetch similar exercises" });

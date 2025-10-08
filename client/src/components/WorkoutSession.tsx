@@ -598,7 +598,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     }
   };
 
-  const handleSwap = (newExercise: Exercise) => {
+  const handleSwap = (newExercise: Exercise & { selectedEquipment?: string }) => {
     setExercises(prev =>
       prev.map(ex => ex.id === currentExercise.id ? {
         ...ex,
