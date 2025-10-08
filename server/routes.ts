@@ -917,24 +917,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Look for existing pre-scheduled session (calendar-based system)
         const userSessions = await storage.getUserSessions(userId);
         
-        console.log('[POST /api/workout-sessions] Looking for existing session:', {
-          userId,
-          programWorkoutId: validatedData.programWorkoutId,
-          totalUserSessions: userSessions.length,
-        });
-        
         // Find the earliest incomplete pre-scheduled session for this workout
         // Pre-scheduled sessions have status="scheduled" and scheduledDate set
         const incompleteSessions = userSessions
           .filter((s: any) => {
-            const matches = s.programWorkoutId === validatedData.programWorkoutId && 
+            return s.programWorkoutId === validatedData.programWorkoutId && 
                    s.completed === 0 && 
                    s.scheduledDate !== null &&
                    s.status === 'scheduled'; // Only pre-scheduled sessions
-            if (matches) {
-              console.log('[POST /api/workout-sessions] Found matching scheduled session:', s.id);
-            }
-            return matches;
           })
           .sort((a: any, b: any) => {
             const dateA = new Date(a.scheduledDate).getTime();
@@ -943,12 +933,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         
         const existingScheduledSession = incompleteSessions[0];
-        
-        if (existingScheduledSession) {
-          console.log('[POST /api/workout-sessions] Using existing session:', existingScheduledSession.id);
-        } else {
-          console.log('[POST /api/workout-sessions] No existing session found, will create new');
-        }
 
         // If we found a pre-scheduled session, update it instead of creating new
         if (existingScheduledSession) {

@@ -86,11 +86,14 @@ FitForge includes High-Intensity Interval Training (HIIT) support with automated
 - **HIITIntervalTimer Component** (`client/src/components/HIITIntervalTimer.tsx`):
   - Auto-cycling countdown timer with work/rest phases
   - Visual progress indicators (green for work, blue for rest)
-  - Pause/resume functionality
+  - Pause/resume functionality with unique test ID (`data-testid="button-pause-hiit"`)
   - Set tracking display ("Set X of Y")
   - Auto-completes all sets without manual input
 - **Workout Integration**: `WorkoutSession.tsx` detects HIIT exercises via `workSeconds` field and renders `HIITIntervalTimer` instead of standard rep/weight inputs
 - **Volume Tracking**: HIIT exercises contribute 0 to totalVolume (no weight tracking) but preserve volume from strength exercises in mixed workouts
+- **Test ID Separation (October 2025)**: Fixed duplicate test ID conflict:
+  - Workout timer pause button: `data-testid="button-pause-workout"` (pauses overall workout timer)
+  - HIIT timer pause button: `data-testid="button-pause-hiit"` (pauses interval timer)
 - **Usage Patterns**:
   - Workout finishers: 1-2 HIIT exercises at end of strength workouts
   - Standalone cardio days: Multiple HIIT exercises for conditioning
