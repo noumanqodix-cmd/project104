@@ -389,11 +389,13 @@ export default function Home() {
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastSession.session.status === "skipped" 
-                        ? "Rest Day (Skipped)" 
-                        : lastSession.workout?.workoutType === "rest" 
-                          ? "Rest Day" 
-                          : lastSession.workout?.workoutName || "Session"}
+                      {lastSession.session.status === "skipped" && lastSession.workout?.workoutType === "rest"
+                        ? "Rest Day (Skipped)"
+                        : lastSession.session.status === "skipped"
+                          ? `${lastSession.workout?.workoutName || "Workout"} (Skipped)`
+                          : lastSession.workout?.workoutType === "rest" 
+                            ? "Rest Day" 
+                            : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
                       {formatDate(lastSession.session.sessionDate)}
