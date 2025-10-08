@@ -100,7 +100,17 @@ function OnboardingFlow() {
         return (
           <NutritionAssessment
             onComplete={(data) => {
-              setQuestionnaireData({ ...questionnaireData, nutrition: data });
+              // Flatten nutrition data into questionnaireData
+              setQuestionnaireData({ 
+                ...questionnaireData,
+                height: data.height,
+                weight: data.weight,
+                dateOfBirth: data.dateOfBirth,
+                nutritionGoal: data.goal,
+                bmr: data.bmr,
+                targetCalories: data.calories,
+                heartRateZones: data.heartRateZones,
+              });
               setCurrentStep("equipment");
             }}
           />
@@ -144,7 +154,7 @@ function OnboardingFlow() {
                     experienceLevel: updatedData.experienceLevel,
                     fitnessTest: updatedData.fitnessTest,
                     weightsTest: updatedData.weightsTest,
-                    nutritionGoal: updatedData.nutrition?.goal,
+                    nutritionGoal: updatedData.nutritionGoal,
                     equipment: updatedData.equipment || [],
                     workoutDuration: updatedData.availability?.minutesPerSession,
                     daysPerWeek: updatedData.availability?.daysPerWeek,
@@ -200,7 +210,7 @@ function OnboardingFlow() {
                   experienceLevel: questionnaireData.experienceLevel,
                   fitnessTest: questionnaireData.fitnessTest,
                   weightsTest: questionnaireData.weightsTest,
-                  nutritionGoal: questionnaireData.nutrition?.goal,
+                  nutritionGoal: questionnaireData.nutritionGoal,
                   equipment: questionnaireData.equipment || [],
                   workoutDuration: questionnaireData.availability?.minutesPerSession,
                   daysPerWeek: questionnaireData.availability?.daysPerWeek,
