@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Activity, Heart, TrendingUp, Weight, Ruler, Flame, AlertCircle, Apple, Plus } from "lucide-react";
+import { Activity, Heart, TrendingUp, Weight, Ruler, Flame, AlertCircle, Apple, Plus, Dumbbell } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,10 @@ import { useQuery } from "@tanstack/react-query";
 export default function Body() {
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
+  });
+
+  const { data: todayCaloriesData } = useQuery<{ calories: number }>({
+    queryKey: ["/api/workout-sessions/calories/today"],
   });
 
   const unitPreference = user?.unitPreference || 'imperial';
@@ -29,11 +33,38 @@ export default function Body() {
     displayHeight = user.height / 2.54;
   }
   
+  const bmr = user?.bmr || 1850;
+  const workoutCalories = todayCaloriesData?.calories || 0;
+  const realTDEE = bmr + workoutCalories;
+  
+  // Calculate recommended intake based on nutrition goal
+  const nutritionGoal = user?.nutritionGoal?.toLowerCase() || '';
+  let recommendedIntake = realTDEE;
+  let calorieAdjustment = 0;
+  let goalDescription = "Maintenance";
+  
+  // Muscle gain goals: add surplus
+  if (nutritionGoal.includes('gain') || nutritionGoal.includes('build') || 
+      nutritionGoal.includes('bulk') || nutritionGoal.includes('muscle') || 
+      nutritionGoal.includes('mass')) {
+    calorieAdjustment = 400;
+    recommendedIntake = realTDEE + calorieAdjustment;
+    goalDescription = "Muscle Gain (+400 cal)";
+  }
+  // Fat loss goals: add deficit
+  else if (nutritionGoal.includes('lose') || nutritionGoal.includes('cut') || 
+           nutritionGoal.includes('shred') || nutritionGoal.includes('fat loss') || 
+           nutritionGoal.includes('weight loss')) {
+    calorieAdjustment = -500;
+    recommendedIntake = realTDEE + calorieAdjustment;
+    goalDescription = "Fat Loss (-500 cal)";
+  }
+  
   const healthStats = {
     weight: Math.round(displayWeight),
     height: Math.round(displayHeight),
     bmi: 24.4,
-    bmr: user?.bmr || 1850,
+    bmr,
     heartRate: 72,
     steps: 8245,
     calories: 2100,
@@ -48,14 +79,12 @@ export default function Body() {
   });
 
   const [showNutritionInput, setShowNutritionInput] = useState(false);
-
-  const tdee = Math.round(healthStats.bmr * 1.55);
   
   const recommendedMacros = {
-    calories: tdee,
-    protein: Math.round((tdee * 0.30) / 4),
-    carbs: Math.round((tdee * 0.40) / 4),
-    fat: Math.round((tdee * 0.30) / 9),
+    calories: Math.round(recommendedIntake),
+    protein: Math.round((recommendedIntake * 0.30) / 4),
+    carbs: Math.round((recommendedIntake * 0.40) / 4),
+    fat: Math.round((recommendedIntake * 0.30) / 9),
   };
 
   const vitals = [
@@ -85,6 +114,58 @@ export default function Body() {
             Nutrition tracking: Manual entry available below. Direct integration with MyFitnessPal or Apple Health requires third-party API services not currently available on this platform.
           </AlertDescription>
         </Alert>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Calorie Balance</CardTitle>
+            <CardDescription>Your daily calorie needs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Flame className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">BMR (Baseline)</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="stat-bmr-calories">{bmr.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">cal/day</p>
+                </div>
+                <div className="text-center p-4 border rounded-lg bg-primary/5">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Dumbbell className="h-4 w-4 text-primary" />
+                    <p className="text-sm text-muted-foreground">Workouts Today</p>
+                  </div>
+                  <p className="text-2xl font-bold text-primary" data-testid="stat-workout-calories">+{workoutCalories.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">cal burned</p>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 rounded-lg bg-muted/30">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium">Total Burned (TDEE)</p>
+                  <p className="text-3xl font-bold" data-testid="stat-tdee">{realTDEE.toLocaleString()}</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Recommended Intake</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary" data-testid="stat-recommended-intake">{recommendedMacros.calories.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{goalDescription}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  {workoutCalories > 0 
+                    ? `Today's workouts burned ${workoutCalories} calories. Your recommended intake is adjusted based on your ${nutritionGoal || 'maintenance'} goal.`
+                    : `No workouts completed today. Your recommended intake is based on BMR and your ${nutritionGoal || 'maintenance'} goal.`
+                  }
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -240,13 +321,13 @@ export default function Body() {
         <Card>
           <CardHeader>
             <CardTitle>Recommended Daily Macros</CardTitle>
-            <CardDescription>Based on your BMR of {healthStats.bmr} cal</CardDescription>
+            <CardDescription>Based on your TDEE of {realTDEE.toLocaleString()} cal</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 border rounded-lg">
                 <p className="text-sm text-muted-foreground mb-1">Total Calories</p>
-                <p className="text-2xl font-bold" data-testid="recommended-calories">{recommendedMacros.calories}</p>
+                <p className="text-2xl font-bold" data-testid="recommended-calories">{recommendedMacros.calories.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground mt-1">cal/day</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
@@ -267,7 +348,7 @@ export default function Body() {
             </div>
             <div className="mt-4 p-3 bg-muted rounded-lg">
               <p className="text-xs text-muted-foreground">
-                Calculations: TDEE = BMR × 1.55 (moderate activity). Macros: 30% protein, 40% carbs, 30% fat.
+                Calculations: TDEE = BMR + workout calories. Recommended intake adjusted for {goalDescription}. Macros: 30% protein, 40% carbs, 30% fat.
               </p>
             </div>
           </CardContent>
