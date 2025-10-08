@@ -14,6 +14,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCaloriesBurned, poundsToKg } from "@/lib/calorie-calculator";
+import { formatExerciseName } from "@/lib/utils";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession as WorkoutSessionType } from "@shared/schema";
 
 interface ExerciseData {
@@ -778,12 +779,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           )}
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-2">{currentExercise.name}</h2>
-              <div className="flex gap-2 flex-wrap mb-2">
-                {currentExercise.equipment?.map((eq, idx) => (
-                  <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
-                ))}
-              </div>
+              <h2 className="text-2xl font-bold mb-2">{formatExerciseName(currentProgramExercise?.exercise?.name || currentExercise.name, currentProgramExercise?.equipment)}</h2>
               {currentProgramExercise?.exercise?.primaryMuscles && currentProgramExercise.exercise.primaryMuscles.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex gap-2 flex-wrap">

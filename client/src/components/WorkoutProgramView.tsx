@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Play, Repeat, ChevronLeft, ChevronRight } from "lucide-react";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
+import { formatExerciseName } from "@/lib/utils";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise } from "@shared/schema";
 
 interface WorkoutWithExercises extends ProgramWorkout {
@@ -208,12 +209,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   )}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
-                      <div className="flex gap-2 flex-wrap mb-2">
-                        {ex.exercise.equipment?.map((eq, idx) => (
-                          <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
-                        ))}
-                      </div>
+                      <h3 className="text-xl font-semibold mb-2">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">
@@ -300,12 +296,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   )}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
-                      <div className="flex gap-2 flex-wrap mb-2">
-                        {ex.exercise.equipment?.map((eq, idx) => (
-                          <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
-                        ))}
-                      </div>
+                      <h3 className="text-xl font-semibold mb-2">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">

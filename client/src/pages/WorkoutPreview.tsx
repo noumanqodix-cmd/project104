@@ -8,12 +8,14 @@ import { Link, useLocation } from "wouter";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
+import { formatExerciseName } from "@/lib/utils";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession, WorkoutSet } from "@shared/schema";
 
 interface ExerciseWithProgression {
   id: string;
   name: string;
   equipment: string[];
+  selectedEquipment?: string | null;
   primaryMuscles?: string[];
   secondaryMuscles?: string[];
   sets: number;
@@ -98,6 +100,7 @@ export default function WorkoutPreview() {
             id: pe.id,
             name: pe.exercise.name,
             equipment: pe.exercise.equipment || [],
+            selectedEquipment: pe.equipment,
             primaryMuscles: pe.exercise.primaryMuscles || [],
             secondaryMuscles: pe.exercise.secondaryMuscles || [],
             sets: pe.sets,
@@ -288,7 +291,7 @@ export default function WorkoutPreview() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl">{exercise.name}</CardTitle>
+                      <CardTitle className="text-xl">{formatExerciseName(exercise.name, exercise.selectedEquipment)}</CardTitle>
                       <CardDescription className="mt-1">
                         {exercise.sets} sets × {exercise.reps} reps
                       </CardDescription>
