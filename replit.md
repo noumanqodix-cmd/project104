@@ -37,6 +37,14 @@ PostgreSQL is used as the primary database, configured via Neon serverless and a
 ### AI-Powered Adaptive Training System
 FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
+- **Prebuilt Program Templates (October 2025)**: AI automatically selects from three prebuilt workout program templates based on user's nutrition goals:
+  - **Strength Primary Template**: 80% strength training, 20% cardio - Selected for goals containing: gain, build, bulk, muscle, strength, mass
+  - **Cardio Primary Template**: 30% strength training, 70% cardio - Selected for goals containing: lose, cut, shred, fat loss, weight loss
+  - **Hybrid Balance Template**: 50% strength training, 50% cardio - Selected for goals containing: maintain, recomp, general, fitness, or as default
+  - Each template defines movement pattern distribution, cardio placement (finisher/dedicated/mixed), and intensity targets per experience level
+  - Template selection uses priority-based keyword matching (strength keywords checked first, then loss, then endurance)
+  - AI populates template structure with exercises based on user's equipment and fitness level
+  - Implementation: `server/programTemplates.ts` defines templates, `server/ai-service.ts` handles selection and generation
 - **Intelligent Program Generation**: GPT-4 creates custom programs based on fitness level, equipment, duration, nutrition goals, and movement patterns, including corrective exercises. Programs are generated for one week of workouts (repeating weekly) with duration specified in weeks (typically 8 weeks).
 - **Smart Weight Recommendations**: AI calculates recommended starting weights for all exercises, utilizing 1RM data or bodyweight test results as proxies. These recommendations are stored and displayed.
 - **Master Exercise Database**: A pre-populated database of 143 exercises, categorized by equipment and movement pattern, is used for all program generations to avoid repeated OpenAI calls.
