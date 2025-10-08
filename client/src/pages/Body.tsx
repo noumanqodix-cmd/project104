@@ -38,7 +38,7 @@ export default function Body() {
   const realTDEE = bmr + workoutCalories;
   
   // Calculate recommended intake based on nutrition goal
-  const nutritionGoal = user?.nutrition_goal?.toLowerCase() || '';
+  const nutritionGoal = user?.nutritionGoal?.toLowerCase() || '';
   let recommendedIntake = realTDEE;
   let calorieAdjustment = 0;
   let goalDescription = "Maintenance";
