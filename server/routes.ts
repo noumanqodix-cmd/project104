@@ -616,6 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               repsMax: exercise.repsMax,
               recommendedWeight,
               durationSeconds: exercise.durationSeconds,
+              workSeconds: exercise.workSeconds,
               restSeconds: exercise.restSeconds,
               targetRPE: exercise.targetRPE,
               targetRIR: exercise.targetRIR,

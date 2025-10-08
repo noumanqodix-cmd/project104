@@ -32,6 +32,7 @@ export interface GeneratedExercise {
   repsMax?: number;
   recommendedWeight?: number;  // Recommended starting weight in user's unit preference
   durationSeconds?: number;
+  workSeconds?: number;  // For HIIT exercises: work interval duration
   restSeconds: number;
   targetRPE?: number;  // Rate of Perceived Exertion (1-10)
   targetRIR?: number;  // Reps in Reserve (0-5)
@@ -80,12 +81,24 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     )
     .slice(0, 30);
 
+  // Separate cardio/HIIT exercises for HIIT workouts
+  const cardioExercises = availableExercises
+    .filter((ex) => 
+      ex.movementPattern === "cardio" &&
+      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
+    )
+    .slice(0, 30);
+
   const exerciseList = functionalExercises
     .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
     .join("\n");
 
   const warmupList = warmupExercises
     .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
+    .join("\n");
+
+  const cardioList = cardioExercises
+    .map((ex) => `- ${ex.name} (${ex.equipment?.join("/")})`)
     .join("\n");
 
   const daySchedules: { [key: number]: number[] } = {
@@ -122,6 +135,9 @@ ${exerciseList}
 
 **Warmup Exercise Database:**
 ${warmupList}
+
+**Cardio/HIIT Exercise Database:**
+${cardioList}
 
 **Program Requirements:**
 1. Create exactly ${daysPerWeek} workouts per week - this is CRITICAL
@@ -240,6 +256,24 @@ For all other exercises (push-ups, squats, presses, rows, etc.):
 - Include recommendedWeight for weighted exercises
 - Example: Push-ups → "repsMin": 12, "repsMax": 15, no durationSeconds field
 
+**HIIT/CARDIO INTERVAL EXERCISES:**
+For High-Intensity Interval Training (HIIT) exercises from the Cardio/HIIT Exercise Database:
+- Set "workSeconds" for the work interval duration (e.g., 20, 30, 40 seconds)
+- Set "restSeconds" for the rest interval duration (e.g., 10, 30, 60 seconds)
+- DO NOT include "repsMin", "repsMax", "durationSeconds", or "recommendedWeight" fields
+- Each "set" represents one complete work/rest cycle
+- HIIT exercises should NOT be in supersets (they have their own timing structure)
+- Common HIIT protocols:
+  * Tabata: workSeconds: 20, restSeconds: 10, sets: 8 (4 minutes total)
+  * Standard HIIT: workSeconds: 30, restSeconds: 30, sets: 10-12 (10-12 minutes total)
+  * Sprint Intervals: workSeconds: 40, restSeconds: 20, sets: 8-10 (8-10 minutes total)
+  * Longer Work: workSeconds: 60, restSeconds: 30, sets: 6-8 (9-12 minutes total)
+- Example: Assault Bike Sprints → "workSeconds": 30, "restSeconds": 30, "sets": 10, no reps/weight/duration fields
+- HIIT exercises can be used as:
+  * Workout finishers (1-2 HIIT exercises at the end of strength workouts)
+  * Standalone cardio days (multiple HIIT exercises for conditioning)
+  * Active recovery days (lower intensity, longer rest periods)
+
 IMPORTANT: 
 1. ALWAYS include the numeric weight recommendation in the "recommendedWeight" field for ALL exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
 2. Even without 1RM data, use the bodyweight test proxy guidelines above to estimate appropriate starting weights.
@@ -337,6 +371,15 @@ IMPORTANT:
           "targetRIR": 3,
           "isWarmup": false,
           "notes": "Hold stable plank position, focus on core engagement"
+        },
+        {
+          "exerciseName": "Assault Bike Sprints",
+          "sets": 8,
+          "workSeconds": 20,
+          "restSeconds": 10,
+          "targetRPE": 9,
+          "isWarmup": false,
+          "notes": "Tabata protocol finisher - max effort during work intervals"
         }
       ]
     }
