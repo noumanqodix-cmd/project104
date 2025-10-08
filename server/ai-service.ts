@@ -53,86 +53,124 @@ export async function generateWorkoutProgram(
   const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
-  // Safety override: if fitness test results are very weak, force beginner difficulty
+  // Category-specific difficulty filtering: Map test results to movement patterns
+  // This allows independent progression in different categories
   
-  // Bodyweight test checks
+  // Helper function to determine difficulty level based on self-reported experience
+  const getDefaultDifficulties = (level: string): string[] => {
+    if (level === "beginner") return ["beginner"];
+    if (level === "intermediate") return ["beginner", "intermediate"];
+    return ["beginner", "intermediate", "advanced"];
+  };
+
+  // Initialize difficulty map with user's self-reported level as default
+  const movementDifficulties: { [pattern: string]: string[] } = {
+    push: getDefaultDifficulties(fitnessLevel),
+    pull: getDefaultDifficulties(fitnessLevel),
+    squat: getDefaultDifficulties(fitnessLevel),
+    lunge: getDefaultDifficulties(fitnessLevel),
+    hinge: getDefaultDifficulties(fitnessLevel),
+    cardio: getDefaultDifficulties(fitnessLevel),
+    core: getDefaultDifficulties(fitnessLevel),
+    rotation: getDefaultDifficulties(fitnessLevel),
+    carry: getDefaultDifficulties(fitnessLevel),
+  };
+
+  const overrideReasons: string[] = [];
+  
+  // Bodyweight test checks - map to specific movement patterns
   const pushups = latestAssessment.pushups || 0;
   const pullups = latestAssessment.pullups || 0;
   const squats = latestAssessment.squats || 0;
-  const isWeakBodyweight = pushups < 5 || pullups < 2 || squats < 15;
   
-  // Weighted test checks (using bodyweight ratios)
-  let isWeakWeighted = false;
-  const overrideReasons: string[] = [];
+  if (pushups < 5) {
+    movementDifficulties.push = ["beginner"];
+    overrideReasons.push('Push exercises limited to beginner (pushups < 5)');
+  }
   
+  if (pullups < 2) {
+    movementDifficulties.pull = ["beginner"];
+    overrideReasons.push('Pull exercises limited to beginner (pullups < 2)');
+  }
+  
+  if (squats < 15) {
+    movementDifficulties.squat = ["beginner"];
+    movementDifficulties.lunge = ["beginner"];
+    movementDifficulties.hinge = ["beginner"];
+    overrideReasons.push('Lower body exercises limited to beginner (squats < 15)');
+  }
+  
+  // Mile time check for cardio
+  const mileTime = latestAssessment.mileTime || 999;
+  if (mileTime > 12) {
+    movementDifficulties.cardio = ["beginner"];
+    overrideReasons.push('Cardio limited to beginner (mile time > 12 min)');
+  } else if (mileTime > 9) {
+    movementDifficulties.cardio = ["beginner", "intermediate"];
+    overrideReasons.push('Cardio limited to intermediate (mile time > 9 min)');
+  }
+  
+  // Weighted test checks (using bodyweight ratios) - map to specific patterns
   if (user.weight && user.weight > 0) {
-    // Convert weight to kg if needed for consistent calculations
     const weightInKg = user.unitPreference === "imperial" ? user.weight * 0.453592 : user.weight;
     
-    // Check 1RM values against beginner standards (relative to bodyweight)
     if (latestAssessment.squat1rm) {
       const squat1rmKg = user.unitPreference === "imperial" ? latestAssessment.squat1rm * 0.453592 : latestAssessment.squat1rm;
       if (squat1rmKg < weightInKg * 1.0) {
-        isWeakWeighted = true;
-        overrideReasons.push('Squat 1RM < 1.0x bodyweight');
+        movementDifficulties.squat = ["beginner"];
+        movementDifficulties.lunge = ["beginner"];
+        overrideReasons.push('Squat/Lunge exercises limited to beginner (Squat 1RM < 1.0x bodyweight)');
       }
     }
     
     if (latestAssessment.deadlift1rm) {
       const deadlift1rmKg = user.unitPreference === "imperial" ? latestAssessment.deadlift1rm * 0.453592 : latestAssessment.deadlift1rm;
       if (deadlift1rmKg < weightInKg * 1.25) {
-        isWeakWeighted = true;
-        overrideReasons.push('Deadlift 1RM < 1.25x bodyweight');
+        movementDifficulties.hinge = ["beginner"];
+        overrideReasons.push('Hinge exercises limited to beginner (Deadlift 1RM < 1.25x bodyweight)');
       }
     }
     
     if (latestAssessment.benchPress1rm) {
       const bench1rmKg = user.unitPreference === "imperial" ? latestAssessment.benchPress1rm * 0.453592 : latestAssessment.benchPress1rm;
       if (bench1rmKg < weightInKg * 0.75) {
-        isWeakWeighted = true;
-        overrideReasons.push('Bench Press 1RM < 0.75x bodyweight');
+        movementDifficulties.push = ["beginner"];
+        overrideReasons.push('Push exercises limited to beginner (Bench Press 1RM < 0.75x bodyweight)');
       }
     }
     
     if (latestAssessment.overheadPress1rm) {
       const ohp1rmKg = user.unitPreference === "imperial" ? latestAssessment.overheadPress1rm * 0.453592 : latestAssessment.overheadPress1rm;
       if (ohp1rmKg < weightInKg * 0.5) {
-        isWeakWeighted = true;
-        overrideReasons.push('Overhead Press 1RM < 0.5x bodyweight');
+        movementDifficulties.push = ["beginner"];
+        overrideReasons.push('Push exercises limited to beginner (OHP 1RM < 0.5x bodyweight)');
       }
     }
     
     if (latestAssessment.barbellRow1rm) {
       const row1rmKg = user.unitPreference === "imperial" ? latestAssessment.barbellRow1rm * 0.453592 : latestAssessment.barbellRow1rm;
       if (row1rmKg < weightInKg * 0.75) {
-        isWeakWeighted = true;
-        overrideReasons.push('Barbell Row 1RM < 0.75x bodyweight');
+        movementDifficulties.pull = ["beginner"];
+        overrideReasons.push('Pull exercises limited to beginner (Barbell Row 1RM < 0.75x bodyweight)');
       }
     }
   }
   
-  if (isWeakBodyweight) {
-    overrideReasons.push('Weak bodyweight test results');
-  }
-  
-  const isWeakPerformance = isWeakBodyweight || isWeakWeighted;
-  const effectiveFitnessLevel = isWeakPerformance ? "beginner" : fitnessLevel;
-  
-  if (isWeakPerformance) {
-    console.log(`[DIFFICULTY] Safety override applied - Reason(s): ${overrideReasons.join(', ')}`);
-  }
-  console.log(`[DIFFICULTY] User fitness level: ${fitnessLevel}, Effective level: ${effectiveFitnessLevel}${isWeakPerformance ? ' (safety override)' : ''}`);
-
-  // Determine allowed exercise difficulties based on fitness level
-  const allowedDifficulties: string[] = [];
-  if (effectiveFitnessLevel === "beginner") {
-    allowedDifficulties.push("beginner");
-  } else if (effectiveFitnessLevel === "intermediate") {
-    allowedDifficulties.push("beginner", "intermediate");
+  if (overrideReasons.length > 0) {
+    console.log(`[DIFFICULTY] Category-specific restrictions applied:`);
+    overrideReasons.forEach(reason => console.log(`  - ${reason}`));
   } else {
-    // Advanced users can access all difficulties
-    allowedDifficulties.push("beginner", "intermediate", "advanced");
+    console.log(`[DIFFICULTY] No restrictions - using self-reported level (${fitnessLevel}) for all patterns`);
   }
+  
+  console.log(`[DIFFICULTY] Movement pattern difficulties:`, {
+    push: movementDifficulties.push,
+    pull: movementDifficulties.pull,
+    squat: movementDifficulties.squat,
+    lunge: movementDifficulties.lunge,
+    hinge: movementDifficulties.hinge,
+    cardio: movementDifficulties.cardio,
+  });
 
   const assessmentSummary = `
 Fitness Test Results:
@@ -147,30 +185,41 @@ ${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.
 ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
   `.trim();
 
-  // Include both functional main exercises AND warmup exercises, filtered by difficulty
+  // Helper function to check if exercise difficulty is allowed for its movement pattern
+  const isExerciseAllowed = (exercise: any): boolean => {
+    const pattern = exercise.movementPattern?.toLowerCase() || '';
+    const difficulty = exercise.difficulty;
+    
+    // Get allowed difficulties for this movement pattern
+    const allowedForPattern = movementDifficulties[pattern] || movementDifficulties.core || getDefaultDifficulties(fitnessLevel);
+    
+    return allowedForPattern.includes(difficulty);
+  };
+
+  // Include both functional main exercises AND warmup exercises, filtered by movement-specific difficulty
   const functionalExercises = availableExercises
     .filter((ex) => 
       (ex.isFunctional || ex.exerciseType === "warmup") && 
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      allowedDifficulties.includes(ex.difficulty)
+      isExerciseAllowed(ex)
     )
     .slice(0, 80); // Increase to 80 to include warmups
 
-  // Separate warmup exercises for explicit reference, filtered by difficulty
+  // Separate warmup exercises for explicit reference, filtered by movement-specific difficulty
   const warmupExercises = availableExercises
     .filter((ex) => 
       ex.exerciseType === "warmup" &&
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      allowedDifficulties.includes(ex.difficulty)
+      isExerciseAllowed(ex)
     )
     .slice(0, 30);
 
-  // Separate cardio/HIIT exercises for HIIT workouts, filtered by difficulty
+  // Separate cardio/HIIT exercises for HIIT workouts, filtered by cardio-specific difficulty
   const cardioExercises = availableExercises
     .filter((ex) => 
       ex.movementPattern === "cardio" &&
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      allowedDifficulties.includes(ex.difficulty)
+      isExerciseAllowed(ex)
     )
     .slice(0, 30);
 
@@ -208,10 +257,16 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
   
   const templateInstructions = getTemplateInstructions(selectedTemplate);
 
+  // Build difficulty summary for prompt
+  const hasRestrictions = overrideReasons.length > 0;
+  const difficultyNote = hasRestrictions 
+    ? `\nNOTE: Some movement patterns have difficulty restrictions based on test results:\n${overrideReasons.map(r => `  - ${r}`).join('\n')}`
+    : '';
+
   const prompt = `You are an expert strength and conditioning coach specializing in functional fitness and corrective exercises. Create a personalized workout program based on the following user profile:
 
 **User Profile:**
-- Fitness Level: ${fitnessLevel}${effectiveFitnessLevel !== fitnessLevel ? ` (Effective: ${effectiveFitnessLevel} - adjusted for safety based on test results)` : ''}
+- Fitness Level: ${fitnessLevel}
 - Available Equipment: ${equipmentList}
 - Workout Frequency: ${daysPerWeek} days per week
 - Workout Duration: ${workoutDuration} minutes per session
@@ -219,14 +274,19 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
 - Unit Preference: ${user.unitPreference}
 - Scheduled Training Days: ${dayScheduleText}
 
-${assessmentSummary}
+${assessmentSummary}${difficultyNote}
 
-**IMPORTANT - Exercise Safety Filtering:**
-All exercises below have been PRE-FILTERED for the user's skill level (${effectiveFitnessLevel}).
-- Beginner users: Only beginner-level exercises provided
-- Intermediate users: Beginner + intermediate exercises provided
-- Advanced users: All difficulty levels provided
-DO NOT assign exercises beyond the user's capability. Use ONLY exercises from the lists below.
+**IMPORTANT - Movement Pattern-Specific Exercise Filtering:**
+Exercises have been PRE-FILTERED based on the user's performance in each specific movement category:
+- Push exercises: ${movementDifficulties.push.join(', ')} difficulty
+- Pull exercises: ${movementDifficulties.pull.join(', ')} difficulty
+- Squat exercises: ${movementDifficulties.squat.join(', ')} difficulty
+- Lunge exercises: ${movementDifficulties.lunge.join(', ')} difficulty
+- Hinge exercises: ${movementDifficulties.hinge.join(', ')} difficulty
+- Cardio exercises: ${movementDifficulties.cardio.join(', ')} difficulty
+- Core/Rotation/Carry: ${movementDifficulties.core.join(', ')} difficulty
+
+This allows users to progress independently in different areas. DO NOT assign exercises beyond the provided difficulty for each pattern. Use ONLY exercises from the lists below.
 
 **Main Exercise Database (prioritize functional movements):**
 ${exerciseList}
@@ -251,7 +311,7 @@ ${templateInstructions}
 6. Emphasize movement patterns from the template's distribution lists
 7. Progressive overload strategy built-in
 8. Appropriate for ${workoutDuration}-minute sessions
-9. Match the user's current fitness level (${effectiveFitnessLevel}) - exercises are already filtered for safety
+9. Match exercises to movement-pattern-specific difficulty levels - already filtered for safety per category
 10. Use available equipment: ${equipmentList}
 
 **WARMUP REQUIREMENTS (CRITICAL):**
