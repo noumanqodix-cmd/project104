@@ -648,14 +648,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unitPreference 
       } = req.body;
 
-      if (!equipment || !Array.isArray(equipment) || equipment.length === 0) {
-        return res.status(400).json({ error: "Equipment array is required" });
+      if (!equipment || !Array.isArray(equipment)) {
+        return res.status(400).json({ error: "Equipment must be an array" });
       }
+
+      // If no equipment selected, default to bodyweight
+      const finalEquipment = equipment.length === 0 ? ["bodyweight"] : equipment;
 
       const tempUser = {
         id: "temp-preview-user",
         username: "preview",
-        equipment: equipment,
+        equipment: finalEquipment,
         workoutDuration: workoutDuration || 60,
         daysPerWeek: daysPerWeek || 3,
         nutritionGoal: nutritionGoal || "maintain",
