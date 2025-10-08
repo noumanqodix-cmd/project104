@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dumbbell, Calendar, TrendingUp } from "lucide-react";
+import { format } from "date-fns";
 import type { ProgramWorkout, ProgramExercise, Exercise } from "@shared/schema";
 
 interface WorkoutWithExercises extends ProgramWorkout {
@@ -24,6 +25,20 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
   const firstWeekWorkouts = generatedProgram.workouts.filter(
     workout => workout.dayOfWeek >= 1 && workout.dayOfWeek <= 7
   );
+
+  // Calculate the first week's date range (starting from next Monday)
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const daysUntilNextMonday = currentDay === 0 ? 1 : currentDay === 1 ? 0 : 8 - currentDay;
+  
+  const firstWeekStart = new Date(today);
+  firstWeekStart.setDate(today.getDate() + daysUntilNextMonday);
+  firstWeekStart.setHours(0, 0, 0, 0);
+  
+  const firstWeekEnd = new Date(firstWeekStart);
+  firstWeekEnd.setDate(firstWeekStart.getDate() + 6);
+  
+  const firstWeekRange = `${format(firstWeekStart, 'MMM d')} - ${format(firstWeekEnd, 'MMM d')}`;
 
   const formatReps = (ex: ProgramExercise) => {
     if (ex.durationSeconds) {
@@ -78,7 +93,7 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
 
       <main className="max-w-4xl mx-auto p-6 space-y-6">
         <div>
-          <h2 className="text-2xl font-bold mb-2">Week 1 Preview</h2>
+          <h2 className="text-2xl font-bold mb-2">{firstWeekRange} Preview</h2>
           <p className="text-muted-foreground mb-6">
             Here's what your first week looks like. Create an account to access your full program and start tracking your progress.
           </p>

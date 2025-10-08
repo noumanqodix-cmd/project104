@@ -111,11 +111,20 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
 
     return Object.entries(weeklyData)
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([_, data], index) => ({
-        week: `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'd')}`,
-        workouts: data.count,
-        volume: (data.count * 100) + (index * 50),
-      }));
+      .map(([_, data], index) => {
+        // Check if the week spans two different months
+        const startMonth = data.weekStart.getMonth();
+        const endMonth = data.weekEnd.getMonth();
+        const weekLabel = startMonth === endMonth
+          ? `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'd')}`
+          : `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'MMM d')}`;
+        
+        return {
+          week: weekLabel,
+          workouts: data.count,
+          volume: (data.count * 100) + (index * 50),
+        };
+      });
   }, [sortedSessions]);
 
   const fitnessTestProgress = useMemo(() => {
