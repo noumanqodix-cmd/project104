@@ -38,7 +38,8 @@ FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout progr
   - **Independent Progression**: Users can be intermediate in upper body (good pushup/pullup scores) while beginner in lower body (weak squat scores), or vice versa
   - **Safety Override Logging**: System logs which specific metrics triggered difficulty restrictions for each movement pattern
   - **AI Integration**: Exercise lists are pre-filtered by movement pattern before being sent to GPT-4, with the AI receiving pattern-specific difficulty breakdowns
-  - **Implementation**: `server/ai-service.ts` creates a `movementDifficulties` map tracking allowed difficulties per pattern, with `isExerciseAllowed()` helper function checking each exercise against its pattern's thresholds. Automatic unit conversion ensures accurate bodyweight ratio calculations
+  - **Implementation**: Centralized helper functions in `shared/utils.ts` (`calculateMovementPatternLevels`, `getMovementDifficultiesMap`, `isExerciseAllowed`) provide consistent difficulty filtering across program generation (`server/ai-service.ts`) and exercise swapping (`/api/exercises/similar` endpoint). Automatic unit conversion ensures accurate bodyweight ratio calculations
+  - **Exercise Swap Filtering**: The `/api/exercises/similar` endpoint applies the same movement pattern difficulty filtering as program generation, ensuring swapped exercises match user's pattern-specific fitness levels. Master exercise database remains unchanged; filtering is applied dynamically in-memory
 - **Automatic Program Generation**: Programs are automatically generated and saved upon signup.
 - **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
 - **Smart Workout Input**: Input fields dynamically adjust based on exercise equipment.
