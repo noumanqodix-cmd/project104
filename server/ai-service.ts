@@ -33,6 +33,7 @@ export interface GeneratedWorkout {
 
 export interface GeneratedExercise {
   exerciseName: string;
+  equipment: string;  // Specific equipment to use for this exercise (from user's available equipment)
   sets: number;
   repsMin?: number;
   repsMax?: number;
@@ -447,6 +448,15 @@ IMPORTANT:
 5. Use the user's unit preference (${user.unitPreference}) for all weight recommendations.
 6. For dumbbell exercises, the recommendedWeight should be PER HAND (so if recommending 25 lbs dumbbells, the field should be 25, not 50).
 
+**CRITICAL - Exercise Names and Equipment Selection:**
+- Use the EXACT exercise names from the exercise lists above (do NOT add equipment prefixes)
+- For exercises that support multiple equipment types (shown as "Exercise (equip1/equip2/equip3)"), you MUST include an "equipment" field to specify which variant to use
+- Select equipment based on user's available equipment: ${equipmentList}
+- Examples:
+  * If list shows "Deadlift (bodyweight/barbell/dumbbells/kettlebell)" and user has barbell → use exerciseName: "Deadlift", equipment: "barbell"
+  * If list shows "Bent-Over Row (barbell/dumbbells/kettlebell)" and user has dumbbells → use exerciseName: "Bent-Over Row", equipment: "dumbbells"
+  * If list shows "Push-ups (bodyweight/box)" → use exerciseName: "Push-ups", equipment: "bodyweight" (or "box" if using elevated variant)
+
 **Response Format (JSON):**
 {
   "programType": "functional strength program name",
@@ -459,16 +469,8 @@ IMPORTANT:
       "movementFocus": ["push", "pull", "hinge"],
       "exercises": [
         {
-          "exerciseName": "Cat-Cow Stretch",
-          "sets": 2,
-          "repsMin": 10,
-          "repsMax": 15,
-          "restSeconds": 30,
-          "isWarmup": true,
-          "notes": "Focus on spinal mobility"
-        },
-        {
           "exerciseName": "Arm Circles",
+          "equipment": "bodyweight",
           "sets": 2,
           "repsMin": 10,
           "repsMax": 15,
@@ -478,6 +480,7 @@ IMPORTANT:
         },
         {
           "exerciseName": "Goblet Squat",
+          "equipment": "dumbbells",
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
@@ -489,7 +492,8 @@ IMPORTANT:
           "notes": "70% of 1RM. Control the descent"
         },
         {
-          "exerciseName": "Dumbbell Bench Press",
+          "exerciseName": "Chest Press",
+          "equipment": "dumbbells",
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
@@ -500,10 +504,11 @@ IMPORTANT:
           "isWarmup": false,
           "supersetGroup": "A",
           "supersetOrder": 1,
-          "notes": "Based on pushup performance. Full range of motion, control the descent"
+          "notes": "Based on pushup performance. Full range of motion"
         },
         {
-          "exerciseName": "Bent-Over Barbell Row",
+          "exerciseName": "Bent-Over Row",
+          "equipment": "barbell",
           "sets": 3,
           "repsMin": 8,
           "repsMax": 12,
@@ -514,10 +519,11 @@ IMPORTANT:
           "isWarmup": false,
           "supersetGroup": "A",
           "supersetOrder": 2,
-          "notes": "Keep core tight, pull to lower chest. Rest 120 seconds after completing both exercises in superset"
+          "notes": "Keep core tight, pull to lower chest. Rest 120 seconds after superset"
         },
         {
           "exerciseName": "Push-ups",
+          "equipment": "bodyweight",
           "sets": 3,
           "repsMin": 12,
           "repsMax": 15,
@@ -529,6 +535,7 @@ IMPORTANT:
         },
         {
           "exerciseName": "Plank",
+          "equipment": "bodyweight",
           "sets": 3,
           "durationSeconds": 30,
           "restSeconds": 60,
@@ -539,6 +546,7 @@ IMPORTANT:
         },
         {
           "exerciseName": "Assault Bike Sprints",
+          "equipment": "assault bike",
           "sets": 8,
           "workSeconds": 20,
           "restSeconds": 10,
@@ -557,7 +565,9 @@ CRITICAL: Your response MUST include exactly ${daysPerWeek} workouts with dayOfW
 Example workout array structure:
 ${scheduledDays.map((day, idx) => `  Workout ${idx + 1}: { "dayOfWeek": ${day}, "workoutName": "...", ... }`).join('\n')}
 
-Remember: dayOfWeek values MUST be ${JSON.stringify(scheduledDays)} - no other values are allowed.`;
+Remember: 
+- dayOfWeek values MUST be ${JSON.stringify(scheduledDays)} - no other values are allowed
+- EVERY exercise MUST include the "equipment" field specifying which equipment variant to use (from user's available equipment: ${equipmentList})`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",

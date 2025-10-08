@@ -141,6 +141,7 @@ export const programExercises = pgTable("program_exercises", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workoutId: varchar("workout_id").notNull(),
   exerciseId: varchar("exercise_id").notNull(),
+  equipment: text("equipment"),
   orderIndex: integer("order_index").notNull(),
   sets: integer("sets").notNull(),
   repsMin: integer("reps_min"),

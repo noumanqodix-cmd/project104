@@ -251,6 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.createProgramExercise({
               workoutId: programWorkout.id,
               exerciseId: matchingExercise.id,
+              equipment: exercise.equipment || null,
               orderIndex: i,
               sets: exercise.sets,
               repsMin: exercise.repsMin,
@@ -399,6 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.createProgramExercise({
               workoutId: programWorkout.id,
               exerciseId: matchingExercise.id,
+              equipment: exercise.equipment || null,
               orderIndex: i,
               sets: exercise.sets,
               repsMin: exercise.repsMin,
