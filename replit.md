@@ -20,6 +20,8 @@ The application uses **Replit Auth (OpenID Connect)** for authentication, allowi
 - **Implementation**: Uses Passport.js with OpenID Client strategy, database-backed sessions via `connect-pg-simple`
 - **User Identification**: `req.user.claims.sub` (OIDC subject claim) stored as `users.id`
 - **Session Management**: Persistent sessions with automatic refresh token rotation
+- **Profile Management**: Settings page displays complete Replit Auth profile (profile image, full name, email) from OIDC claims
+- **Logout**: `/api/logout` endpoint properly terminates Passport session and redirects to OIDC end session URL for complete sign-out
 
 ### Data Storage
 PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users (with OIDC fields: email, firstName, lastName, profileImageUrl), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
