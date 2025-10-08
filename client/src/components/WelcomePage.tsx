@@ -37,7 +37,7 @@ export default function WelcomePage({ onGetStarted, onLogin }: WelcomePageProps)
           <Button
             size="lg"
             onClick={onGetStarted}
-            className="text-lg px-8 py-6 h-auto"
+            className="text-lg px-8 py-6 h-auto bg-white text-foreground hover:bg-white/90"
             data-testid="button-get-started"
           >
             Get Started
@@ -46,7 +46,7 @@ export default function WelcomePage({ onGetStarted, onLogin }: WelcomePageProps)
             size="lg"
             variant="outline"
             onClick={onLogin}
-            className="text-lg px-8 py-6 h-auto bg-background/10 backdrop-blur-sm hover:bg-background/20 text-white border-white/30"
+            className="text-lg px-8 py-6 h-auto bg-transparent backdrop-blur-sm hover:bg-white/10 text-white border-white/50"
             data-testid="button-login"
           >
             Log In
