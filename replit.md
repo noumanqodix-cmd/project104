@@ -54,6 +54,26 @@ FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalize
   - **Workout Completion Fix (October 2025)**: POST /api/workout-sessions endpoint now finds and updates existing pre-scheduled sessions instead of creating duplicates, eliminating 409 conflict errors
   - **Backward Compatibility**: Home page includes fallback logic to handle sessions without scheduledDate (for users with data created before calendar-based scheduling), ensuring old user data remains accessible
 
+### Calorie Tracking System (October 2025)
+FitForge includes a comprehensive calorie expenditure tracking system using industry-standard MET (Metabolic Equivalent of Task) calculations.
+- **MET-Based Calculation**: Calories burned = Duration (min) × ((MET × 3.5) × Weight (kg) / 200)
+- **Automatic Intensity Mapping**: Program types are automatically assigned intensity levels:
+  - Light programs: 3.5 METs
+  - Moderate programs: 5.0 METs (typical strength training)
+  - Vigorous programs: 6.0 METs
+  - Circuit training: 8.0 METs
+- **Dual Calculation Approach**: Frontend calculates calories for immediate display in workout summary; backend recalculates during save to ensure data consistency
+- **Smart Unit Conversion**: Automatically converts between imperial (lbs) and metric (kg) for accurate calculations regardless of user's unit preference
+- **Database Schema**: `workout_sessions` table includes `caloriesBurned` (integer) column; `workout_programs` table includes `intensityLevel` (text) column with default "moderate"
+- **UI Display**: Calories shown with Flame icon in:
+  - Workout Summary: Displays immediately after workout completion alongside duration, exercises, and volume
+  - Workout History: Shows calories for each completed session
+  - Progress View: Dedicated "Calories Burned" chart visualizes weekly calorie expenditure trends
+- **Implementation Files**: 
+  - Backend: `server/calorie-calculator.ts` (MET calculation logic)
+  - Frontend: `client/src/lib/calorie-calculator.ts` (frontend calculation)
+  - Components: `WorkoutSummary.tsx`, `WorkoutHistory.tsx`, `ProgressView.tsx`
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI primitives, Recharts (data visualization), date-fns, cmdk (command palette), Lucide React (icons).
