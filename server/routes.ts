@@ -1474,11 +1474,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const allExercises = await storage.getAllExercises();
       
-      // Filter by movement pattern, muscles, AND difficulty level
+      // Filter by movement pattern, broad muscle groups, AND difficulty level
+      // Note: primaryMuscles now contains broad groups (chest, shoulders, back, core, legs, arms, grip)
+      // while secondaryMuscles contains specific anatomical details
       const similarExercises = allExercises.filter(ex => {
         if (ex.id === exerciseId) return false;
         if (ex.movementPattern !== movementPattern) return false;
         
+        // Match broad muscle groups (e.g., "chest" matches exercises with "chest" in primaryMuscles)
         const hasMatchingMuscle = primaryMuscles.some((muscle: string) => 
           ex.primaryMuscles.includes(muscle)
         );
