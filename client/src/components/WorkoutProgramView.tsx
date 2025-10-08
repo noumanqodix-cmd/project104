@@ -66,10 +66,10 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
 
   // Separate warmup and main exercises
   const warmupExercises = currentWorkout?.exercises.filter(
-    ex => ex.exercise.exerciseType === 'warmup'
+    ex => ex.exercise?.exerciseType === 'warmup'
   ) || [];
   const mainExercises = currentWorkout?.exercises.filter(
-    ex => ex.exercise.exerciseType === 'main' || !ex.exercise.exerciseType
+    ex => ex.exercise && (ex.exercise.exerciseType === 'main' || !ex.exercise.exerciseType)
   ) || [];
 
   const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise) => {
@@ -91,6 +91,11 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
       return `${ex.repsMin}`;
     }
     return '-';
+  };
+
+  const getDayName = (dayOfWeek: number) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayOfWeek % 7];
   };
 
   if (isLoading) {
@@ -166,8 +171,8 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
               <ChevronLeft className="h-4 w-4 mr-1" />
               Previous
             </Button>
-            <span className="text-sm font-medium">
-              Day {currentWorkoutIndex + 1} of {fullProgram.workouts.length}
+            <span className="text-sm font-medium" data-testid="text-workout-navigation">
+              {getDayName(currentWorkout.dayOfWeek)} • Workout {currentWorkoutIndex + 1} of {fullProgram.workouts.length}
             </span>
             <Button
               variant="outline"

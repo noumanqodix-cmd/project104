@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
@@ -175,6 +176,24 @@ export default function Home() {
   };
 
   const daysSinceLastWorkout = getDaysSinceLastWorkout();
+
+  // Calculate current week's date range (Monday to Sunday)
+  const getCurrentWeekRange = () => {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+    
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysFromMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+  };
+
+  const currentWeekRange = getCurrentWeekRange();
 
   // Get last completed workout details
   const getLastCompletedWorkout = () => {
@@ -395,7 +414,9 @@ export default function Home() {
                 <div>
                   <p className="font-semibold" data-testid="text-program-type">{activeProgram.programType}</p>
                   <p className="text-sm text-muted-foreground">{activeProgram.weeklyStructure}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{activeProgram.durationWeeks} weeks</p>
+                  <p className="text-sm text-muted-foreground mt-1" data-testid="text-program-week">
+                    {currentWeekRange} • {activeProgram.durationWeeks} week program
+                  </p>
                 </div>
                 <Link href="/program">
                   <Button variant="outline" className="w-full" data-testid="button-view-program-details">

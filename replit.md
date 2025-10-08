@@ -11,6 +11,12 @@ Preferred communication style: Simple, everyday language.
 ### Frontend
 The frontend uses React 18 with TypeScript, Vite for fast development, and Wouter for client-side routing. Server state management is handled by React Query. The UI is built with Shadcn/ui and Radix UI primitives, styled using Tailwind CSS, featuring a custom theme with light/dark modes and a Material Design-inspired color palette. The application structure includes a multi-step onboarding flow and primary views like Home, Workout, History (Workouts/Programs tabs), Body metrics, Settings (with Workout Preferences), and Progress visualization, utilizing a bottom navigation pattern.
 
+**Calendar-Based UI (October 2025)**: The entire application now displays actual calendar dates instead of abstract week/day numbers for improved clarity:
+- **Home Page** (`client/src/pages/Home.tsx`): Current Program card shows week as date range (e.g., "Oct 7 - Oct 13 • 8 week program") instead of "Week X of Y"
+- **Program Details** (`client/src/components/WorkoutProgramView.tsx`): Workout navigation displays day names (e.g., "Monday • Workout 1 of 3") instead of "Day 1 of 7"
+- **Progress Chart** (`client/src/components/ProgressView.tsx`): X-axis labels show calendar date ranges (e.g., "Oct 7 - 13" for same-month weeks, "Nov 27 - Dec 3" for cross-month weeks) instead of "Week 1", "Week 2"
+- **Onboarding Preview** (`client/src/components/ProgramPreviewPage.tsx`): Displays first week's scheduled date range (e.g., "Oct 7 - Oct 13 Preview") instead of "Week 1 Preview"
+
 ### Backend
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support and custom logging. It integrates with Vite for development HMR and serves static files in production. Replit-specific plugins are used for development tooling.
 
