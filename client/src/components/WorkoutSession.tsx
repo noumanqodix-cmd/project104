@@ -11,6 +11,7 @@ import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { calculateCaloriesBurned, poundsToKg } from "@/lib/calorie-calculator";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise, WorkoutSession as WorkoutSessionType } from "@shared/schema";
 
 interface ExerciseData {
@@ -37,6 +38,7 @@ export interface WorkoutSummary {
   duration: number;
   exercises: number;
   totalVolume: number;
+  caloriesBurned?: number;
   incomplete?: boolean;
   completedExercises?: number;
   programWorkoutId: string;
@@ -381,10 +383,23 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           return;
         }
         
+        // Calculate calories burned
+        let caloriesBurned: number | undefined;
+        if (user?.weight && activeProgram?.intensityLevel) {
+          const weightKg = unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
+          const durationMinutes = Math.floor(workoutTime / 60);
+          caloriesBurned = calculateCaloriesBurned(
+            durationMinutes,
+            weightKg,
+            activeProgram.intensityLevel as any
+          );
+        }
+        
         onComplete({
           duration: workoutTime,
           exercises: exercises.length,
           totalVolume: Math.round(totalVolume),
+          caloriesBurned,
           programWorkoutId: currentWorkoutId,
           sessionId: sessionId,
         });
@@ -438,10 +453,23 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       return total + (ex.sets * parseFloat(ex.weight || '0'));
     }, 0);
 
+    // Calculate calories burned
+    let caloriesBurned: number | undefined;
+    if (user?.weight && activeProgram?.intensityLevel) {
+      const weightKg = unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
+      const durationMinutes = Math.floor(workoutTime / 60);
+      caloriesBurned = calculateCaloriesBurned(
+        durationMinutes,
+        weightKg,
+        activeProgram.intensityLevel as any
+      );
+    }
+
     onComplete({
       duration: workoutTime,
       exercises: exercises.length,
       totalVolume: Math.round(completedVolume),
+      caloriesBurned,
       incomplete: true,
       completedExercises: currentExerciseIndex,
       programWorkoutId: currentWorkoutId,

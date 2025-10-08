@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Clock, CheckCircle2, FileText } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, CheckCircle2, FileText, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { WorkoutSession } from "@shared/schema";
 
@@ -103,8 +103,17 @@ export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
                   <p className="font-semibold">{session.durationMinutes ? `${session.durationMinutes} min` : 'N/A'}</p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Calories</p>
+                  <p className="font-semibold" data-testid={`text-calories-${session.id}`}>
+                    {session.caloriesBurned ? session.caloriesBurned.toLocaleString() : '--'}
+                  </p>
+                </div>
+              </div>
               {session.notes && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 col-span-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Notes</p>

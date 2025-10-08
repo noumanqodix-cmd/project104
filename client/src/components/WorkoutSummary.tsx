@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock, Dumbbell, TrendingUp, AlertCircle } from "lucide-react";
+import { Trophy, Clock, Dumbbell, TrendingUp, AlertCircle, Flame } from "lucide-react";
 import { Smile, Meh, Frown } from "lucide-react";
 
 interface WorkoutSummaryProps {
   duration: number;
   exercises: number;
   totalVolume: number;
+  caloriesBurned?: number;
   onFinish: (difficulty: number) => void;
   incomplete?: boolean;
   completedExercises?: number;
@@ -17,6 +18,7 @@ export default function WorkoutSummary({
   duration,
   exercises,
   totalVolume,
+  caloriesBurned,
   onFinish,
   incomplete = false,
   completedExercises = 0,
@@ -60,11 +62,18 @@ export default function WorkoutSummary({
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="text-center p-4 border rounded-lg">
             <Clock className="h-8 w-8 text-primary mx-auto mb-2" />
             <p className="text-2xl font-bold">{formatDuration(duration)}</p>
             <p className="text-sm text-muted-foreground">Duration</p>
+          </div>
+          <div className="text-center p-4 border rounded-lg">
+            <Flame className="h-8 w-8 text-primary mx-auto mb-2" />
+            <p className="text-2xl font-bold" data-testid="text-calories-burned">
+              {caloriesBurned ? caloriesBurned.toLocaleString() : '--'}
+            </p>
+            <p className="text-sm text-muted-foreground">Calories Burned</p>
           </div>
           <div className="text-center p-4 border rounded-lg">
             <Dumbbell className="h-8 w-8 text-primary mx-auto mb-2" />
