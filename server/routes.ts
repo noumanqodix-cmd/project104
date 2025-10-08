@@ -901,7 +901,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         equipment, 
         workoutDuration,
         daysPerWeek,
-        unitPreference 
+        unitPreference,
+        height,
+        weight,
+        dateOfBirth
       } = req.body;
 
       if (!equipment || !Array.isArray(equipment)) {
@@ -920,6 +923,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nutritionGoal: nutritionGoal || "maintain",
         unitPreference: unitPreference || "imperial",
         fitnessLevel: experienceLevel || "beginner",
+        weight: weight,
+        height: height,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       };
 
       const tempAssessment = {
