@@ -93,6 +93,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user metrics (height and weight)
+  app.patch('/api/auth/user/metrics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { height, weight } = req.body;
+
+      if (!height && !weight) {
+        return res.status(400).json({ error: "At least one metric (height or weight) is required" });
+      }
+
+      const updateData: any = {};
+      if (height !== undefined) updateData.height = height;
+      if (weight !== undefined) updateData.weight = weight;
+
+      // Recalculate BMR if weight and height are being updated
+      const user = await storage.getUser(userId);
+      if (user && user.dateOfBirth && (updateData.height || updateData.weight)) {
+        const h = updateData.height || user.height;
+        const w = updateData.weight || user.weight;
+        
+        if (h && w && user.dateOfBirth) {
+          const age = Math.floor((new Date().getTime() - new Date(user.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+          const bmr = Math.round(10 * w + 6.25 * h - 5 * age + 5);
+          updateData.bmr = bmr;
+        }
+      }
+
+      await storage.updateUser(userId, updateData);
+      const updatedUser = await storage.getUser(userId);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user metrics:", error);
+      res.status(500).json({ message: "Failed to update metrics" });
+    }
+  });
+
   // Complete onboarding after OIDC login - saves assessment and program data
   app.post("/api/auth/complete-onboarding", isAuthenticated, async (req: any, res: Response) => {
     try {

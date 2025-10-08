@@ -96,6 +96,9 @@ export default function Body() {
     fat: Math.round((recommendedIntake * 0.30) / 9),
   };
 
+  // Calculate age from dateOfBirth
+  const userAge = user?.dateOfBirth ? calculateAge(new Date(user.dateOfBirth)) : null;
+
   const vitals = [
     { label: "Weight", value: `${healthStats.weight} ${weightUnit}`, icon: Weight, change: `-2 ${weightUnit} this week` },
     { label: "Height", value: `${healthStats.height} ${heightUnit}`, icon: Ruler, change: null },
@@ -163,9 +166,6 @@ export default function Body() {
   const onSubmitMetrics = (data: { height: string; weight: string }) => {
     updateMetricsMutation.mutate(data);
   };
-
-  // Calculate age from dateOfBirth
-  const userAge = user?.dateOfBirth ? calculateAge(new Date(user.dateOfBirth)) : null;
 
   return (
     <div className="min-h-screen bg-background pb-20">
