@@ -85,6 +85,7 @@ export const exercises = pgTable("exercises", {
   isFunctional: integer("is_functional").notNull().default(1),
   isCorrective: integer("is_corrective").notNull().default(0),
   exerciseType: text("exercise_type").notNull().default("main"),
+  trackingType: text("tracking_type").notNull().default("reps"),
   videoUrl: text("video_url"),
   formTips: text("form_tips").array(),
 });
@@ -93,6 +94,7 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({
   id: true,
 }).extend({
   exerciseType: z.enum(["warmup", "main", "cooldown"]).optional(),
+  trackingType: z.enum(["reps", "duration", "both"]).default("reps"),
 });
 
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
