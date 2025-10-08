@@ -18,7 +18,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 The application uses Replit Auth (OpenID Connect) for authentication, supporting multiple providers. It integrates with Passport.js for session management, storing OIDC subject claims (`req.user.claims.sub`) as `users.id` in the database. A secure onboarding flow connects user data with their authenticated profile.
 
 ### Data Storage
-PostgreSQL is the primary database, accessed via Drizzle ORM. The schema includes Users (with OIDC fields, `dateOfBirth`), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking. User ages are dynamically calculated from `dateOfBirth`. Workout sessions are pre-generated with specific `scheduledDate` values for the entire program duration.
+PostgreSQL is the primary database, accessed via Drizzle ORM. The schema includes Users (with OIDC fields, `dateOfBirth`), Fitness Assessments, an Exercise Database (163 AI-generated exercises with both functional and isolation work), Workout Programs (with history tracking), and Performance Tracking. User ages are dynamically calculated from `dateOfBirth`. Workout sessions are pre-generated with specific `scheduledDate` values for the entire program duration.
 
 ### AI-Powered Adaptive Training System
 FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout program generation and adaptation.
@@ -26,7 +26,12 @@ FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout progr
 - **Prebuilt Program Templates**: AI selects from three templates (Strength, Cardio, Hybrid Balance) based on user nutrition goals, populating them with exercises based on equipment and fitness level.
 - **Intelligent Program Generation**: GPT-4 creates custom programs based on user input, including corrective exercises, with a typical duration of 8 weeks.
 - **Smart Weight Recommendations**: AI calculates and recommends starting weights for exercises, utilizing 1RM data or bodyweight test results.
-- **Master Exercise Database**: A pre-populated database of 143 exercises categorized by equipment and movement pattern is used for program generation.
+- **Master Exercise Database (October 2025)**: A comprehensive database of 163 exercises (updated from 143) categorized by equipment and movement pattern. Database now includes:
+  - **Equipment Coverage**: 13 equipment types including cable machine (newly added: October 2025), dumbbells, barbell, kettlebell, resistance bands, pull-up bar, TRX, medicine ball, box, jump rope, foam roller, yoga mat, and bodyweight
+  - **Exercise Types**: BOTH functional compound movements (Barbell Back Squat, Bench Press, Deadlift, Lat Pulldown) AND isolation exercises (Bicep Curls, Tricep Extensions, Lateral Raises, Leg Curls, Calf Raises, Chest Flyes)
+  - **AI Generation Enhancement (October 2025)**: Updated generation prompts to explicitly request both functional (isFunctional: 1) and isolation (isFunctional: 0) exercises, addressing previous gap where only functional exercises were generated
+  - **Essential Compound Exercises**: Generation now explicitly includes fundamental lifts (Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Bent-Over Row, Lat Pulldown) when applicable equipment is available
+  - **Cable Machine Exercises**: Added cable machine equipment type with exercises like Cable Rows, Face Pulls, Cable Flyes, and Cable Curls
 - **Category-Specific Difficulty Filtering (October 2025)**: Advanced filtering system enables independent progression across movement patterns for targeted safety and development:
   - **Movement Pattern Independence**: Each movement category (push, pull, squat, lunge, hinge, cardio, core, rotation, carry) has its own difficulty threshold based on related test results
   - **Push Exercises**: Difficulty controlled by pushup test (<5 reps) or bench/OHP 1RM ratios (bench <0.75x, OHP <0.5x bodyweight)
