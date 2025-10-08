@@ -127,14 +127,14 @@ ${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.
 ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
   `.trim();
 
-  // Include both functional main exercises AND warmup exercises, filtered by movement-specific difficulty
-  const functionalExercises = availableExercises
+  // Include main exercises (functional AND isolation) plus warmup exercises, filtered by movement-specific difficulty
+  const mainExercises = availableExercises
     .filter((ex) => 
-      (ex.isFunctional || ex.exerciseType === "warmup") && 
+      ex.exerciseType !== "cooldown" && // Include main (functional + isolation) and warmup, exclude cooldown
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
       isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
     )
-    .slice(0, 80); // Increase to 80 to include warmups
+    .slice(0, 80); // Isolation exercises will be filtered by difficulty (intermediate/advanced only)
 
   // Separate warmup exercises for explicit reference, filtered by movement-specific difficulty
   const warmupExercises = availableExercises
@@ -154,12 +154,13 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     )
     .slice(0, 30);
 
-  const exerciseList = functionalExercises
+  const exerciseList = mainExercises
     .map((ex) => {
       const primary = ex.primaryMuscles?.join(", ") || "unknown";
       const secondary = ex.secondaryMuscles?.join(", ") || "none";
       const equipment = ex.equipment?.join("/") || "bodyweight";
-      return `- ${ex.name} (${ex.movementPattern}, ${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
+      const type = ex.isFunctional ? "functional" : "isolation";
+      return `- ${ex.name} (${ex.movementPattern}, ${equipment}, ${type}) [Primary: ${primary} | Secondary: ${secondary}]`;
     })
     .join("\n");
 
@@ -335,6 +336,33 @@ SUPERSET IMPLEMENTATION:
 - Never superset warmup exercises
 - Typical superset rest: 90-120 seconds (after completing both exercises)
 - Consider 2-3 supersets per workout for intermediate/advanced users
+
+**ISOLATION EXERCISE STRATEGY (INTELLIGENT USE ONLY):**
+The exercise database includes both functional compound movements (isFunctional: 1) AND isolation exercises (isFunctional: 0). Use isolation exercises STRATEGICALLY and SPARINGLY based on these principles:
+
+WHEN TO USE ISOLATION EXERCISES:
+✅ User is INTERMEDIATE or ADVANCED level (never for beginners)
+✅ Clear weakness detected in fitness assessment (e.g., weak pullups → add bicep work, weak pushups → add tricep extensions)
+✅ Muscle group underrepresented in the program (e.g., rear delts, calves, forearms)
+✅ As targeted accessory work to address specific imbalances
+✅ When paired in AGONIST SUPERSETS with compound movements (see examples below)
+
+WHEN TO SKIP ISOLATION EXERCISES:
+❌ User is a BEGINNER (beginners should master compound movement patterns first)
+❌ No clear gaps or weaknesses identified in assessment
+❌ Program is already well-balanced with compound movements
+❌ User has limited workout time (<30 minutes)
+❌ User has minimal equipment
+
+SMART ISOLATION SUPERSET PAIRINGS (for intermediate/advanced users with identified gaps):
+- Chest Development: Bench Press + Chest Flyes (compound + isolation targeting same muscle)
+- Back Development: Bent-Over Row + Face Pulls (compound + rear delt isolation)
+- Pull Strength: Lat Pulldown + Bicep Curls (compound pull + bicep isolation)
+- Shoulder Development: Overhead Press + Lateral Raises (compound + isolation)
+- Lower Body: Squat + Leg Extensions (compound + quad isolation) OR Deadlift + Leg Curls (compound + hamstring isolation)
+- Tricep Strength: Bench Press + Tricep Extensions (push compound + isolation)
+
+KEY PRINCIPLE: Not every workout needs isolation exercises. Use them intelligently based on the user's specific fitness assessment data and identified gaps. For balanced intermediate/advanced users with no clear weaknesses, compound movements may be sufficient. Quality compound movements often provide better overall results than adding isolation work.
 
 **WEIGHT AND REP RECOMMENDATIONS BASED ON FITNESS TEST:**
 Use the fitness test results to provide specific weight/rep recommendations in the notes field:

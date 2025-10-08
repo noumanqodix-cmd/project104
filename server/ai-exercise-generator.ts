@@ -93,6 +93,8 @@ export async function generateExercisesForEquipment(
 - isFunctional: 1 for functional/compound exercises, 0 for isolation exercises
 - isCorrective: 1 for corrective exercises, 0 for regular exercises
 - MUST include BOTH functional (isFunctional: 1) AND isolation exercises (isFunctional: 0)
+- **ISOLATION EXERCISES (isFunctional: 0) must ONLY be generated as "intermediate" or "advanced" difficulty, NEVER "beginner"**
+- Functional/compound exercises can be any difficulty level (beginner, intermediate, advanced)
 - Essential compound exercises to include when applicable: Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Lat Pulldown, Bent-Over Row
 - Essential isolation exercises to include when applicable: Bicep Curls, Tricep Extensions, Lateral Raises, Chest Flyes, Leg Curls, Calf Raises
 - Ensure variety in movement patterns and difficulty levels
