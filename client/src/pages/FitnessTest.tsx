@@ -2,15 +2,23 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Dumbbell, Award, Calendar, Target } from "lucide-react";
+import { TrendingUp, Dumbbell, Award, Calendar, Target, AlertTriangle, ChevronUp, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import type { FitnessAssessment } from "@shared/schema";
-import { calculateMovementPatternLevels, type MovementPatternLevels, type MovementPatternLevel } from "@shared/utils";
+import { calculateMovementPatternLevels, getProgressionTargets, type MovementPatternLevels, type MovementPatternLevel } from "@shared/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
+  const [overrideDialog, setOverrideDialog] = useState<{
+    open: boolean;
+    pattern: keyof MovementPatternLevels | null;
+    currentLevel: MovementPatternLevel | null;
+    nextLevel: MovementPatternLevel | null;
+  }>({ open: false, pattern: null, currentLevel: null, nextLevel: null });
   
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
@@ -21,6 +29,17 @@ export default function FitnessTest() {
 
   const { data: assessments, isLoading } = useQuery<FitnessAssessment[]>({
     queryKey: ["/api/fitness-assessments"],
+  });
+
+  const overrideMutation = useMutation({
+    mutationFn: (data: { assessmentId: string; pattern: string; level: string }) => {
+      const overrideField = `${data.pattern}Override`;
+      return apiRequest(`/api/fitness-assessments/${data.assessmentId}/override`, 'PATCH', { [overrideField]: data.level });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null });
+    },
   });
 
   const bodyweightTests = assessments?.filter(a => 
@@ -193,6 +212,7 @@ export default function FitnessTest() {
     
     const currentLevels = calculateMovementPatternLevels(latest, user);
     const previousLevels = previous ? calculateMovementPatternLevels(previous, user) : null;
+    const progressionTargets = getProgressionTargets(user.weight, user.unitPreference);
     
     const patterns = [
       { 
@@ -227,52 +247,140 @@ export default function FitnessTest() {
       },
     ];
 
+    const getNextLevel = (current: MovementPatternLevel): MovementPatternLevel | null => {
+      if (current === 'beginner') return 'intermediate';
+      if (current === 'intermediate') return 'advanced';
+      return null;
+    };
+
+    const handleOverrideClick = (pattern: keyof MovementPatternLevels, currentLevel: MovementPatternLevel) => {
+      const nextLevel = getNextLevel(currentLevel);
+      if (nextLevel) {
+        setOverrideDialog({
+          open: true,
+          pattern,
+          currentLevel,
+          nextLevel,
+        });
+      }
+    };
+
+    const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
+      const fieldMap: Record<keyof MovementPatternLevels, string> = {
+        push: 'pushOverride',
+        pull: 'pullOverride',
+        lowerBody: 'lowerBodyOverride',
+        hinge: 'hingeOverride',
+        cardio: 'cardioOverride',
+      };
+      return fieldMap[pattern];
+    };
+
+    const isOverridden = (pattern: keyof MovementPatternLevels): boolean => {
+      const fieldName = getOverrideFieldName(pattern);
+      return !!(latest as any)[fieldName];
+    };
+
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Movement Pattern Levels
+            Movement Pattern Levels & Progression Targets
           </CardTitle>
-          <CardDescription>Your skill level for each movement category</CardDescription>
+          <CardDescription>Your current skill level and what it takes to advance</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           {patterns.map(pattern => {
             const currentLevel = currentLevels[pattern.key];
             const previousLevel = previousLevels?.[pattern.key];
             const leveledUp = previousLevel && previousLevel !== currentLevel && 
               ((previousLevel === 'beginner' && currentLevel !== 'beginner') || 
                (previousLevel === 'intermediate' && currentLevel === 'advanced'));
+            const target = progressionTargets[pattern.key];
+            const nextLevel = getNextLevel(currentLevel);
+            const override = isOverridden(pattern.key);
 
             return (
               <div 
                 key={pattern.key} 
-                className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card"
+                className="p-4 rounded-lg border bg-card space-y-3"
                 data-testid={`pattern-level-${pattern.testId}`}
               >
-                <div className="flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{pattern.label}</p>
+                      {leveledUp && (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
+                          data-testid={`level-up-${pattern.testId}`}
+                        >
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          LEVELED UP!
+                        </Badge>
+                      )}
+                      {override && (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
+                          data-testid={`override-indicator-${pattern.testId}`}
+                        >
+                          <ShieldAlert className="h-3 w-3 mr-1" />
+                          Manual Override
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{pattern.description}</p>
+                  </div>
                   <div className="flex items-center gap-2">
-                    <p className="font-medium">{pattern.label}</p>
-                    {leveledUp && (
-                      <Badge 
-                        variant="outline" 
-                        className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
-                        data-testid={`level-up-${pattern.testId}`}
+                    <Badge 
+                      variant="outline" 
+                      className={`${getLevelColor(currentLevel)} capitalize font-medium`}
+                      data-testid={`level-badge-${pattern.testId}`}
+                    >
+                      {currentLevel}
+                    </Badge>
+                    {nextLevel && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOverrideClick(pattern.key, currentLevel)}
+                        data-testid={`override-button-${pattern.testId}`}
                       >
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        LEVELED UP!
-                      </Badge>
+                        <ChevronUp className="h-4 w-4 mr-1" />
+                        Override to {nextLevel}
+                      </Button>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{pattern.description}</p>
                 </div>
-                <Badge 
-                  variant="outline" 
-                  className={`${getLevelColor(currentLevel)} capitalize font-medium`}
-                  data-testid={`level-badge-${pattern.testId}`}
-                >
-                  {currentLevel}
-                </Badge>
+
+                {nextLevel && (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-medium text-muted-foreground">To reach {nextLevel}:</p>
+                    <div className="grid grid-cols-2 gap-3 pl-3">
+                      {target.weightedTest !== 'N/A' && (
+                        <>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Bodyweight Test:</p>
+                            <p className="text-sm">{nextLevel === 'intermediate' ? target.bodyweightIntermediate : target.bodyweightAdvanced}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Weighted Test:</p>
+                            <p className="text-sm">{nextLevel === 'intermediate' ? target.weightedIntermediate : target.weightedAdvanced}</p>
+                          </div>
+                        </>
+                      )}
+                      {target.weightedTest === 'N/A' && (
+                        <div className="col-span-2 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Target:</p>
+                          <p className="text-sm">{nextLevel === 'intermediate' ? target.bodyweightIntermediate : target.bodyweightAdvanced}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -454,6 +562,83 @@ export default function FitnessTest() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={overrideDialog.open} onOpenChange={(open) => !open && setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null })}>
+        <DialogContent data-testid="override-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Override Level Warning
+            </DialogTitle>
+            <DialogDescription>
+              You're about to manually override your skill level for this movement pattern
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+              <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-2">
+                ⚠️ Not Recommended Until You Meet Requirements
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Overriding your level will unlock more advanced exercises, but doing so before meeting the performance targets may lead to:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                <li>Increased injury risk</li>
+                <li>Poor exercise form</li>
+                <li>Suboptimal training progress</li>
+              </ul>
+            </div>
+
+            {overrideDialog.pattern && overrideDialog.nextLevel && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Current Level: <span className="capitalize">{overrideDialog.currentLevel}</span></p>
+                <p className="text-sm font-medium">Override To: <span className="capitalize text-primary">{overrideDialog.nextLevel}</span></p>
+                <div className="mt-3 p-3 rounded-lg bg-muted">
+                  <p className="text-sm font-medium mb-2">Targets to reach {overrideDialog.nextLevel}:</p>
+                  {(() => {
+                    const targets = getProgressionTargets(user?.weight, user?.unitPreference);
+                    const target = targets[overrideDialog.pattern];
+                    return (
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <p><strong>Bodyweight:</strong> {overrideDialog.nextLevel === 'intermediate' ? target.bodyweightIntermediate : target.bodyweightAdvanced}</p>
+                        {target.weightedTest !== 'N/A' && (
+                          <p><strong>Weighted:</strong> {overrideDialog.nextLevel === 'intermediate' ? target.weightedIntermediate : target.weightedAdvanced}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null })}
+              data-testid="button-cancel-override"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (overrideDialog.pattern && overrideDialog.nextLevel && assessments?.[0]) {
+                  overrideMutation.mutate({
+                    assessmentId: assessments[0].id,
+                    pattern: overrideDialog.pattern,
+                    level: overrideDialog.nextLevel,
+                  });
+                }
+              }}
+              disabled={overrideMutation.isPending}
+              data-testid="button-confirm-override"
+            >
+              {overrideMutation.isPending ? "Saving..." : "Confirm Override"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
