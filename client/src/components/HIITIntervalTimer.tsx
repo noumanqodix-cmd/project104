@@ -166,7 +166,7 @@ export default function HIITIntervalTimer({
                 variant="outline"
                 className="flex-1"
                 onClick={handlePauseResume}
-                data-testid="button-pause-resume"
+                data-testid="button-pause-hiit"
               >
                 {isPaused ? (
                   <>

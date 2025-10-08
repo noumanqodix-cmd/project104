@@ -754,7 +754,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               variant="outline"
               size="icon"
               onClick={() => setIsPaused(!isPaused)}
-              data-testid="button-pause-resume"
+              data-testid="button-pause-workout"
             >
               {isPaused ? <PlayCircle className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
             </Button>
