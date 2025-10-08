@@ -14,7 +14,7 @@ interface GeneratedExerciseData {
   primaryMuscles: string[];
   secondaryMuscles: string[];
   exerciseType: "warmup" | "main" | "cooldown";
-  isFunctional: number;
+  liftType: "compound" | "isolation";
   isCorrective: number;
   formTips: string[];
   trackingType?: "reps" | "duration" | "both";
@@ -68,7 +68,7 @@ export async function generateExercisesForEquipment(
       "primaryMuscles": ["broad muscle group(s)"],
       "secondaryMuscles": ["specific anatomical muscles"],
       "exerciseType": "warmup|main|cooldown",
-      "isFunctional": 1,
+      "liftType": "compound",
       "isCorrective": 0,
       "trackingType": "reps|duration|both",
       "formTips": [
@@ -90,11 +90,11 @@ export async function generateExercisesForEquipment(
 - "both": Can be tracked either way (carries, some cardio)
 
 **Important:**
-- isFunctional: 1 for functional/compound exercises, 0 for isolation exercises
+- liftType: "compound" for multi-joint exercises, "isolation" for single-joint exercises
 - isCorrective: 1 for corrective exercises, 0 for regular exercises
-- MUST include BOTH functional (isFunctional: 1) AND isolation exercises (isFunctional: 0)
-- **ISOLATION EXERCISES (isFunctional: 0) must ONLY be generated as "intermediate" or "advanced" difficulty, NEVER "beginner"**
-- Functional/compound exercises can be any difficulty level (beginner, intermediate, advanced)
+- MUST include BOTH compound (liftType: "compound") AND isolation exercises (liftType: "isolation")
+- **ISOLATION EXERCISES (liftType: "isolation") must ONLY be generated as "intermediate" or "advanced" difficulty, NEVER "beginner"**
+- Compound exercises can be any difficulty level (beginner, intermediate, advanced)
 - Essential compound exercises to include when applicable: Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Lat Pulldown, Bent-Over Row
 - Essential isolation exercises to include when applicable: Bicep Curls, Tricep Extensions, Lateral Raises, Chest Flyes, Leg Curls, Calf Raises
 - Ensure variety in movement patterns and difficulty levels
@@ -132,7 +132,7 @@ export async function generateExercisesForEquipment(
     difficulty: ex.difficulty,
     primaryMuscles: ex.primaryMuscles,
     secondaryMuscles: ex.secondaryMuscles,
-    isFunctional: ex.isFunctional,
+    liftType: ex.liftType,
     isCorrective: ex.isCorrective,
     exerciseType: ex.exerciseType,
     formTips: ex.formTips,

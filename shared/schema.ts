@@ -95,7 +95,7 @@ export const exercises = pgTable("exercises", {
   difficulty: text("difficulty").notNull(),
   primaryMuscles: text("primary_muscles").array().notNull(),
   secondaryMuscles: text("secondary_muscles").array(),
-  isFunctional: integer("is_functional").notNull().default(1),
+  liftType: text("lift_type").notNull().default("compound"),
   isCorrective: integer("is_corrective").notNull().default(0),
   exerciseType: text("exercise_type").notNull().default("main"),
   trackingType: text("tracking_type").notNull().default("reps"),
@@ -106,6 +106,7 @@ export const exercises = pgTable("exercises", {
 export const insertExerciseSchema = createInsertSchema(exercises).omit({
   id: true,
 }).extend({
+  liftType: z.enum(["compound", "isolation"]).default("compound"),
   exerciseType: z.enum(["warmup", "main", "cooldown"]).optional(),
   trackingType: z.enum(["reps", "duration", "both"]).default("reps"),
 });

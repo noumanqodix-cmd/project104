@@ -969,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               primaryMuscles: [],
               secondaryMuscles: [],
               exerciseType: 'main',
-              isFunctional: 1,
+              liftType: 'compound',
               isCorrective: 0,
               formTips: []
             }

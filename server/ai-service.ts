@@ -159,7 +159,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
       const primary = ex.primaryMuscles?.join(", ") || "unknown";
       const secondary = ex.secondaryMuscles?.join(", ") || "none";
       const equipment = ex.equipment?.join("/") || "bodyweight";
-      const type = ex.isFunctional ? "functional" : "isolation";
+      const type = ex.liftType || "compound";
       return `- ${ex.name} (${ex.movementPattern}, ${equipment}, ${type}) [Primary: ${primary} | Secondary: ${secondary}]`;
     })
     .join("\n");
@@ -338,7 +338,7 @@ SUPERSET IMPLEMENTATION:
 - Consider 2-3 supersets per workout for intermediate/advanced users
 
 **ISOLATION EXERCISE STRATEGY (INTELLIGENT USE ONLY):**
-The exercise database includes both functional compound movements (isFunctional: 1) AND isolation exercises (isFunctional: 0). Use isolation exercises STRATEGICALLY and SPARINGLY based on these principles:
+The exercise database includes both compound movements (liftType: "compound") AND isolation exercises (liftType: "isolation"). Use isolation exercises STRATEGICALLY and SPARINGLY based on these principles:
 
 WHEN TO USE ISOLATION EXERCISES:
 ✅ User is INTERMEDIATE or ADVANCED level (never for beginners)

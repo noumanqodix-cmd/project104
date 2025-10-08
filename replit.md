@@ -29,16 +29,16 @@ FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout progr
 - **Master Exercise Database (October 2025)**: A comprehensive database of 163 exercises (updated from 143) categorized by equipment and movement pattern. Database now includes:
   - **Equipment Coverage**: 13 equipment types including cable machine (newly added: October 2025), dumbbells, barbell, kettlebell, resistance bands, pull-up bar, TRX, medicine ball, box, jump rope, foam roller, yoga mat, and bodyweight
   - **Exercise Types**: BOTH functional compound movements (Barbell Back Squat, Bench Press, Deadlift, Lat Pulldown) AND isolation exercises (Bicep Curls, Tricep Extensions, Lateral Raises, Leg Curls, Calf Raises, Chest Flyes)
-  - **AI Generation Enhancement (October 2025)**: Updated generation prompts to explicitly request both functional (isFunctional: 1) and isolation (isFunctional: 0) exercises, addressing previous gap where only functional exercises were generated
+  - **AI Generation Enhancement (October 2025)**: Updated generation prompts to explicitly request both compound (liftType: 'compound') and isolation (liftType: 'isolation') exercises. Uses clear liftType field instead of vague isFunctional boolean, addressing previous gap where only compound exercises were generated
   - **Essential Compound Exercises**: Generation now explicitly includes fundamental lifts (Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Bent-Over Row, Lat Pulldown) when applicable equipment is available
   - **Cable Machine Exercises**: Added cable machine equipment type with exercises like Cable Rows, Face Pulls, Cable Flyes, and Cable Curls
 - **Intelligent Isolation Exercise Integration (October 2025)**: Strategic use of isolation exercises based on user fitness level and identified gaps:
-  - **Level-Based Access**: Isolation exercises (isFunctional: 0) are generated as intermediate/advanced difficulty only, never beginner
+  - **Level-Based Access**: Isolation exercises (liftType: 'isolation') are generated as intermediate/advanced difficulty only, never beginner
   - **AI Strategic Decision-Making**: GPT-4 analyzes user fitness assessment data to intelligently decide when isolation exercises add value
   - **Agonist Superset Pairings**: When appropriate, isolation exercises are paired with compound movements in agonist supersets (e.g., Bench Press + Chest Flyes, Lat Pulldown + Bicep Curls)
   - **Weakness-Targeted Application**: Isolation used to address specific weaknesses (e.g., weak pullups → bicep curls, weak pushups → tricep extensions) or underrepresented muscle groups
   - **Smart Skipping Logic**: AI skips isolation for beginners (compound movements only), balanced programs, or users with limited time/equipment
-  - **Exercise Pool Integration**: Program generation and exercise swap endpoints include both functional and isolation exercises, filtered by movement pattern difficulty
+  - **Exercise Pool Integration**: Program generation and exercise swap endpoints include both compound and isolation exercises, filtered by movement pattern difficulty and liftType classification
   - **Philosophy**: Not prescriptive - isolation exercises are used sparingly when they provide strategic value based on individual assessment data and gaps, not added to every workout
 - **Category-Specific Difficulty Filtering (October 2025)**: Advanced filtering system enables independent progression across movement patterns for targeted safety and development:
   - **Movement Pattern Independence**: Each movement category (push, pull, squat, lunge, hinge, cardio, core, rotation, carry) has its own difficulty threshold based on related test results
