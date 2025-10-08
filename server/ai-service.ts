@@ -53,6 +53,27 @@ export async function generateWorkoutProgram(
   const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
+  // Safety override: if fitness test results are very weak, force beginner difficulty
+  const pushups = latestAssessment.pushups || 0;
+  const pullups = latestAssessment.pullups || 0;
+  const squats = latestAssessment.squats || 0;
+  
+  const isWeakPerformance = pushups < 5 || pullups < 2 || squats < 15;
+  const effectiveFitnessLevel = isWeakPerformance ? "beginner" : fitnessLevel;
+  
+  console.log(`[DIFFICULTY] User fitness level: ${fitnessLevel}, Effective level: ${effectiveFitnessLevel}${isWeakPerformance ? ' (safety override applied)' : ''}`);
+
+  // Determine allowed exercise difficulties based on fitness level
+  const allowedDifficulties: string[] = [];
+  if (effectiveFitnessLevel === "beginner") {
+    allowedDifficulties.push("beginner");
+  } else if (effectiveFitnessLevel === "intermediate") {
+    allowedDifficulties.push("beginner", "intermediate");
+  } else {
+    // Advanced users can access all difficulties
+    allowedDifficulties.push("beginner", "intermediate", "advanced");
+  }
+
   const assessmentSummary = `
 Fitness Test Results:
 - Pushups: ${latestAssessment.pushups || "N/A"}
@@ -66,27 +87,30 @@ ${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.
 ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
   `.trim();
 
-  // Include both functional main exercises AND warmup exercises
+  // Include both functional main exercises AND warmup exercises, filtered by difficulty
   const functionalExercises = availableExercises
     .filter((ex) => 
       (ex.isFunctional || ex.exerciseType === "warmup") && 
-      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
+      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+      allowedDifficulties.includes(ex.difficulty)
     )
     .slice(0, 80); // Increase to 80 to include warmups
 
-  // Separate warmup exercises for explicit reference
+  // Separate warmup exercises for explicit reference, filtered by difficulty
   const warmupExercises = availableExercises
     .filter((ex) => 
       ex.exerciseType === "warmup" &&
-      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
+      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+      allowedDifficulties.includes(ex.difficulty)
     )
     .slice(0, 30);
 
-  // Separate cardio/HIIT exercises for HIIT workouts
+  // Separate cardio/HIIT exercises for HIIT workouts, filtered by difficulty
   const cardioExercises = availableExercises
     .filter((ex) => 
       ex.movementPattern === "cardio" &&
-      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight")
+      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+      allowedDifficulties.includes(ex.difficulty)
     )
     .slice(0, 30);
 
@@ -127,7 +151,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
   const prompt = `You are an expert strength and conditioning coach specializing in functional fitness and corrective exercises. Create a personalized workout program based on the following user profile:
 
 **User Profile:**
-- Fitness Level: ${fitnessLevel}
+- Fitness Level: ${fitnessLevel}${effectiveFitnessLevel !== fitnessLevel ? ` (Effective: ${effectiveFitnessLevel} - adjusted for safety based on test results)` : ''}
 - Available Equipment: ${equipmentList}
 - Workout Frequency: ${daysPerWeek} days per week
 - Workout Duration: ${workoutDuration} minutes per session
@@ -136,6 +160,13 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
 - Scheduled Training Days: ${dayScheduleText}
 
 ${assessmentSummary}
+
+**IMPORTANT - Exercise Safety Filtering:**
+All exercises below have been PRE-FILTERED for the user's skill level (${effectiveFitnessLevel}).
+- Beginner users: Only beginner-level exercises provided
+- Intermediate users: Beginner + intermediate exercises provided
+- Advanced users: All difficulty levels provided
+DO NOT assign exercises beyond the user's capability. Use ONLY exercises from the lists below.
 
 **Main Exercise Database (prioritize functional movements):**
 ${exerciseList}
@@ -160,7 +191,7 @@ ${templateInstructions}
 6. Emphasize movement patterns from the template's distribution lists
 7. Progressive overload strategy built-in
 8. Appropriate for ${workoutDuration}-minute sessions
-9. Match the user's current fitness level based on assessment results
+9. Match the user's current fitness level (${effectiveFitnessLevel}) - exercises are already filtered for safety
 10. Use available equipment: ${equipmentList}
 
 **WARMUP REQUIREMENTS (CRITICAL):**
