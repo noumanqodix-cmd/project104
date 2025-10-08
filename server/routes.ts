@@ -7,40 +7,48 @@ import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, g
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 
+// Guard against duplicate route registration (e.g., from HMR)
+let routesRegistered = false;
+
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Find the start of current week (Monday)
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Sunday is 6 days from Monday
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - daysFromMonday);
+    // Create a map of dayOfWeek to programWorkout for quick lookup
+    const workoutsByDay = new Map<number, ProgramWorkout>();
+    programWorkouts.forEach(pw => {
+      workoutsByDay.set(pw.dayOfWeek, pw);
+    });
     
-    // Generate sessions for all weeks
+    // Generate sessions starting from TODAY for the entire duration
     const sessions = [];
-    for (let week = 0; week < durationWeeks; week++) {
-      for (const programWorkout of programWorkouts) {
-        // Calculate date for this workout in this week
-        const scheduledDate = new Date(weekStart);
-        // dayOfWeek: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
-        const dayOffset = programWorkout.dayOfWeek === 7 ? 6 : programWorkout.dayOfWeek - 1;
-        scheduledDate.setDate(weekStart.getDate() + (week * 7) + dayOffset);
-        
-        // Only include workouts that are today or in the future
-        if (scheduledDate >= today) {
-          sessions.push({
-            userId,
-            programWorkoutId: programWorkout.id,
-            workoutName: programWorkout.workoutName,
-            scheduledDate,
-            sessionDayOfWeek: programWorkout.dayOfWeek,
-            completed: 0,
-            status: "scheduled" as const,
-          });
-        }
+    const totalDays = durationWeeks * 7;
+    
+    for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
+      const scheduledDate = new Date(today);
+      scheduledDate.setDate(today.getDate() + dayOffset);
+      
+      // Get calendar day-of-week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const calendarDay = scheduledDate.getDay();
+      
+      // Convert to our schema format: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
+      const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
+      
+      // Find the programWorkout for this day
+      const programWorkout = workoutsByDay.get(schemaDayOfWeek);
+      
+      if (programWorkout) {
+        sessions.push({
+          userId,
+          programWorkoutId: programWorkout.id,
+          workoutName: programWorkout.workoutName,
+          scheduledDate,
+          sessionDayOfWeek: schemaDayOfWeek,
+          completed: 0,
+          status: "scheduled" as const,
+        });
       }
     }
     
@@ -60,6 +68,13 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Guard against duplicate route registration
+  if (routesRegistered) {
+    console.log("[ROUTES] Routes already registered, skipping duplicate registration");
+    return createServer(app);
+  }
+  console.log("[ROUTES] Registering routes for the first time");
+  
   // Setup Replit Auth
   await setupAuth(app);
 
@@ -1211,6 +1226,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  // Mark routes as registered only after successful setup
+  routesRegistered = true;
+  console.log("[ROUTES] Route registration completed successfully");
 
   return httpServer;
 }
