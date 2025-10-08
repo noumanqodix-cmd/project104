@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { User, FitnessAssessment, Exercise } from "@shared/schema";
+import { selectProgramTemplate, getTemplateInstructions } from "./programTemplates";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -117,6 +118,10 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
   const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const dayScheduleText = scheduledDays.map(d => `Day ${d} (${dayNames[d]})`).join(', ');
 
+  // Select the appropriate program template based on user's nutrition goal
+  const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
+  const templateInstructions = getTemplateInstructions(selectedTemplate);
+
   const prompt = `You are an expert strength and conditioning coach specializing in functional fitness and corrective exercises. Create a personalized workout program based on the following user profile:
 
 **User Profile:**
@@ -139,19 +144,22 @@ ${warmupList}
 **Cardio/HIIT Exercise Database:**
 ${cardioList}
 
+${templateInstructions}
+
 **Program Requirements:**
 1. Create exactly ${daysPerWeek} workouts per week - this is CRITICAL
 2. IMPORTANT: Use ONLY these specific dayOfWeek values: ${JSON.stringify(scheduledDays)}
    - dayOfWeek uses ISO 8601 format: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
    - For ${daysPerWeek} days per week, schedule workouts on: ${dayScheduleText}
    - These days have been carefully selected to provide optimal recovery between sessions
-3. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
-4. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
-5. Emphasize movement patterns: PUSH, PULL, HINGE, SQUAT, CARRY, ROTATION
-6. Progressive overload strategy built-in
-7. Appropriate for ${workoutDuration}-minute sessions
-8. Match the user's current fitness level based on assessment results
-9. Use available equipment: ${equipmentList}
+3. STRICTLY follow the template's workout structure and exercise distribution
+4. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
+5. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
+6. Emphasize movement patterns from the template's distribution lists
+7. Progressive overload strategy built-in
+8. Appropriate for ${workoutDuration}-minute sessions
+9. Match the user's current fitness level based on assessment results
+10. Use available equipment: ${equipmentList}
 
 **WARMUP REQUIREMENTS (CRITICAL):**
 - Each workout MUST include 2-3 dynamic warmup exercises at the beginning that specifically prepare for that day's movement patterns
@@ -163,10 +171,12 @@ ${cardioList}
 **INTENSITY CONTROL:**
 - For each main exercise (not warmups), specify targetRPE (1-10, where 10 is maximal effort) and targetRIR (0-5, reps left in reserve)
 - RPE/RIR targets help users understand intended intensity
-- You have full control over sets, reps, rest periods, and intensity targets
-- Beginners: RPE 6-7, RIR 3-4
-- Intermediate: RPE 7-8, RIR 2-3
-- Advanced: RPE 8-9, RIR 1-2
+- Use the template's intensity guidelines as your baseline and adjust based on fitness level
+- Template intensity targets: RPE ${selectedTemplate.intensityGuidelines.strengthRPE[0]}-${selectedTemplate.intensityGuidelines.strengthRPE[1]}, RIR ${selectedTemplate.intensityGuidelines.strengthRIR[0]}-${selectedTemplate.intensityGuidelines.strengthRIR[1]}
+- Fine-tune based on experience:
+  - Beginners: Lower end of template range
+  - Intermediate: Middle of template range
+  - Advanced: Upper end of template range
 
 **SUPERSET GUIDELINES (OPTIONAL BUT ENCOURAGED):**
 Supersets are an excellent way to increase workout efficiency and intensity. When appropriate, pair exercises together as supersets:
