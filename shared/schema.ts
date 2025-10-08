@@ -63,6 +63,11 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   benchPress1rm: real("bench_press_1rm"),
   overheadPress1rm: real("overhead_press_1rm"),
   barbellRow1rm: real("barbell_row_1rm"),
+  pushOverride: text("push_override"),
+  pullOverride: text("pull_override"),
+  lowerBodyOverride: text("lower_body_override"),
+  hingeOverride: text("hinge_override"),
+  cardioOverride: text("cardio_override"),
 });
 
 export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessments).omit({
