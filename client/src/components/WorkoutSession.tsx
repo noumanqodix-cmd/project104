@@ -219,7 +219,10 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     return equipment.some(eq => weightEquipment.includes(eq.toLowerCase()));
   };
 
-  const isCardio = currentExercise?.movementPattern === 'cardio';
+  const currentProgramExercise = programExercises[currentExerciseIndex];
+  const isDurationBased = currentProgramExercise?.exercise?.trackingType === 'duration' 
+    || currentExercise?.movementPattern === 'cardio'
+    || currentExercise?.equipment.some(eq => eq.toLowerCase().includes('cardio'));
   const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
 
   useEffect(() => {
@@ -304,7 +307,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       return;
     }
     
-    if (rir !== undefined && !isLastSet && !isCardio) {
+    if (rir !== undefined && !isLastSet && !isDurationBased) {
       if (needsWeight) {
         const increase = getWeightIncreaseRecommendation(rir);
         setRecommendedWeightIncrease(increase);
@@ -321,14 +324,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleSetComplete = async () => {
-    if (isCardio) {
+    if (isDurationBased) {
       if (!actualDuration) return;
     } else {
       if (!actualReps) return;
       if (needsWeight && !actualWeight) return;
     }
 
-    const weightToUse = isCardio ? "0" : (needsWeight ? actualWeight : "0");
+    const weightToUse = isDurationBased ? "0" : (needsWeight ? actualWeight : "0");
     
     const updatedExercises = exercises.map((ex, idx) => 
       idx === currentExerciseIndex 
@@ -340,7 +343,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     setRecommendedWeightIncrease(0);
     setRecommendedRepIncrease(0);
 
-    if (!isCardio) {
+    if (!isDurationBased) {
       const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
       const repsMax = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[1] : currentExercise.reps);
       const actualRepsInt = parseInt(actualReps);
@@ -769,7 +772,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Set {currentSet} of {currentExercise.sets}</p>
               <div className="space-y-2">
-                {isCardio ? (
+                {isDurationBased ? (
                   <p className="text-lg">
                     <span className="text-muted-foreground">Duration: </span>
                     <span className="font-bold">
@@ -784,7 +787,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                     <span className="font-bold">{currentExercise.reps} reps</span>
                   </p>
                 )}
-                {!isCardio && (
+                {!isDurationBased && (
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Tempo</p>
@@ -807,7 +810,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               </div>
             </div>
 
-            {isCardio ? (
+            {isDurationBased ? (
               <div className="space-y-2">
                 <Label htmlFor="actual-duration">Duration (seconds)</Label>
                 <Input
@@ -871,7 +874,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               size="lg"
               className="w-full"
               onClick={handleSetComplete}
-              disabled={isCardio ? !actualDuration : (!actualReps || (needsWeight && !actualWeight))}
+              disabled={isDurationBased ? !actualDuration : (!actualReps || (needsWeight && !actualWeight))}
               data-testid="button-next-set"
             >
               {isLastSet && isLastExercise ? "Finish Workout" : isLastSet ? "Next Exercise" : "Finish Set and Recover"}
