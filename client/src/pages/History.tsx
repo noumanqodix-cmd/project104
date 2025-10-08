@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import type { WorkoutSession, WorkoutProgram, ProgramWorkout } from "@shared/schema";
+import { CalendarView } from "@/components/CalendarView";
 
 export default function History() {
   const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
@@ -140,65 +141,29 @@ export default function History() {
           </Card>
         </div>
 
-        <Tabs defaultValue="workouts" className="w-full">
+        <Tabs defaultValue="calendar" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="workouts" data-testid="tab-workouts">Workouts</TabsTrigger>
+            <TabsTrigger value="calendar" data-testid="tab-calendar">Calendar</TabsTrigger>
             <TabsTrigger value="programs" data-testid="tab-programs">Programs</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="workouts" className="space-y-4 mt-6">
-            {completedSessions.length === 0 ? (
+          <TabsContent value="calendar" className="mt-6">
+            {!sessions || sessions.length === 0 ? (
               <Card className="p-12">
                 <div className="text-center space-y-4">
                   <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                    <Dumbbell className="h-6 w-6 text-muted-foreground" />
+                    <Calendar className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold mb-2">No Workout History Yet</h3>
-                    <p className="text-sm text-muted-foreground" data-testid="empty-workouts">
-                      Complete your first workout to start tracking your fitness journey.
+                    <h3 className="text-lg font-semibold mb-2">No Program Yet</h3>
+                    <p className="text-sm text-muted-foreground" data-testid="empty-calendar">
+                      Generate a workout program to see your schedule.
                     </p>
                   </div>
                 </div>
               </Card>
             ) : (
-              completedSessions.map((session) => {
-                const workoutName = session.workoutName || "Workout Session";
-                const isSkipped = session.status === "skipped";
-                
-                return (
-                  <Card key={session.id} data-testid={`workout-${session.id}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg">{workoutName}</CardTitle>
-                          <CardDescription className="flex items-center gap-1 mt-1">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(session.sessionDate), "MMM d, yyyy 'at' h:mm a")}
-                          </CardDescription>
-                        </div>
-                        <Badge variant={isSkipped ? "secondary" : "default"}>
-                          {isSkipped ? "Skipped" : "Completed"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {session.durationMinutes ? `${session.durationMinutes} min` : "No duration recorded"}
-                        </div>
-                      </div>
-                      {session.notes && (
-                        <div className="flex items-start gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
-                          <p className="text-sm text-muted-foreground">{session.notes}</p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })
+              <CalendarView sessions={sessions} />
             )}
           </TabsContent>
 
