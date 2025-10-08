@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
+import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 
 // Guard against duplicate route registration (e.g., from HMR)
@@ -558,17 +558,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
-      const overrideData = req.body;
 
       const assessment = await storage.getFitnessAssessmentById(id);
       if (!assessment || assessment.userId !== userId) {
         return res.status(404).json({ error: "Assessment not found" });
       }
 
-      const updated = await storage.updateFitnessAssessmentOverride(id, overrideData);
+      const validatedData = overrideFitnessAssessmentSchema.parse(req.body);
+      const updated = await storage.updateFitnessAssessmentOverride(id, validatedData);
       res.json(updated);
     } catch (error) {
       console.error("Update assessment override error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid override data", details: error.errors });
+      }
       res.status(500).json({ error: "Failed to update assessment override" });
     }
   });

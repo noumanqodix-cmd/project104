@@ -10,9 +10,11 @@ import type { FitnessAssessment } from "@shared/schema";
 import { calculateMovementPatternLevels, getProgressionTargets, type MovementPatternLevels, type MovementPatternLevel } from "@shared/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [overrideDialog, setOverrideDialog] = useState<{
     open: boolean;
     pattern: keyof MovementPatternLevels | null;
@@ -34,11 +36,23 @@ export default function FitnessTest() {
   const overrideMutation = useMutation({
     mutationFn: (data: { assessmentId: string; pattern: string; level: string }) => {
       const overrideField = `${data.pattern}Override`;
-      return apiRequest(`/api/fitness-assessments/${data.assessmentId}/override`, 'PATCH', { [overrideField]: data.level });
+      return apiRequest('PATCH', `/api/fitness-assessments/${data.assessmentId}/override`, { [overrideField]: data.level });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
       setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null });
+      toast({
+        title: "Level Override Applied",
+        description: "Your manual level override has been saved successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Override mutation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Override Failed",
+        description: error.message || "Failed to apply level override. Please try again.",
+      });
     },
   });
 

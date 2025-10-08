@@ -75,6 +75,14 @@ export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessmen
   testDate: true,
 });
 
+export const overrideFitnessAssessmentSchema = z.object({
+  pushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  pullOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  lowerBodyOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  hingeOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  cardioOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+}).strict(); // Prevents additional properties
+
 export type InsertFitnessAssessment = z.infer<typeof insertFitnessAssessmentSchema>;
 export type FitnessAssessment = typeof fitnessAssessments.$inferSelect;
 
