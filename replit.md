@@ -1,7 +1,7 @@
 # FitForge - Personal Fitness Program Application
 
 ## Overview
-FitForge is a mobile-first fitness application designed to create personalized workout programs. It guides users through an onboarding questionnaire, generates custom workout plans based on fitness levels, available equipment, and schedule, and provides tools for workout tracking and progress monitoring. The application adheres to Material Design principles, prioritizing quick data entry and functional clarity for an optimal gym experience. It also incorporates an AI-powered adaptive training system for intelligent program generation and progressive overload.
+FitForge is a mobile-first fitness application designed to create personalized workout programs. It guides users through an onboarding questionnaire, generates custom workout plans based on fitness levels, available equipment, and schedule, and provides tools for workout tracking and progress monitoring. The application incorporates an AI-powered adaptive training system for intelligent program generation and progressive overload, focusing on quick data entry and functional clarity.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,114 +9,50 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-The frontend uses React 18 with TypeScript, Vite for fast development, and Wouter for client-side routing. Server state management is handled by React Query. The UI is built with Shadcn/ui and Radix UI primitives, styled using Tailwind CSS, featuring a custom theme with light/dark modes and a Material Design-inspired color palette. The application structure includes a multi-step onboarding flow and primary views like Home, Workout, History (Workouts/Programs tabs), Body metrics, Settings (with Workout Preferences), and Progress visualization, utilizing a bottom navigation pattern.
-
-**Calendar-Based UI (October 2025)**: The entire application now displays actual calendar dates instead of abstract week/day numbers for improved clarity:
-- **Home Page** (`client/src/pages/Home.tsx`): Current Program card shows week as date range (e.g., "Oct 7 - Oct 13 • 8 week program") instead of "Week X of Y"
-- **Program Details** (`client/src/components/WorkoutProgramView.tsx`): Workout navigation displays day names (e.g., "Monday • Workout 1 of 3") instead of "Day 1 of 7"
-- **Progress Chart** (`client/src/components/ProgressView.tsx`): X-axis labels show calendar date ranges (e.g., "Oct 7 - 13" for same-month weeks, "Nov 27 - Dec 3" for cross-month weeks) instead of "Week 1", "Week 2"
-- **Onboarding Preview** (`client/src/components/ProgramPreviewPage.tsx`): Displays first week's scheduled date range (e.g., "Oct 7 - Oct 13 Preview") instead of "Week 1 Preview"
+The frontend uses React 18 with TypeScript, Vite, and Wouter for routing. React Query manages server state. The UI is built with Shadcn/ui and Radix UI, styled with Tailwind CSS, featuring a custom Material Design-inspired theme with light/dark modes. The application includes a multi-step onboarding flow and primary views such as Home, Workout, History, Body Metrics, Settings, and Progress visualization, utilizing a bottom navigation. All UI components display actual calendar dates for clarity (e.g., "Oct 7 - Oct 13" for week ranges, "Monday, October 7" for workout sessions).
 
 ### Backend
-The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support and custom logging. It integrates with Vite for development HMR and serves static files in production. Replit-specific plugins are used for development tooling.
+The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support. It integrates with Vite for HMR and serves static files in production.
 
 ### Authentication
-The application uses **Replit Auth (OpenID Connect)** for authentication, allowing users to sign in via multiple providers (Google, GitHub, X, Apple, Email). 
-- **Onboarding Flow**: Users complete the multi-step questionnaire → fitness test → nutrition → equipment → availability → subscription → program preview → **Sign in with Replit** → callback handler saves all data
-- **Implementation**: Uses Passport.js with OpenID Client strategy, database-backed sessions via `connect-pg-simple`
-- **User Identification**: `req.user.claims.sub` (OIDC subject claim) stored as `users.id`
-- **Session Management**: Persistent sessions with automatic refresh token rotation
-- **Profile Management**: Settings page displays complete Replit Auth profile (profile image, full name, email) from OIDC claims
-- **Logout**: `/api/logout` endpoint properly terminates Passport session and redirects to OIDC end session URL for complete sign-out
+The application uses Replit Auth (OpenID Connect) for authentication, supporting multiple providers. It integrates with Passport.js for session management, storing OIDC subject claims (`req.user.claims.sub`) as `users.id` in the database. A secure onboarding flow connects user data with their authenticated profile.
 
 ### Data Storage
-PostgreSQL is used as the primary database, configured via Neon serverless and accessed using Drizzle ORM for type-safe operations. The schema includes tables for Users (with OIDC fields: email, firstName, lastName, profileImageUrl), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking (workout sessions and sets). Session management is database-backed using `connect-pg-simple` for persistent, cookie-based authentication.
-
-**Calendar-Based Scheduling (October 2025)**: The system uses actual calendar dates (`scheduledDate`) instead of day-of-week numbers. When a program is created, all workout sessions for the entire program duration are pre-generated with specific scheduled dates.
-- **Session Generation**: Creates exactly `durationWeeks × 7` sessions (56 for 8-week programs) starting from TODAY's calendar date, not Monday of current week
-- **Date Matching**: Each calendar date is matched to the correct programWorkout using JavaScript's day-of-week conversion (0=Sunday through 6=Saturday → 1=Monday through 7=Sunday)
-- **No Past Filtering**: All sessions are created regardless of date, ensuring consistent session counts
-- **Duplicate Prevention**: Route registration guard prevents HMR from registering routes twice, which was causing duplicate session creation
-- **Implementation**: `generateWorkoutSchedule()` in `server/routes.ts` handles session generation with proper calendar-based logic
+PostgreSQL is the primary database, accessed via Drizzle ORM. The schema includes Users (with OIDC fields, `dateOfBirth`), Fitness Assessments, an Exercise Database (143 AI-generated exercises), Workout Programs (with history tracking), and Performance Tracking. User ages are dynamically calculated from `dateOfBirth`. Workout sessions are pre-generated with specific `scheduledDate` values for the entire program duration.
 
 ### AI-Powered Adaptive Training System
-FitForge features an AI (OpenAI GPT-4/GPT-4-mini) powered system for personalized workout program generation and adaptation.
+FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
-- **Prebuilt Program Templates (October 2025)**: AI automatically selects from three prebuilt workout program templates based on user's nutrition goals:
-  - **Strength Primary Template**: 80% strength training, 20% cardio - Selected for goals containing: gain, build, bulk, muscle, strength, mass
-  - **Cardio Primary Template**: 30% strength training, 70% cardio - Selected for goals containing: lose, cut, shred, fat loss, weight loss
-  - **Hybrid Balance Template**: 50% strength training, 50% cardio - Selected for goals containing: maintain, recomp, general, fitness, or as default
-  - Each template defines movement pattern distribution, cardio placement (finisher/dedicated/mixed), and intensity targets per experience level
-  - Template selection uses priority-based keyword matching (strength keywords checked first, then loss, then endurance)
-  - AI populates template structure with exercises based on user's equipment and fitness level
-  - Implementation: `server/programTemplates.ts` defines templates, `server/ai-service.ts` handles selection and generation
-- **Intelligent Program Generation**: GPT-4 creates custom programs based on fitness level, equipment, duration, nutrition goals, and movement patterns, including corrective exercises. Programs are generated for one week of workouts (repeating weekly) with duration specified in weeks (typically 8 weeks).
-- **Smart Weight Recommendations**: AI calculates recommended starting weights for all exercises, utilizing 1RM data or bodyweight test results as proxies. These recommendations are stored and displayed.
-- **Master Exercise Database**: A pre-populated database of 143 exercises, categorized by equipment and movement pattern, is used for all program generations to avoid repeated OpenAI calls.
-- **Automatic Program Generation**: Upon signup, the system automatically generates and saves a personalized workout program based on user input and assessment results.
-- **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR) data, both increasing and decreasing recommendations, and persists these updates to the database.
-- **Smart Workout Input**: Dynamically adjusts input fields based on exercise equipment (e.g., weight input for weighted exercises, duration for cardio).
-- **Program Management**: Users can modify workout preferences in settings to regenerate programs, with older programs being archived for history tracking.
-- **Workout Progression Logic**: The home page shows the next actionable workout using calendar-based scheduling:
-  - All workout sessions are pre-generated with specific scheduled dates when program is created
-  - Home page displays the earliest incomplete session (by scheduledDate)
-  - Missed workouts (past due) automatically show as priority until completed or skipped
-  - Skip functionality updates the existing session with status="skipped" and completed=1
-  - Program completion is detected when all pre-generated sessions are marked as completed
-  - Sessions display actual calendar dates (e.g., "Monday, October 7") for clarity
-  - **Workout Completion Fix (October 2025)**: POST /api/workout-sessions endpoint now finds and updates existing pre-scheduled sessions instead of creating duplicates, eliminating 409 conflict errors
-  - **Backward Compatibility**: Home page includes fallback logic to handle sessions without scheduledDate (for users with data created before calendar-based scheduling), ensuring old user data remains accessible
+- **Prebuilt Program Templates**: AI selects from three templates (Strength, Cardio, Hybrid Balance) based on user nutrition goals, populating them with exercises based on equipment and fitness level.
+- **Intelligent Program Generation**: GPT-4 creates custom programs based on user input, including corrective exercises, with a typical duration of 8 weeks.
+- **Smart Weight Recommendations**: AI calculates and recommends starting weights for exercises, utilizing 1RM data or bodyweight test results.
+- **Master Exercise Database**: A pre-populated database of 143 exercises categorized by equipment and movement pattern is used for program generation.
+- **Automatic Program Generation**: Programs are automatically generated and saved upon signup.
+- **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
+- **Smart Workout Input**: Input fields dynamically adjust based on exercise equipment.
+- **Program Management**: Users can regenerate programs via settings, archiving older versions.
+- **Workout Progression Logic**: The home page displays the earliest incomplete workout session based on its `scheduledDate`, with skip functionality and program completion detection. Completed workouts are updated in existing sessions to prevent duplicates.
 
-### Calorie Tracking System (October 2025)
-FitForge includes a comprehensive calorie expenditure tracking system using industry-standard MET (Metabolic Equivalent of Task) calculations.
-- **MET-Based Calculation**: Calories burned = Duration (min) × ((MET × 3.5) × Weight (kg) / 200)
-- **Automatic Intensity Mapping**: Program types are automatically assigned intensity levels:
-  - Light programs: 3.5 METs
-  - Moderate programs: 5.0 METs (typical strength training)
-  - Vigorous programs: 6.0 METs
-  - Circuit training: 8.0 METs
-- **Dual Calculation Approach**: Frontend calculates calories for immediate display in workout summary; backend recalculates during save to ensure data consistency
-- **Smart Unit Conversion**: Automatically converts between imperial (lbs) and metric (kg) for accurate calculations regardless of user's unit preference
-- **Database Schema**: `workout_sessions` table includes `caloriesBurned` (integer) column; `workout_programs` table includes `intensityLevel` (text) column with default "moderate"
-- **UI Display**: Calories shown with Flame icon in:
-  - Workout Summary: Displays immediately after workout completion alongside duration, exercises, and volume
-  - Workout History: Shows calories for each completed session
-  - Progress View: Dedicated "Calories Burned" chart visualizes weekly calorie expenditure trends
-- **Implementation Files**: 
-  - Backend: `server/calorie-calculator.ts` (MET calculation logic)
-  - Frontend: `client/src/lib/calorie-calculator.ts` (frontend calculation)
-  - Components: `WorkoutSummary.tsx`, `WorkoutHistory.tsx`, `ProgressView.tsx`
+### Calorie Tracking System
+FitForge incorporates a calorie expenditure tracking system using MET (Metabolic Equivalent of Task) calculations.
+- **MET-Based Calculation**: `Calories burned = Duration (min) × ((MET × 3.5) × Weight (kg) / 200)`.
+- **Automatic Intensity Mapping**: Programs are assigned MET values (Light: 3.5, Moderate: 5.0, Vigorous: 6.0, Circuit: 8.0).
+- **Dual Calculation Approach**: Calories are calculated on both frontend (for immediate display) and backend (for consistency).
+- **Unit Conversion**: Automatic conversion between imperial and metric units for accurate calculations.
+- **UI Display**: Calories are shown in workout summaries, history, and a dedicated "Calories Burned" chart in the Progress View.
 
-### HIIT Interval Training System (October 2025)
-FitForge includes High-Intensity Interval Training (HIIT) support with automated work/rest timers and multiple cardio equipment options.
-- **Equipment Support**: 30 cardio exercises across 6 equipment types (assault bike, bike, rower, treadmill, elliptical, stair climber)
-- **Database Schema**: `program_exercises.work_seconds` (integer, nullable) stores HIIT work interval duration; distinct from `rest_seconds` which stores rest intervals
-- **AI Generation**: GPT-4 generates HIIT exercises with common protocols:
-  - Tabata: 20s work / 10s rest × 8 sets (4 minutes)
-  - Standard HIIT: 30s work / 30s rest × 10-12 sets (10-12 minutes)
-  - Sprint Intervals: 40s work / 20s rest × 8-10 sets (8-10 minutes)
-  - Custom intervals with varying work/rest ratios
-- **HIITIntervalTimer Component** (`client/src/components/HIITIntervalTimer.tsx`):
-  - Auto-cycling countdown timer with work/rest phases
-  - Visual progress indicators (green for work, blue for rest)
-  - Pause/resume functionality with unique test ID (`data-testid="button-pause-hiit"`)
-  - Set tracking display ("Set X of Y")
-  - Auto-completes all sets without manual input
-- **Workout Integration**: `WorkoutSession.tsx` detects HIIT exercises via `workSeconds` field and renders `HIITIntervalTimer` instead of standard rep/weight inputs
-- **Volume Tracking**: HIIT exercises contribute 0 to totalVolume (no weight tracking) but preserve volume from strength exercises in mixed workouts
-- **Test ID Separation (October 2025)**: Fixed duplicate test ID conflict:
-  - Workout timer pause button: `data-testid="button-pause-workout"` (pauses overall workout timer)
-  - HIIT timer pause button: `data-testid="button-pause-hiit"` (pauses interval timer)
-- **Usage Patterns**:
-  - Workout finishers: 1-2 HIIT exercises at end of strength workouts
-  - Standalone cardio days: Multiple HIIT exercises for conditioning
-  - Active recovery: Lower intensity with longer rest periods
-- **Design Constraints**: HIIT exercises should NOT be in supersets (they have their own timing structure)
+### HIIT Interval Training System
+The application supports High-Intensity Interval Training (HIIT) with automated work/rest timers and multiple cardio equipment options.
+- **Equipment Support**: 30 cardio exercises across 6 equipment types.
+- **AI Generation**: GPT-4 generates HIIT exercises with common protocols (Tabata, Standard HIIT, Sprint Intervals) and custom intervals.
+- **HIIT Interval Timer Component**: Provides an auto-cycling countdown timer with visual progress, pause/resume functionality, and set tracking.
+- **Workout Integration**: Detects HIIT exercises and renders the `HIITIntervalTimer` instead of standard input fields.
+- **Volume Tracking**: HIIT exercises do not contribute to total volume but preserve volume from strength exercises in mixed workouts.
 
 ## External Dependencies
 
-- **UI Libraries**: Radix UI primitives, Recharts (data visualization), date-fns, cmdk (command palette), Lucide React (icons).
+- **UI Libraries**: Radix UI primitives, Recharts, date-fns, cmdk, Lucide React.
 - **Form & Validation**: React Hook Form, Zod, Drizzle-Zod.
-- **Development Tools**: TypeScript, ESBuild, PostCSS (with Tailwind and Autoprefixer), Path aliases.
-- **External Services**: OpenAI API (GPT-4 for program generation, GPT-4-mini for suggestions), Neon serverless (PostgreSQL).
-- **Asset Management**: Stock images (attached_assets), Google Fonts (Inter, Roboto Mono).
+- **Development Tools**: TypeScript, ESBuild, PostCSS (with Tailwind and Autoprefixer).
+- **External Services**: OpenAI API (GPT-4/GPT-4-mini), Neon serverless (PostgreSQL).
+- **Asset Management**: Stock images, Google Fonts (Inter, Roboto Mono).
