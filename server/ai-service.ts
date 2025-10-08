@@ -255,15 +255,30 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     .slice(0, 30);
 
   const exerciseList = functionalExercises
-    .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
+    .map((ex) => {
+      const primary = ex.primaryMuscles?.join(", ") || "unknown";
+      const secondary = ex.secondaryMuscles?.join(", ") || "none";
+      const equipment = ex.equipment?.join("/") || "bodyweight";
+      return `- ${ex.name} (${ex.movementPattern}, ${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
+    })
     .join("\n");
 
   const warmupList = warmupExercises
-    .map((ex) => `- ${ex.name} (${ex.movementPattern}, ${ex.equipment?.join("/")})`)
+    .map((ex) => {
+      const primary = ex.primaryMuscles?.join(", ") || "unknown";
+      const secondary = ex.secondaryMuscles?.join(", ") || "none";
+      const equipment = ex.equipment?.join("/") || "bodyweight";
+      return `- ${ex.name} (${ex.movementPattern}, ${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
+    })
     .join("\n");
 
   const cardioList = cardioExercises
-    .map((ex) => `- ${ex.name} (${ex.equipment?.join("/")})`)
+    .map((ex) => {
+      const primary = ex.primaryMuscles?.join(", ") || "unknown";
+      const secondary = ex.secondaryMuscles?.join(", ") || "none";
+      const equipment = ex.equipment?.join("/") || "bodyweight";
+      return `- ${ex.name} (${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
+    })
     .join("\n");
 
   const daySchedules: { [key: number]: number[] } = {
@@ -351,6 +366,34 @@ ${templateInstructions}
 - Warmup exercises should prime the nervous system and mobilize the joints used in the main workout
 - Set isWarmup: true for all warmup exercises
 - Warmup exercises typically use 2 sets with higher reps (10-15) and shorter rest (30 seconds)
+
+**MUSCLE BALANCE AND FULL-BODY COVERAGE (CRITICAL):**
+Each exercise now includes Primary and Secondary muscle groups to help you create balanced programs:
+- **Primary Muscles**: Broad muscle groups (chest, shoulders, back, core, legs, arms, grip, cardio, full body)
+- **Secondary Muscles**: Specific anatomical muscles (pectorals, deltoids, latissimus dorsi, rectus abdominis, quadriceps, hamstrings, etc.)
+
+REQUIREMENTS FOR BALANCED PROGRAMMING:
+1. **Ensure Full-Body Coverage Across the Week**: Every major primary muscle group should be worked at least once during the weekly program:
+   - Upper Body Push: chest, shoulders (pushing movements)
+   - Upper Body Pull: back (pulling movements)
+   - Lower Body: legs (squats, lunges, hinges)
+   - Core: core (stability and anti-rotation)
+   - Arms: arms (if available in exercise database)
+   
+2. **Avoid Muscle Group Neglect**: Review your program to ensure no major muscle groups are completely missing
+   - If training 3+ days/week: All major groups should appear
+   - If training 1-2 days/week: Prioritize full-body compound movements
+
+3. **Use Movement Patterns AND Muscle Groups Together**:
+   - Movement patterns (push, pull, squat, lunge, hinge, core, cardio) ensure functional movement quality
+   - Muscle groups ensure comprehensive muscle development
+   - Example: A "push" exercise might target chest OR shoulders OR both - check the Primary muscles to ensure variety
+
+4. **Balance Push/Pull Ratios**: Across the weekly program, aim for roughly equal volume between:
+   - Push movements (chest, shoulders primary) and Pull movements (back primary)
+   - This prevents muscle imbalances and injury
+
+5. **Track Muscle Coverage**: When designing each workout, mentally note which primary muscles you're hitting and ensure the weekly program covers all major groups
 
 **INTENSITY CONTROL:**
 - For each main exercise (not warmups), specify targetRPE (1-10, where 10 is maximal effort) and targetRIR (0-5, reps left in reserve)
