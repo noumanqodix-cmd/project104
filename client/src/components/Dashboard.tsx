@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dumbbell, Calendar, TrendingUp, History, Play } from "lucide-react";
+import { format } from "date-fns";
 import ThemeToggle from "./ThemeToggle";
 import type { WorkoutProgram, ProgramWorkout, WorkoutSession } from "@shared/schema";
 
@@ -57,12 +58,15 @@ export default function Dashboard({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const currentWeek = programStartDate 
-    ? Math.min(
-        Math.floor((today.getTime() - programStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
-        fullProgram?.durationWeeks || 1
-      )
-    : 1;
+  // Calculate current week's date range (Monday to Sunday)
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Sunday is 6 days from Monday
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - daysFromMonday);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  
+  const currentWeekRange = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
   
   const weekProgress = totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0;
   
@@ -130,7 +134,7 @@ export default function Dashboard({
                 <div>
                   <h3 className="text-xl font-semibold mb-1" data-testid="text-program-name">{fullProgram.programType}</h3>
                   <p className="text-muted-foreground" data-testid="text-program-week">
-                    Week {currentWeek} of {fullProgram.durationWeeks}
+                    {currentWeekRange} • {fullProgram.durationWeeks} week program
                   </p>
                 </div>
                 <Button
