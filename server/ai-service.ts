@@ -220,6 +220,26 @@ For BODYWEIGHT exercises (when max rep data is available):
 - LOW REP exercises (3-6 reps target): Aim for 75-85% of max reps
   Example: If max pullups is 8, recommend working sets of 6 reps, or use harder variations
 
+**DURATION-BASED EXERCISES (ISOMETRIC/STATIC HOLDS):**
+For exercises that are held for time (not reps), you MUST use durationSeconds instead of reps:
+- ISOMETRIC HOLDS that require duration: Planks (all variants), Side Planks, Dead Hangs, L-Sits, Wall Sits, Hollow Body Holds, Glute Bridge Holds, Handstand Holds
+- For these exercises:
+  * Set "durationSeconds" to the recommended hold time
+  * DO NOT include "repsMin" or "repsMax" fields (omit them entirely or set to null)
+  * recommendedWeight should be null for bodyweight holds
+- Duration recommendations based on fitness level:
+  * Beginners: 20-30 seconds per set
+  * Intermediate: 30-45 seconds per set  
+  * Advanced: 45-60+ seconds per set
+- Example: Plank → "durationSeconds": 30, no repsMin/repsMax fields
+
+**REP-BASED EXERCISES (ALL OTHERS):**
+For all other exercises (push-ups, squats, presses, rows, etc.):
+- Set "repsMin" and "repsMax" for the target rep range
+- DO NOT include "durationSeconds" field (omit entirely or set to null)
+- Include recommendedWeight for weighted exercises
+- Example: Push-ups → "repsMin": 12, "repsMax": 15, no durationSeconds field
+
 IMPORTANT: 
 1. ALWAYS include the numeric weight recommendation in the "recommendedWeight" field for ALL exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
 2. Even without 1RM data, use the bodyweight test proxy guidelines above to estimate appropriate starting weights.
@@ -307,6 +327,16 @@ IMPORTANT:
           "targetRIR": 3,
           "isWarmup": false,
           "notes": "50% of max. Maintain plank position"
+        },
+        {
+          "exerciseName": "Plank",
+          "sets": 3,
+          "durationSeconds": 30,
+          "restSeconds": 60,
+          "targetRPE": 7,
+          "targetRIR": 3,
+          "isWarmup": false,
+          "notes": "Hold stable plank position, focus on core engagement"
         }
       ]
     }
