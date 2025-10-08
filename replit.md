@@ -74,6 +74,29 @@ FitForge includes a comprehensive calorie expenditure tracking system using indu
   - Frontend: `client/src/lib/calorie-calculator.ts` (frontend calculation)
   - Components: `WorkoutSummary.tsx`, `WorkoutHistory.tsx`, `ProgressView.tsx`
 
+### HIIT Interval Training System (October 2025)
+FitForge includes High-Intensity Interval Training (HIIT) support with automated work/rest timers and multiple cardio equipment options.
+- **Equipment Support**: 30 cardio exercises across 6 equipment types (assault bike, bike, rower, treadmill, elliptical, stair climber)
+- **Database Schema**: `program_exercises.work_seconds` (integer, nullable) stores HIIT work interval duration; distinct from `rest_seconds` which stores rest intervals
+- **AI Generation**: GPT-4 generates HIIT exercises with common protocols:
+  - Tabata: 20s work / 10s rest × 8 sets (4 minutes)
+  - Standard HIIT: 30s work / 30s rest × 10-12 sets (10-12 minutes)
+  - Sprint Intervals: 40s work / 20s rest × 8-10 sets (8-10 minutes)
+  - Custom intervals with varying work/rest ratios
+- **HIITIntervalTimer Component** (`client/src/components/HIITIntervalTimer.tsx`):
+  - Auto-cycling countdown timer with work/rest phases
+  - Visual progress indicators (green for work, blue for rest)
+  - Pause/resume functionality
+  - Set tracking display ("Set X of Y")
+  - Auto-completes all sets without manual input
+- **Workout Integration**: `WorkoutSession.tsx` detects HIIT exercises via `workSeconds` field and renders `HIITIntervalTimer` instead of standard rep/weight inputs
+- **Volume Tracking**: HIIT exercises contribute 0 to totalVolume (no weight tracking) but preserve volume from strength exercises in mixed workouts
+- **Usage Patterns**:
+  - Workout finishers: 1-2 HIIT exercises at end of strength workouts
+  - Standalone cardio days: Multiple HIIT exercises for conditioning
+  - Active recovery: Lower intensity with longer rest periods
+- **Design Constraints**: HIIT exercises should NOT be in supersets (they have their own timing structure)
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI primitives, Recharts (data visualization), date-fns, cmdk (command palette), Lucide React (icons).

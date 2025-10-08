@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trophy, Clock, Dumbbell, TrendingUp, AlertCircle, Flame } from "lucide-react";
 import { Smile, Meh, Frown } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface WorkoutSummaryProps {
   duration: number;
@@ -25,6 +26,7 @@ export default function WorkoutSummary({
 }: WorkoutSummaryProps) {
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -119,6 +121,13 @@ export default function WorkoutSummary({
                 try {
                   await onFinish(difficulty);
                 } catch (error) {
+                  console.error("Error saving workout:", error);
+                  toast({
+                    title: "Error Saving Workout",
+                    description: "Failed to save your workout. Please try again.",
+                    variant: "destructive",
+                  });
+                } finally {
                   setIsSubmitting(false);
                 }
               }
