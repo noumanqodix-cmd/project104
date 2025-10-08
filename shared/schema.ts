@@ -106,6 +106,7 @@ export const workoutPrograms = pgTable("workout_programs", {
   programType: text("program_type").notNull(),
   weeklyStructure: text("weekly_structure").notNull(),
   durationWeeks: integer("duration_weeks").notNull(),
+  intensityLevel: text("intensity_level").notNull().default("moderate"),
   isActive: integer("is_active").notNull().default(1),
   archivedDate: timestamp("archived_date"),
   archivedReason: text("archived_reason"),
@@ -139,6 +140,8 @@ export const programExercises = pgTable("program_exercises", {
 export const insertWorkoutProgramSchema = createInsertSchema(workoutPrograms).omit({
   id: true,
   createdDate: true,
+}).extend({
+  intensityLevel: z.enum(["light", "moderate", "vigorous", "circuit"]).default("moderate"),
 });
 
 export const insertProgramWorkoutSchema = createInsertSchema(programWorkouts).omit({
@@ -167,6 +170,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
   durationMinutes: integer("duration_minutes"),
+  caloriesBurned: integer("calories_burned"),
   notes: text("notes"),
 });
 
@@ -192,6 +196,7 @@ export const patchWorkoutSessionSchema = z.object({
   completed: z.union([z.boolean(), z.number()]).transform(val => val ? 1 : 0).optional(),
   status: z.string().optional(),
   durationMinutes: z.number().optional(),
+  caloriesBurned: z.number().optional(),
   notes: z.string().optional(),
 });
 
