@@ -5,7 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
-import { determineIntensityFromProgramType } from "./calorie-calculator";
+import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
@@ -991,6 +991,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
+
+      // Calculate calories burned if workout is being completed
+      if (validatedData.completed === 1 && validatedData.durationMinutes && !validatedData.caloriesBurned) {
+        try {
+          // Get user data for weight
+          const user = await storage.getUser(userId);
+          
+          // Get program data for intensity level
+          let intensityLevel: "light" | "moderate" | "vigorous" | "circuit" = "moderate";
+          if (oldSession.programWorkoutId) {
+            const programWorkout = await storage.getProgramWorkout(oldSession.programWorkoutId);
+            if (programWorkout) {
+              const program = await storage.getWorkoutProgram(programWorkout.programId);
+              if (program) {
+                intensityLevel = program.intensityLevel as any;
+              }
+            }
+          }
+          
+          // Calculate calories if we have weight data
+          if (user?.weight) {
+            const weightKg = user.unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
+            const calories = calculateCaloriesBurned(
+              validatedData.durationMinutes,
+              weightKg,
+              intensityLevel
+            );
+            validatedData.caloriesBurned = calories;
+          }
+        } catch (calorieError) {
+          console.error("Error calculating calories:", calorieError);
+          // Continue without calories if calculation fails
+        }
+      }
 
       const session = await storage.updateWorkoutSession(req.params.sessionId, validatedData);
       if (!session) {
