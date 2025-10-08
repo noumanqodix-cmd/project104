@@ -195,8 +195,8 @@ export default function Home() {
 
   const currentWeekRange = getCurrentWeekRange();
 
-  // Get last completed workout details
-  const getLastCompletedWorkout = () => {
+  // Get last session details (including rest days and skipped sessions)
+  const getLastSession = () => {
     if (completedSessions.length === 0) return null;
     const lastSession = completedSessions.reduce((latest: any, session: any) => {
       const sessionDate = new Date(session.sessionDate);
@@ -207,7 +207,7 @@ export default function Home() {
     return { session: lastSession, workout };
   };
 
-  const lastCompletedWorkout = getLastCompletedWorkout();
+  const lastSession = getLastSession();
 
   const sessionsThisWeekCount = sessionsThisWeek.length;
 
@@ -380,25 +380,27 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {lastCompletedWorkout && (
+            {lastSession && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Last Completed</CardTitle>
-                  <CardDescription>Your most recent session</CardDescription>
+                  <CardTitle>Last Session</CardTitle>
+                  <CardDescription>Your most recent activity</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastCompletedWorkout.workout?.workoutType === "rest" 
-                        ? "Rest Day" 
-                        : lastCompletedWorkout.workout?.workoutName || "Session"}
+                      {lastSession.session.status === "skipped" 
+                        ? "Rest Day (Skipped)" 
+                        : lastSession.workout?.workoutType === "rest" 
+                          ? "Rest Day" 
+                          : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
-                      {formatDate(lastCompletedWorkout.session.sessionDate)}
+                      {formatDate(lastSession.session.sessionDate)}
                     </p>
-                    {lastCompletedWorkout.session.durationMinutes && (
+                    {lastSession.session.durationMinutes && lastSession.session.status !== "skipped" && (
                       <p className="text-sm text-muted-foreground">
-                        Duration: {lastCompletedWorkout.session.durationMinutes} minutes
+                        Duration: {lastSession.session.durationMinutes} minutes
                       </p>
                     )}
                   </div>
