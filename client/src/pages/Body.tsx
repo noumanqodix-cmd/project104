@@ -131,12 +131,12 @@ export default function Body() {
                   <p className="text-2xl font-bold" data-testid="stat-bmr-calories">{bmr.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground mt-1">cal/day</p>
                 </div>
-                <div className="text-center p-4 border rounded-lg bg-primary/5">
+                <div className="text-center p-4 border rounded-lg bg-primary/10">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Dumbbell className="h-4 w-4 text-primary" />
                     <p className="text-sm text-muted-foreground">Workouts Today</p>
                   </div>
-                  <p className="text-2xl font-bold text-primary" data-testid="stat-workout-calories">+{workoutCalories.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="stat-workout-calories">+{workoutCalories.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground mt-1">cal burned</p>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default function Body() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">Recommended Intake</p>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-primary" data-testid="stat-recommended-intake">{recommendedMacros.calories.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-foreground" data-testid="stat-recommended-intake">{recommendedMacros.calories.toLocaleString()}</p>
                     <p className="text-xs text-muted-foreground">{goalDescription}</p>
                   </div>
                 </div>
