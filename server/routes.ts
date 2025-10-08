@@ -1108,6 +1108,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/workout-sessions/calories/today", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get today's date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Fetch completed sessions for today and sum calories
+      const totalCalories = await storage.getTodayCaloriesBurned(userId, today, tomorrow);
+      res.json({ calories: totalCalories || 0 });
+    } catch (error) {
+      console.error("Error fetching today's calories:", error);
+      res.status(500).json({ error: "Failed to fetch calories" });
+    }
+  });
+
   // Workout Set routes
   app.post("/api/workout-sets", isAuthenticated, async (req: any, res: Response) => {
     try {

@@ -55,6 +55,7 @@ export interface IStorage {
   createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
+  getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
   shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void>;
   deleteIncompleteProgramSessions(programId: string): Promise<void>;
@@ -264,6 +265,26 @@ export class DbStorage implements IStorage {
     return db.select().from(workoutSessions)
       .where(eq(workoutSessions.userId, userId))
       .orderBy(desc(workoutSessions.sessionDate));
+  }
+
+  async getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number> {
+    const sessions = await db.select().from(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.completed, 1)
+      ));
+    
+    // Filter by date and sum calories
+    let totalCalories = 0;
+    for (const session of sessions) {
+      // Check sessionDate (when workout was actually completed)
+      const sessionDateTime = session.sessionDate ? new Date(session.sessionDate) : null;
+      if (sessionDateTime && sessionDateTime >= startDate && sessionDateTime < endDate) {
+        totalCalories += session.caloriesBurned || 0;
+      }
+    }
+    
+    return totalCalories;
   }
 
   async updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined> {
