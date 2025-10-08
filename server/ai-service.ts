@@ -37,6 +37,8 @@ export interface GeneratedExercise {
   targetRIR?: number;  // Reps in Reserve (0-5)
   notes?: string;
   isWarmup?: boolean;  // Flag to identify warmup exercises
+  supersetGroup?: string;  // "A", "B", "C" for superset grouping
+  supersetOrder?: number;  // 1 or 2 to indicate order in superset
 }
 
 export async function generateWorkoutProgram(
@@ -150,6 +152,37 @@ ${warmupList}
 - Intermediate: RPE 7-8, RIR 2-3
 - Advanced: RPE 8-9, RIR 1-2
 
+**SUPERSET GUIDELINES (OPTIONAL BUT ENCOURAGED):**
+Supersets are an excellent way to increase workout efficiency and intensity. When appropriate, pair exercises together as supersets:
+
+WHEN TO USE SUPERSETS:
+- Intermediate/Advanced users (beginners should focus on form with single exercises)
+- When workout duration is 45+ minutes (enough time for quality volume)
+- For time efficiency and increased calorie burn
+
+SMART SUPERSET PAIRINGS:
+1. ANTAGONIST SUPERSETS (most common - allows one muscle to recover while training the other):
+   - Push + Pull: Bench Press + Bent-Over Row, Shoulder Press + Lat Pulldown
+   - Upper + Lower: Bench Press + Squats, Pull-ups + Lunges
+   - Quad + Hamstring: Leg Extension + Leg Curl, Squat + Romanian Deadlift
+
+2. AGONIST SUPERSETS (same muscle group - for advanced muscle fatigue):
+   - Chest: Bench Press + Dumbbell Flyes
+   - Back: Pull-ups + Cable Rows
+   - Legs: Squats + Lunges
+
+3. UPPER/LOWER SUPERSETS:
+   - Upper body exercise + Lower body exercise allows full recovery between sets
+
+SUPERSET IMPLEMENTATION:
+- Label paired exercises with same supersetGroup: "A", "B", "C", etc.
+- Use supersetOrder: 1 for first exercise, 2 for second exercise in the pair
+- Both exercises in a superset should have the SAME number of sets
+- Both exercises should have the SAME restSeconds value (rest applies AFTER completing both exercises)
+- Never superset warmup exercises
+- Typical superset rest: 90-120 seconds (after completing both exercises)
+- Consider 2-3 supersets per workout for intermediate/advanced users
+
 **WEIGHT AND REP RECOMMENDATIONS BASED ON FITNESS TEST:**
 Use the fitness test results to provide specific weight/rep recommendations in the notes field:
 
@@ -246,7 +279,23 @@ IMPORTANT:
           "targetRPE": 8,
           "targetRIR": 2,
           "isWarmup": false,
+          "supersetGroup": "A",
+          "supersetOrder": 1,
           "notes": "Based on pushup performance. Full range of motion, control the descent"
+        },
+        {
+          "exerciseName": "Bent-Over Barbell Row",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 12,
+          "recommendedWeight": 95,
+          "restSeconds": 120,
+          "targetRPE": 8,
+          "targetRIR": 2,
+          "isWarmup": false,
+          "supersetGroup": "A",
+          "supersetOrder": 2,
+          "notes": "Keep core tight, pull to lower chest. Rest 120 seconds after completing both exercises in superset"
         },
         {
           "exerciseName": "Push-ups",

@@ -196,6 +196,16 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
             <div className="space-y-4">
               {warmupExercises.map((ex) => (
                 <Card key={ex.id} className="p-6">
+                  {ex.supersetGroup && (
+                    <div className="mb-3 flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        Superset {ex.supersetGroup}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Exercise {ex.supersetOrder} of 2
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
@@ -262,6 +272,16 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
             <div className="space-y-4">
               {mainExercises.map((ex) => (
                 <Card key={ex.id} className="p-6">
+                  {ex.supersetGroup && (
+                    <div className="mb-3 flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        Superset {ex.supersetGroup}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Exercise {ex.supersetOrder} of 2
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>

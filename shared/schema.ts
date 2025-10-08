@@ -135,6 +135,8 @@ export const programExercises = pgTable("program_exercises", {
   targetRPE: integer("target_rpe"),
   targetRIR: integer("target_rir"),
   notes: text("notes"),
+  supersetGroup: text("superset_group"),
+  supersetOrder: integer("superset_order"),
 });
 
 export const insertWorkoutProgramSchema = createInsertSchema(workoutPrograms).omit({

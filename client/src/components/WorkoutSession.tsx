@@ -260,9 +260,49 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     return 0;
   };
 
+  // Superset helper functions
+  const getCurrentProgramExercise = () => {
+    return programExercises[currentExerciseIndex];
+  };
+
+  const isInSuperset = () => {
+    const current = getCurrentProgramExercise();
+    return current?.supersetGroup !== null && current?.supersetGroup !== undefined;
+  };
+
+  const getSupersetPairIndex = () => {
+    const current = getCurrentProgramExercise();
+    if (!current?.supersetGroup) return -1;
+    
+    // Find the other exercise in this superset
+    return programExercises.findIndex((pe, idx) => 
+      idx !== currentExerciseIndex &&
+      pe.supersetGroup === current.supersetGroup &&
+      pe.supersetOrder !== current.supersetOrder
+    );
+  };
+
+  const isFirstExerciseInSuperset = () => {
+    const current = getCurrentProgramExercise();
+    return current?.supersetOrder === 1;
+  };
+
   const handleRestComplete = (rir?: number) => {
     setShowRestTimer(false);
     setLastRir(rir);
+    
+    // After rest, if we're in a superset, go back to first exercise for next set
+    if (isInSuperset() && !isFirstExerciseInSuperset()) {
+      const pairIndex = getSupersetPairIndex();
+      if (pairIndex !== -1) {
+        setCurrentExerciseIndex(pairIndex);
+        setCurrentSet(prev => prev + 1);
+        setActualReps("");
+        setActualWeight("");
+        setActualDuration("");
+      }
+      return;
+    }
     
     if (rir !== undefined && !isLastSet && !isCardio) {
       if (needsWeight) {
@@ -368,6 +408,80 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
     setLastRir(undefined);
 
+    // Handle superset flow
+    if (isInSuperset()) {
+      const pairIndex = getSupersetPairIndex();
+      const isFirstInPair = isFirstExerciseInSuperset();
+      
+      if (isFirstInPair && pairIndex !== -1) {
+        // First exercise in superset: go immediately to second exercise (NO REST)
+        setCurrentExerciseIndex(pairIndex);
+        setActualReps("");
+        setActualWeight("");
+        setActualDuration("");
+        // Keep same set number, no rest timer
+        return;
+      } else {
+        // Second exercise in superset: show rest, then handleRestComplete will loop back
+        if (isLastSet) {
+          // Find next non-superset exercise or complete workout
+          const nextIndex = currentExerciseIndex + 1;
+          if (nextIndex >= exercises.length) {
+            // Workout complete
+            const totalVolume = updatedExercises.reduce((total, ex) => {
+              return total + (ex.sets * parseFloat(ex.weight || '0'));
+            }, 0);
+            
+            if (!sessionId) {
+              toast({
+                title: "Cannot Complete Workout",
+                description: "Workout session not properly initialized. Please restart the workout.",
+                variant: "destructive",
+              });
+              return;
+            }
+            
+            // Calculate calories burned
+            let caloriesBurned: number | undefined;
+            if (user?.weight && activeProgram?.intensityLevel) {
+              const weightKg = unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
+              const durationMinutes = Math.floor(workoutTime / 60);
+              caloriesBurned = calculateCaloriesBurned(
+                durationMinutes,
+                weightKg,
+                activeProgram.intensityLevel as any
+              );
+            }
+            
+            onComplete({
+              duration: workoutTime,
+              exercises: exercises.length,
+              totalVolume: Math.round(totalVolume),
+              caloriesBurned,
+              programWorkoutId: currentWorkoutId,
+              sessionId: sessionId,
+            });
+          } else {
+            // Move to next exercise
+            setCurrentExerciseIndex(nextIndex);
+            setCurrentSet(1);
+            setActualReps("");
+            setActualWeight("");
+            setActualDuration("");
+            setShowRestTimer(true);
+          }
+        } else {
+          // Not last set: show rest, then go back to first exercise with next set
+          setActualReps("");
+          setActualWeight("");
+          setActualDuration("");
+          setShowRestTimer(true);
+        }
+        return;
+      }
+    }
+
+    // Regular (non-superset) flow
     if (isLastSet) {
       if (isLastExercise) {
         const totalVolume = updatedExercises.reduce((total, ex) => {
@@ -587,6 +701,18 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         </Card>
 
         <Card className="p-6">
+          {isInSuperset() && (
+            <div className="mb-3 flex items-center gap-2">
+              <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-md">
+                <span className="text-sm font-semibold text-primary" data-testid="superset-label">
+                  Superset {getCurrentProgramExercise()?.supersetGroup}
+                </span>
+              </div>
+              <span className="text-sm text-muted-foreground" data-testid="superset-position">
+                Exercise {isFirstExerciseInSuperset() ? '1' : '2'} of 2
+              </span>
+            </div>
+          )}
           <div className="flex items-start justify-between mb-4">
             <h2 className="text-2xl font-bold">{currentExercise.name}</h2>
             <Button

@@ -129,6 +129,16 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
                       </div>
                       
                       <div className="flex-1">
+                        {ex.supersetGroup && (
+                          <div className="mb-2 flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              Superset {ex.supersetGroup}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              Exercise {ex.supersetOrder} of 2
+                            </span>
+                          </div>
+                        )}
                         <h4 className="font-semibold mb-2" data-testid={`text-exercise-name-${workout.dayOfWeek}-${index}`}>
                           {ex.exercise.name}
                         </h4>

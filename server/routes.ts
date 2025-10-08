@@ -191,6 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               recommendedWeight: exercise.recommendedWeight,
               restSeconds: exercise.restSeconds,
               notes: exercise.notes,
+              supersetGroup: exercise.supersetGroup || null,
+              supersetOrder: exercise.supersetOrder || null,
             });
           } else {
             console.warn(`Exercise not found in database: ${exercise.exerciseName}`);
@@ -618,6 +620,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               targetRPE: exercise.targetRPE,
               targetRIR: exercise.targetRIR,
               notes: exercise.notes,
+              supersetGroup: exercise.supersetGroup || null,
+              supersetOrder: exercise.supersetOrder || null,
             });
           }
         }
@@ -1014,6 +1018,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const program = await storage.getWorkoutProgram(programWorkout.programId);
               if (program) {
                 intensityLevel = program.intensityLevel as any;
+                
+                // Check if workout contains supersets - boost intensity
+                const exercises = await storage.getWorkoutExercises(programWorkout.id);
+                const hasSupersets = exercises.some((ex: any) => ex.supersetGroup !== null && ex.supersetGroup !== undefined);
+                
+                if (hasSupersets) {
+                  // Supersets are more intense - boost the MET value
+                  if (intensityLevel === "light") {
+                    intensityLevel = "moderate";
+                  } else if (intensityLevel === "moderate") {
+                    intensityLevel = "vigorous";
+                  } else if (intensityLevel === "vigorous") {
+                    intensityLevel = "circuit";
+                  }
+                  // circuit stays circuit
+                }
               }
             }
           }
