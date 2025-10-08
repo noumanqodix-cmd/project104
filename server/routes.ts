@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
+import { determineIntensityFromProgramType } from "./calorie-calculator";
 
 // Helper function to generate workout schedule for entire program duration
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
@@ -144,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         programType: programData.programType,
         weeklyStructure: programData.weeklyStructure,
         durationWeeks: programData.durationWeeks,
+        intensityLevel: determineIntensityFromProgramType(programData.programType),
         isActive: 1,
       });
 
@@ -559,6 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         programType: generatedProgram.programType,
         weeklyStructure: generatedProgram.weeklyStructure,
         durationWeeks: generatedProgram.durationWeeks,
+        intensityLevel: determineIntensityFromProgramType(generatedProgram.programType),
         isActive: 1,
       });
 
