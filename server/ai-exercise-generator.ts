@@ -172,7 +172,13 @@ export async function generateMasterExerciseDatabase(): Promise<InsertExercise[]
     "trx",
     "medicine ball",
     "box",
-    "jump rope"
+    "jump rope",
+    "rower",
+    "bike",
+    "treadmill",
+    "elliptical",
+    "assault bike",
+    "stair climber"
   ];
 
   const allExercises: InsertExercise[] = [];
