@@ -23,12 +23,12 @@ interface GeneratedExerciseData {
 export async function generateExercisesForEquipment(
   equipment: string
 ): Promise<InsertExercise[]> {
-  const prompt = `You are an expert strength and conditioning coach specializing in functional fitness. Generate 10-15 diverse exercises specifically for ${equipment}.
+  const prompt = `You are an expert strength and conditioning coach. Generate 10-15 diverse exercises specifically for ${equipment}.
 
 **Requirements:**
 1. Include exercises from ALL three types:
    - Warmup exercises (mobility, activation, dynamic stretching)
-   - Main exercises (strength, power, skill work)
+   - Main exercises (strength, power, skill work, isolation)
    - Cooldown exercises (static stretching, mobility)
 
 2. Cover multiple movement patterns:
@@ -50,7 +50,9 @@ export async function generateExercisesForEquipment(
    - Intermediate (moderate complexity)
    - Advanced (high skill/strength requirements)
 
-4. Focus on FUNCTIONAL movements that translate to real-life activities
+4. Include BOTH functional compound movements AND isolation exercises:
+   - Compound/Functional: Multi-joint exercises (Squats, Deadlifts, Rows, Presses)
+   - Isolation: Single-joint exercises (Bicep Curls, Tricep Extensions, Lateral Raises, Leg Curls, Calf Raises, Chest Flyes)
 5. Include corrective exercises where appropriate (exercises that address common movement dysfunctions)
 6. Provide specific, actionable form tips for each exercise
 
@@ -88,8 +90,11 @@ export async function generateExercisesForEquipment(
 - "both": Can be tracked either way (carries, some cardio)
 
 **Important:**
-- isFunctional: 1 for functional exercises, 0 for isolation
+- isFunctional: 1 for functional/compound exercises, 0 for isolation exercises
 - isCorrective: 1 for corrective exercises, 0 for regular exercises
+- MUST include BOTH functional (isFunctional: 1) AND isolation exercises (isFunctional: 0)
+- Essential compound exercises to include when applicable: Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Lat Pulldown, Bent-Over Row
+- Essential isolation exercises to include when applicable: Bicep Curls, Tricep Extensions, Lateral Raises, Chest Flyes, Leg Curls, Calf Raises
 - Ensure variety in movement patterns and difficulty levels
 - Make exercise names clear and specific
 - Form tips should be practical coaching cues`;
@@ -160,6 +165,7 @@ export async function generateMasterExerciseDatabase(): Promise<InsertExercise[]
     "barbell",
     "kettlebell",
     "resistance bands",
+    "cable machine",
     "pull-up bar",
     "trx",
     "medicine ball",

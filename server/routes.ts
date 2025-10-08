@@ -628,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const equipmentTypes = [
         "bodyweight", "dumbbells", "barbell", "kettlebell", "resistance bands",
-        "pull-up bar", "trx", "medicine ball", "box", "jump rope", "foam roller", "yoga mat"
+        "cable machine", "pull-up bar", "trx", "medicine ball", "box", "jump rope", "foam roller", "yoga mat"
       ];
 
       // Generate ALL exercises first before touching the database
