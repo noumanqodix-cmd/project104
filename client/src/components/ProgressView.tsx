@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, Award, Target, AlertCircle, Dumbbell } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import type { WorkoutSession, User, FitnessAssessment } from "@shared/schema";
 
 interface ProgressViewProps {
@@ -81,29 +82,40 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
 
     if (completedSessions.length === 0) return [];
 
-    const weeklyData: { [key: string]: { count: number; week: string } } = {};
+    const weeklyData: { [key: string]: { count: number; weekStart: Date; weekEnd: Date } } = {};
     
     completedSessions.forEach((session) => {
       const date = new Date(session.sessionDate);
+      // Calculate week start (Monday) and end (Sunday)
+      const currentDay = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
+      
       const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
+      weekStart.setDate(date.getDate() - daysFromMonday);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
       const weekKey = weekStart.toISOString().split('T')[0];
       
       if (!weeklyData[weekKey]) {
-        const weekNum = Object.keys(weeklyData).length + 1;
         weeklyData[weekKey] = { 
           count: 0, 
-          week: `Week ${weekNum}` 
+          weekStart,
+          weekEnd
         };
       }
       weeklyData[weekKey].count++;
     });
 
-    return Object.values(weeklyData).map((data, index) => ({
-      week: data.week,
-      workouts: data.count,
-      volume: (data.count * 100) + (index * 50),
-    }));
+    return Object.entries(weeklyData)
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .map(([_, data], index) => ({
+        week: `${format(data.weekStart, 'MMM d')} - ${format(data.weekEnd, 'd')}`,
+        workouts: data.count,
+        volume: (data.count * 100) + (index * 50),
+      }));
   }, [sortedSessions]);
 
   const fitnessTestProgress = useMemo(() => {
