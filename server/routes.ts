@@ -99,6 +99,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
       
+      // Check if user already has existing programs or assessments
+      const existingPrograms = await storage.getUserPrograms(userId);
+      const existingAssessments = await storage.getUserFitnessAssessments(userId);
+      const hasActiveProgram = existingPrograms.some(p => p.isActive === 1);
+      
+      // If user has existing data, warn them before overwriting
+      if (hasActiveProgram || existingAssessments.length > 0) {
+        return res.status(200).json({ 
+          existingData: true,
+          hasPrograms: hasActiveProgram,
+          hasAssessments: existingAssessments.length > 0
+        });
+      }
+      
       // Update user profile with onboarding data
       if (Object.keys(profileData).length > 0) {
         await storage.updateUser(userId, profileData);
@@ -148,9 +162,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Saving pre-generated program provided in onboarding request");
       const programData = generatedProgram;
 
-      // Archive any existing active programs
-      const existingPrograms = await storage.getUserPrograms(userId);
-      for (const oldProgram of existingPrograms) {
+      // Archive any existing active programs (fetch again in case they were just created)
+      const programsToArchive = await storage.getUserPrograms(userId);
+      for (const oldProgram of programsToArchive) {
         if (oldProgram.isActive === 1) {
           await storage.deleteIncompleteProgramSessions(oldProgram.id);
           await storage.updateWorkoutProgram(oldProgram.id, { 
@@ -237,6 +251,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       console.error("Onboarding completion error:", error);
+      res.status(500).json({ error: "Failed to complete onboarding" });
+    }
+  });
+
+  // Force complete onboarding - bypasses existing data check (user confirmed replacement)
+  app.post("/api/auth/complete-onboarding-force", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
+      
+      // Update user profile with onboarding data
+      if (Object.keys(profileData).length > 0) {
+        await storage.updateUser(userId, profileData);
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(500).json({ error: "Failed to retrieve user after profile update" });
+      }
+      
+      // Save fitness assessment if provided (best effort - don't fail if this errors)
+      let savedAssessmentId: string | undefined;
+      if (fitnessTest || weightsTest) {
+        try {
+          const assessmentData = {
+            userId,
+            experienceLevel: experienceLevel || profileData.fitnessLevel,
+            ...fitnessTest,
+            ...weightsTest,
+          };
+          const savedAssessment = await storage.createFitnessAssessment(assessmentData);
+          savedAssessmentId = savedAssessment.id;
+        } catch (assessmentError) {
+          console.error("Failed to save fitness assessment during onboarding:", assessmentError);
+          // Continue without assessment - program can still be created
+        }
+      }
+      
+      // Check if master exercise database has been populated
+      const availableExercises = await storage.getAllExercises();
+      if (availableExercises.length === 0) {
+        console.error("Master exercise database is empty. Admin must populate via /api/admin/populate-master-exercises");
+        return res.status(500).json({ 
+          error: "Exercise database not initialized. Please contact support." 
+        });
+      }
+      
+      // Require pre-generated workout program
+      if (!generatedProgram) {
+        console.log("No pre-generated program provided in signup request");
+        return res.status(400).json({ 
+          error: "No workout program provided. Please generate a program before signing up." 
+        });
+      }
+      
+      // Save the pre-generated workout program - this MUST succeed
+      console.log("Saving pre-generated program provided in onboarding request (force mode)");
+      const programData = generatedProgram;
+
+      // Archive any existing active programs
+      const programsToArchive = await storage.getUserPrograms(userId);
+      for (const oldProgram of programsToArchive) {
+        if (oldProgram.isActive === 1) {
+          await storage.deleteIncompleteProgramSessions(oldProgram.id);
+          await storage.updateWorkoutProgram(oldProgram.id, { 
+            isActive: 0,
+            archivedDate: new Date(),
+            archivedReason: "replaced"
+          });
+        }
+      }
+
+      // Create the workout program
+      const program = await storage.createWorkoutProgram({
+        userId,
+        fitnessAssessmentId: savedAssessmentId,
+        programType: programData.programType,
+        weeklyStructure: programData.weeklyStructure,
+        durationWeeks: programData.durationWeeks,
+        intensityLevel: determineIntensityFromProgramType(programData.programType),
+        isActive: 1,
+      });
+
+      const scheduledDays = new Set<number>();
+      const createdProgramWorkouts: ProgramWorkout[] = [];
+      
+      // Create all workout days
+      for (const workout of programData.workouts) {
+        scheduledDays.add(workout.dayOfWeek);
+        
+        const programWorkout = await storage.createProgramWorkout({
+          programId: program.id,
+          dayOfWeek: workout.dayOfWeek,
+          workoutName: workout.workoutName,
+          movementFocus: workout.movementFocus,
+          workoutType: "workout",
+        });
+        createdProgramWorkouts.push(programWorkout);
+
+        // Create exercises for this workout
+        for (let i = 0; i < workout.exercises.length; i++) {
+          const exercise = workout.exercises[i];
+          const matchingExercise = availableExercises.find(
+            ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+          );
+
+          if (matchingExercise) {
+            await storage.createProgramExercise({
+              workoutId: programWorkout.id,
+              exerciseId: matchingExercise.id,
+              orderIndex: i,
+              sets: exercise.sets,
+              repsMin: exercise.repsMin,
+              repsMax: exercise.repsMax,
+              recommendedWeight: exercise.recommendedWeight,
+              restSeconds: exercise.restSeconds,
+              notes: exercise.notes,
+              supersetGroup: exercise.supersetGroup || null,
+              supersetOrder: exercise.supersetOrder || null,
+            });
+          } else {
+            console.warn(`Exercise not found in database: ${exercise.exerciseName}`);
+          }
+        }
+      }
+      
+      // Create rest days for any days not scheduled
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+        if (!scheduledDays.has(dayOfWeek)) {
+          const restDay = await storage.createProgramWorkout({
+            programId: program.id,
+            dayOfWeek,
+            workoutName: "Rest Day",
+            movementFocus: [],
+            workoutType: "rest",
+          });
+          createdProgramWorkouts.push(restDay);
+        }
+      }
+      
+      // Generate workout schedule for entire program duration
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
+      
+      console.log(`Successfully created program ${program.id} with ${createdProgramWorkouts.length} workouts for user ${userId} (force mode)`);
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Onboarding completion error (force mode):", error);
       res.status(500).json({ error: "Failed to complete onboarding" });
     }
   });
