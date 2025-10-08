@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import type { User, FitnessAssessment, Exercise } from "@shared/schema";
 import { selectProgramTemplate, getTemplateInstructions } from "./programTemplates";
+import { 
+  calculateMovementPatternLevels, 
+  getMovementDifficultiesMap, 
+  isExerciseAllowed 
+} from "@shared/utils";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -53,145 +58,51 @@ export async function generateWorkoutProgram(
   const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
-  // Category-specific difficulty filtering: Map test results to movement patterns
-  // This allows independent progression in different categories
+  // Calculate movement pattern levels using centralized utility
+  const movementPatternLevels = calculateMovementPatternLevels(latestAssessment, user);
   
-  // Helper function to determine difficulty level based on self-reported experience
-  const getDefaultDifficulties = (level: string): string[] => {
-    if (level === "beginner") return ["beginner"];
-    if (level === "intermediate") return ["beginner", "intermediate"];
-    return ["beginner", "intermediate", "advanced"];
-  };
-
-  // Initialize difficulty map with user's self-reported level as default
-  const movementDifficulties: { [pattern: string]: string[] } = {
-    push: getDefaultDifficulties(fitnessLevel),
-    pull: getDefaultDifficulties(fitnessLevel),
-    squat: getDefaultDifficulties(fitnessLevel),
-    lunge: getDefaultDifficulties(fitnessLevel),
-    hinge: getDefaultDifficulties(fitnessLevel),
-    cardio: getDefaultDifficulties(fitnessLevel),
-    core: getDefaultDifficulties(fitnessLevel),
-    rotation: getDefaultDifficulties(fitnessLevel),
-    carry: getDefaultDifficulties(fitnessLevel),
-  };
-
+  // Get movement difficulties map using centralized utility
+  const movementDifficulties = getMovementDifficultiesMap(movementPatternLevels, fitnessLevel);
+  
+  // Build logging information about restrictions and overrides
   const overrideReasons: string[] = [];
-
-  // Apply manual overrides if they exist (user manually advanced their level)
+  
+  // Log manual overrides
   if (latestAssessment.pushOverride) {
-    movementDifficulties.push = getDefaultDifficulties(latestAssessment.pushOverride);
-    overrideReasons.push(`Push exercises manually overridden to ${latestAssessment.pushOverride}`);
+    overrideReasons.push(`Push exercises: ${movementPatternLevels.push} (manual override to ${latestAssessment.pushOverride})`);
+  } else if (movementPatternLevels.push !== fitnessLevel as any) {
+    overrideReasons.push(`Push exercises: ${movementPatternLevels.push} (based on test performance)`);
   }
+  
   if (latestAssessment.pullOverride) {
-    movementDifficulties.pull = getDefaultDifficulties(latestAssessment.pullOverride);
-    overrideReasons.push(`Pull exercises manually overridden to ${latestAssessment.pullOverride}`);
+    overrideReasons.push(`Pull exercises: ${movementPatternLevels.pull} (manual override to ${latestAssessment.pullOverride})`);
+  } else if (movementPatternLevels.pull !== fitnessLevel as any) {
+    overrideReasons.push(`Pull exercises: ${movementPatternLevels.pull} (based on test performance)`);
   }
+  
   if (latestAssessment.lowerBodyOverride) {
-    const lowerLevel = getDefaultDifficulties(latestAssessment.lowerBodyOverride);
-    movementDifficulties.squat = lowerLevel;
-    movementDifficulties.lunge = lowerLevel;
-    overrideReasons.push(`Lower body exercises manually overridden to ${latestAssessment.lowerBodyOverride}`);
+    overrideReasons.push(`Lower body exercises: ${movementPatternLevels.lowerBody} (manual override to ${latestAssessment.lowerBodyOverride})`);
+  } else if (movementPatternLevels.lowerBody !== fitnessLevel as any) {
+    overrideReasons.push(`Lower body exercises: ${movementPatternLevels.lowerBody} (based on test performance)`);
   }
+  
   if (latestAssessment.hingeOverride) {
-    movementDifficulties.hinge = getDefaultDifficulties(latestAssessment.hingeOverride);
-    overrideReasons.push(`Hinge exercises manually overridden to ${latestAssessment.hingeOverride}`);
+    overrideReasons.push(`Hinge exercises: ${movementPatternLevels.hinge} (manual override to ${latestAssessment.hingeOverride})`);
+  } else if (movementPatternLevels.hinge !== fitnessLevel as any) {
+    overrideReasons.push(`Hinge exercises: ${movementPatternLevels.hinge} (based on test performance)`);
   }
+  
   if (latestAssessment.cardioOverride) {
-    movementDifficulties.cardio = getDefaultDifficulties(latestAssessment.cardioOverride);
-    overrideReasons.push(`Cardio exercises manually overridden to ${latestAssessment.cardioOverride}`);
-  }
-  
-  // Bodyweight test checks - map to specific movement patterns
-  // Only apply performance restrictions if there is NO manual override for that pattern
-  const pushups = latestAssessment.pushups || 0;
-  const pullups = latestAssessment.pullups || 0;
-  const squats = latestAssessment.squats || 0;
-  
-  if (!latestAssessment.pushOverride && pushups < 5) {
-    movementDifficulties.push = ["beginner"];
-    overrideReasons.push('Push exercises limited to beginner (pushups < 5)');
-  }
-  
-  if (!latestAssessment.pullOverride && pullups < 2) {
-    movementDifficulties.pull = ["beginner"];
-    overrideReasons.push('Pull exercises limited to beginner (pullups < 2)');
-  }
-  
-  if (!latestAssessment.lowerBodyOverride && squats < 15) {
-    movementDifficulties.squat = ["beginner"];
-    movementDifficulties.lunge = ["beginner"];
-    overrideReasons.push('Lower body exercises limited to beginner (squats < 15)');
-  }
-  
-  if (!latestAssessment.hingeOverride && squats < 15) {
-    movementDifficulties.hinge = ["beginner"];
-    overrideReasons.push('Hinge exercises limited to beginner (squats < 15)');
-  }
-  
-  // Mile time check for cardio
-  const mileTime = latestAssessment.mileTime || 999;
-  if (!latestAssessment.cardioOverride) {
-    if (mileTime > 12) {
-      movementDifficulties.cardio = ["beginner"];
-      overrideReasons.push('Cardio limited to beginner (mile time > 12 min)');
-    } else if (mileTime > 9) {
-      movementDifficulties.cardio = ["beginner", "intermediate"];
-      overrideReasons.push('Cardio limited to intermediate (mile time > 9 min)');
-    }
-  }
-  
-  // Weighted test checks (using bodyweight ratios) - map to specific patterns
-  if (user.weight && user.weight > 0) {
-    const weightInKg = user.unitPreference === "imperial" ? user.weight * 0.453592 : user.weight;
-    
-    if (!latestAssessment.lowerBodyOverride && latestAssessment.squat1rm) {
-      const squat1rmKg = user.unitPreference === "imperial" ? latestAssessment.squat1rm * 0.453592 : latestAssessment.squat1rm;
-      if (squat1rmKg < weightInKg * 1.0) {
-        movementDifficulties.squat = ["beginner"];
-        movementDifficulties.lunge = ["beginner"];
-        overrideReasons.push('Squat/Lunge exercises limited to beginner (Squat 1RM < 1.0x bodyweight)');
-      }
-    }
-    
-    if (!latestAssessment.hingeOverride && latestAssessment.deadlift1rm) {
-      const deadlift1rmKg = user.unitPreference === "imperial" ? latestAssessment.deadlift1rm * 0.453592 : latestAssessment.deadlift1rm;
-      if (deadlift1rmKg < weightInKg * 1.25) {
-        movementDifficulties.hinge = ["beginner"];
-        overrideReasons.push('Hinge exercises limited to beginner (Deadlift 1RM < 1.25x bodyweight)');
-      }
-    }
-    
-    if (!latestAssessment.pushOverride && latestAssessment.benchPress1rm) {
-      const bench1rmKg = user.unitPreference === "imperial" ? latestAssessment.benchPress1rm * 0.453592 : latestAssessment.benchPress1rm;
-      if (bench1rmKg < weightInKg * 0.75) {
-        movementDifficulties.push = ["beginner"];
-        overrideReasons.push('Push exercises limited to beginner (Bench Press 1RM < 0.75x bodyweight)');
-      }
-    }
-    
-    if (!latestAssessment.pushOverride && latestAssessment.overheadPress1rm) {
-      const ohp1rmKg = user.unitPreference === "imperial" ? latestAssessment.overheadPress1rm * 0.453592 : latestAssessment.overheadPress1rm;
-      if (ohp1rmKg < weightInKg * 0.5) {
-        movementDifficulties.push = ["beginner"];
-        overrideReasons.push('Push exercises limited to beginner (OHP 1RM < 0.5x bodyweight)');
-      }
-    }
-    
-    if (!latestAssessment.pullOverride && latestAssessment.barbellRow1rm) {
-      const row1rmKg = user.unitPreference === "imperial" ? latestAssessment.barbellRow1rm * 0.453592 : latestAssessment.barbellRow1rm;
-      if (row1rmKg < weightInKg * 0.75) {
-        movementDifficulties.pull = ["beginner"];
-        overrideReasons.push('Pull exercises limited to beginner (Barbell Row 1RM < 0.75x bodyweight)');
-      }
-    }
+    overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (manual override to ${latestAssessment.cardioOverride})`);
+  } else if (movementPatternLevels.cardio !== fitnessLevel as any) {
+    overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (based on test performance)`);
   }
   
   if (overrideReasons.length > 0) {
-    console.log(`[DIFFICULTY] Category-specific restrictions applied:`);
+    console.log(`[DIFFICULTY] Movement pattern levels calculated:`);
     overrideReasons.forEach(reason => console.log(`  - ${reason}`));
   } else {
-    console.log(`[DIFFICULTY] No restrictions - using self-reported level (${fitnessLevel}) for all patterns`);
+    console.log(`[DIFFICULTY] All movement patterns using self-reported level (${fitnessLevel})`);
   }
   
   console.log(`[DIFFICULTY] Movement pattern difficulties:`, {
@@ -216,23 +127,12 @@ ${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.
 ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
   `.trim();
 
-  // Helper function to check if exercise difficulty is allowed for its movement pattern
-  const isExerciseAllowed = (exercise: any): boolean => {
-    const pattern = exercise.movementPattern?.toLowerCase() || '';
-    const difficulty = exercise.difficulty;
-    
-    // Get allowed difficulties for this movement pattern
-    const allowedForPattern = movementDifficulties[pattern] || movementDifficulties.core || getDefaultDifficulties(fitnessLevel);
-    
-    return allowedForPattern.includes(difficulty);
-  };
-
   // Include both functional main exercises AND warmup exercises, filtered by movement-specific difficulty
   const functionalExercises = availableExercises
     .filter((ex) => 
       (ex.isFunctional || ex.exerciseType === "warmup") && 
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      isExerciseAllowed(ex)
+      isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
     )
     .slice(0, 80); // Increase to 80 to include warmups
 
@@ -241,7 +141,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     .filter((ex) => 
       ex.exerciseType === "warmup" &&
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      isExerciseAllowed(ex)
+      isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
     )
     .slice(0, 30);
 
@@ -250,7 +150,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     .filter((ex) => 
       ex.movementPattern === "cardio" &&
       ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      isExerciseAllowed(ex)
+      isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
     )
     .slice(0, 30);
 
