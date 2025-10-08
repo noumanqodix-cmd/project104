@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Dumbbell, Award, Calendar } from "lucide-react";
+import { TrendingUp, Dumbbell, Award, Calendar, Target } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { FitnessAssessment } from "@shared/schema";
+import { calculateMovementPatternLevels, type MovementPatternLevels, type MovementPatternLevel } from "@shared/utils";
 
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
@@ -173,6 +174,113 @@ export default function FitnessTest() {
     );
   };
 
+  const getLevelColor = (level: MovementPatternLevel) => {
+    switch (level) {
+      case 'beginner':
+        return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20';
+      case 'intermediate':
+        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+      case 'advanced':
+        return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20';
+    }
+  };
+
+  const renderMovementPatternLevels = () => {
+    if (!assessments || assessments.length === 0 || !user) return null;
+    
+    const latest = assessments[0];
+    const previous = assessments[1];
+    
+    const currentLevels = calculateMovementPatternLevels(latest, user);
+    const previousLevels = previous ? calculateMovementPatternLevels(previous, user) : null;
+    
+    const patterns = [
+      { 
+        key: 'push' as keyof MovementPatternLevels, 
+        label: 'Push', 
+        description: 'Push-ups, Bench Press, Overhead Press',
+        testId: 'push'
+      },
+      { 
+        key: 'pull' as keyof MovementPatternLevels, 
+        label: 'Pull', 
+        description: 'Pull-ups, Barbell Row',
+        testId: 'pull'
+      },
+      { 
+        key: 'lowerBody' as keyof MovementPatternLevels, 
+        label: 'Lower Body', 
+        description: 'Squats, Squat 1RM',
+        testId: 'lowerBody'
+      },
+      { 
+        key: 'hinge' as keyof MovementPatternLevels, 
+        label: 'Hinge', 
+        description: 'Deadlifts, Squat stability',
+        testId: 'hinge'
+      },
+      { 
+        key: 'cardio' as keyof MovementPatternLevels, 
+        label: 'Cardio', 
+        description: 'Mile run time',
+        testId: 'cardio'
+      },
+    ];
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Movement Pattern Levels
+          </CardTitle>
+          <CardDescription>Your skill level for each movement category</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {patterns.map(pattern => {
+            const currentLevel = currentLevels[pattern.key];
+            const previousLevel = previousLevels?.[pattern.key];
+            const leveledUp = previousLevel && previousLevel !== currentLevel && 
+              ((previousLevel === 'beginner' && currentLevel !== 'beginner') || 
+               (previousLevel === 'intermediate' && currentLevel === 'advanced'));
+
+            return (
+              <div 
+                key={pattern.key} 
+                className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card"
+                data-testid={`pattern-level-${pattern.testId}`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{pattern.label}</p>
+                    {leveledUp && (
+                      <Badge 
+                        variant="outline" 
+                        className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
+                        data-testid={`level-up-${pattern.testId}`}
+                      >
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                        LEVELED UP!
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{pattern.description}</p>
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={`${getLevelColor(currentLevel)} capitalize font-medium`}
+                  data-testid={`level-badge-${pattern.testId}`}
+                >
+                  {currentLevel}
+                </Badge>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background pb-20">
@@ -237,6 +345,7 @@ export default function FitnessTest() {
           </CardContent>
         </Card>
 
+        {renderMovementPatternLevels()}
         {renderBodyweightProgress()}
         {renderWeightsProgress()}
 

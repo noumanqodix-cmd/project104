@@ -29,7 +29,7 @@ export interface MovementPatternLevels {
 }
 
 interface AssessmentData {
-  experienceLevel?: string;
+  experienceLevel?: string | null;
   pushups?: number | null;
   pullups?: number | null;
   squats?: number | null;
