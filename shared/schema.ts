@@ -24,7 +24,7 @@ export const users = pgTable("users", {
   subscriptionTier: text("subscription_tier").notNull().default("free"),
   height: real("height"),
   weight: real("weight"),
-  age: integer("age"),
+  dateOfBirth: timestamp("date_of_birth"),
   bmr: integer("bmr"),
   targetCalories: integer("target_calories"),
   nutritionGoal: text("nutrition_goal"),
