@@ -161,6 +161,16 @@ export class DbStorage implements IStorage {
     };
   }
 
+  async getFitnessAssessmentById(id: string): Promise<FitnessAssessment | undefined> {
+    const result = await db.select().from(fitnessAssessments).where(eq(fitnessAssessments.id, id)).limit(1);
+    return result[0];
+  }
+
+  async updateFitnessAssessmentOverride(id: string, overrideData: Partial<FitnessAssessment>): Promise<FitnessAssessment | undefined> {
+    const result = await db.update(fitnessAssessments).set(overrideData).where(eq(fitnessAssessments.id, id)).returning();
+    return result[0];
+  }
+
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
     const result = await db.insert(exercises).values(insertExercise).returning();
     return result[0];
