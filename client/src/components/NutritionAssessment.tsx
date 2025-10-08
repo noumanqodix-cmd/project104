@@ -186,8 +186,8 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
               >
                 <RadioGroupItem value="gain" id="gain" />
                 <div>
-                  <div className="font-semibold">Gain Muscle</div>
-                  <div className="text-sm text-muted-foreground">+500 calories surplus</div>
+                  <div className="font-semibold">Gain Muscle & Weight</div>
+                  <div className="text-sm text-muted-foreground">Calorie surplus</div>
                 </div>
               </Label>
 
