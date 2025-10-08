@@ -27,6 +27,13 @@ FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout progr
 - **Intelligent Program Generation**: GPT-4 creates custom programs based on user input, including corrective exercises, with a typical duration of 8 weeks.
 - **Smart Weight Recommendations**: AI calculates and recommends starting weights for exercises, utilizing 1RM data or bodyweight test results.
 - **Master Exercise Database**: A pre-populated database of 143 exercises categorized by equipment and movement pattern is used for program generation.
+- **Difficulty-Based Exercise Filtering (October 2025)**: Smart filtering system ensures exercises match user skill level for safety:
+  - **Beginner users**: Only beginner-level exercises (78 exercises) to build proper movement foundations
+  - **Intermediate users**: Beginner + intermediate exercises (150 exercises) for progressive challenge
+  - **Advanced users**: Access to all difficulty levels (171 exercises) including complex movements
+  - **Safety Override**: If fitness test results are weak (<5 pushups, <2 pullups, <15 squats), users are automatically restricted to beginner exercises regardless of self-reported experience
+  - **AI Integration**: Exercise lists are pre-filtered before being sent to GPT-4, ensuring the AI cannot recommend movements beyond user capability
+  - **Implementation**: `server/ai-service.ts` applies difficulty filtering to all exercise categories (functional, warmup, cardio)
 - **Automatic Program Generation**: Programs are automatically generated and saved upon signup.
 - **Progressive Overload System**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
 - **Smart Workout Input**: Input fields dynamically adjust based on exercise equipment.
