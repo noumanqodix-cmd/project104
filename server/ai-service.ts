@@ -77,44 +77,75 @@ export async function generateWorkoutProgram(
   };
 
   const overrideReasons: string[] = [];
+
+  // Apply manual overrides if they exist (user manually advanced their level)
+  if (latestAssessment.pushOverride) {
+    movementDifficulties.push = getDefaultDifficulties(latestAssessment.pushOverride);
+    overrideReasons.push(`Push exercises manually overridden to ${latestAssessment.pushOverride}`);
+  }
+  if (latestAssessment.pullOverride) {
+    movementDifficulties.pull = getDefaultDifficulties(latestAssessment.pullOverride);
+    overrideReasons.push(`Pull exercises manually overridden to ${latestAssessment.pullOverride}`);
+  }
+  if (latestAssessment.lowerBodyOverride) {
+    const lowerLevel = getDefaultDifficulties(latestAssessment.lowerBodyOverride);
+    movementDifficulties.squat = lowerLevel;
+    movementDifficulties.lunge = lowerLevel;
+    overrideReasons.push(`Lower body exercises manually overridden to ${latestAssessment.lowerBodyOverride}`);
+  }
+  if (latestAssessment.hingeOverride) {
+    movementDifficulties.hinge = getDefaultDifficulties(latestAssessment.hingeOverride);
+    overrideReasons.push(`Hinge exercises manually overridden to ${latestAssessment.hingeOverride}`);
+  }
+  if (latestAssessment.cardioOverride) {
+    movementDifficulties.cardio = getDefaultDifficulties(latestAssessment.cardioOverride);
+    overrideReasons.push(`Cardio exercises manually overridden to ${latestAssessment.cardioOverride}`);
+  }
   
   // Bodyweight test checks - map to specific movement patterns
+  // Only apply performance restrictions if there is NO manual override for that pattern
   const pushups = latestAssessment.pushups || 0;
   const pullups = latestAssessment.pullups || 0;
   const squats = latestAssessment.squats || 0;
   
-  if (pushups < 5) {
+  if (!latestAssessment.pushOverride && pushups < 5) {
     movementDifficulties.push = ["beginner"];
     overrideReasons.push('Push exercises limited to beginner (pushups < 5)');
   }
   
-  if (pullups < 2) {
+  if (!latestAssessment.pullOverride && pullups < 2) {
     movementDifficulties.pull = ["beginner"];
     overrideReasons.push('Pull exercises limited to beginner (pullups < 2)');
   }
   
-  if (squats < 15) {
+  if (!latestAssessment.lowerBodyOverride && squats < 15) {
     movementDifficulties.squat = ["beginner"];
     movementDifficulties.lunge = ["beginner"];
-    movementDifficulties.hinge = ["beginner"];
     overrideReasons.push('Lower body exercises limited to beginner (squats < 15)');
+  }
+  
+  if (!latestAssessment.hingeOverride && squats < 15) {
+    movementDifficulties.hinge = ["beginner"];
+    overrideReasons.push('Hinge exercises limited to beginner (squats < 15)');
   }
   
   // Mile time check for cardio
   const mileTime = latestAssessment.mileTime || 999;
-  if (mileTime > 12) {
-    movementDifficulties.cardio = ["beginner"];
-    overrideReasons.push('Cardio limited to beginner (mile time > 12 min)');
-  } else if (mileTime > 9) {
-    movementDifficulties.cardio = ["beginner", "intermediate"];
-    overrideReasons.push('Cardio limited to intermediate (mile time > 9 min)');
+  if (!latestAssessment.cardioOverride) {
+    if (mileTime > 12) {
+      movementDifficulties.cardio = ["beginner"];
+      overrideReasons.push('Cardio limited to beginner (mile time > 12 min)');
+    } else if (mileTime > 9) {
+      movementDifficulties.cardio = ["beginner", "intermediate"];
+      overrideReasons.push('Cardio limited to intermediate (mile time > 9 min)');
+    }
   }
   
   // Weighted test checks (using bodyweight ratios) - map to specific patterns
   if (user.weight && user.weight > 0) {
     const weightInKg = user.unitPreference === "imperial" ? user.weight * 0.453592 : user.weight;
     
-    if (latestAssessment.squat1rm) {
+    if (!latestAssessment.lowerBodyOverride && latestAssessment.squat1rm) {
       const squat1rmKg = user.unitPreference === "imperial" ? latestAssessment.squat1rm * 0.453592 : latestAssessment.squat1rm;
       if (squat1rmKg < weightInKg * 1.0) {
         movementDifficulties.squat = ["beginner"];
@@ -123,7 +154,7 @@ export async function generateWorkoutProgram(
       }
     }
     
-    if (latestAssessment.deadlift1rm) {
+    if (!latestAssessment.hingeOverride && latestAssessment.deadlift1rm) {
       const deadlift1rmKg = user.unitPreference === "imperial" ? latestAssessment.deadlift1rm * 0.453592 : latestAssessment.deadlift1rm;
       if (deadlift1rmKg < weightInKg * 1.25) {
         movementDifficulties.hinge = ["beginner"];
@@ -131,7 +162,7 @@ export async function generateWorkoutProgram(
       }
     }
     
-    if (latestAssessment.benchPress1rm) {
+    if (!latestAssessment.pushOverride && latestAssessment.benchPress1rm) {
       const bench1rmKg = user.unitPreference === "imperial" ? latestAssessment.benchPress1rm * 0.453592 : latestAssessment.benchPress1rm;
       if (bench1rmKg < weightInKg * 0.75) {
         movementDifficulties.push = ["beginner"];
@@ -139,7 +170,7 @@ export async function generateWorkoutProgram(
       }
     }
     
-    if (latestAssessment.overheadPress1rm) {
+    if (!latestAssessment.pushOverride && latestAssessment.overheadPress1rm) {
       const ohp1rmKg = user.unitPreference === "imperial" ? latestAssessment.overheadPress1rm * 0.453592 : latestAssessment.overheadPress1rm;
       if (ohp1rmKg < weightInKg * 0.5) {
         movementDifficulties.push = ["beginner"];
@@ -147,7 +178,7 @@ export async function generateWorkoutProgram(
       }
     }
     
-    if (latestAssessment.barbellRow1rm) {
+    if (!latestAssessment.pullOverride && latestAssessment.barbellRow1rm) {
       const row1rmKg = user.unitPreference === "imperial" ? latestAssessment.barbellRow1rm * 0.453592 : latestAssessment.barbellRow1rm;
       if (row1rmKg < weightInKg * 0.75) {
         movementDifficulties.pull = ["beginner"];
