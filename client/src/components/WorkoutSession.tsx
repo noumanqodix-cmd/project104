@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -776,7 +777,30 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             </div>
           )}
           <div className="flex items-start justify-between mb-4">
-            <h2 className="text-2xl font-bold">{currentExercise.name}</h2>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold mb-2">{currentExercise.name}</h2>
+              <div className="flex gap-2 flex-wrap mb-2">
+                {currentExercise.equipment?.map((eq, idx) => (
+                  <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
+                ))}
+              </div>
+              {currentProgramExercise?.exercise?.primaryMuscles && currentProgramExercise.exercise.primaryMuscles.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex gap-2 flex-wrap">
+                    {currentProgramExercise.exercise.primaryMuscles.map((muscle, idx) => (
+                      <Badge key={`primary-${muscle}-${idx}`} variant="outline" className="text-xs">
+                        {muscle}
+                      </Badge>
+                    ))}
+                  </div>
+                  {currentProgramExercise.exercise.secondaryMuscles && currentProgramExercise.exercise.secondaryMuscles.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {currentProgramExercise.exercise.secondaryMuscles.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"

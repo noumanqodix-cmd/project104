@@ -207,13 +207,29 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-4">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2 flex-wrap mb-2">
                         {ex.exercise.equipment?.map((eq, idx) => (
                           <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
                         ))}
                       </div>
+                      {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex gap-2 flex-wrap">
+                            {ex.exercise.primaryMuscles.map((muscle, idx) => (
+                              <Badge key={`primary-${muscle}-${idx}`} variant="outline" className="text-xs">
+                                {muscle}
+                              </Badge>
+                            ))}
+                          </div>
+                          {ex.exercise.secondaryMuscles && ex.exercise.secondaryMuscles.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {ex.exercise.secondaryMuscles.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="outline"
@@ -283,13 +299,29 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-4">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-xl font-semibold mb-2">{ex.exercise.name}</h3>
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2 flex-wrap mb-2">
                         {ex.exercise.equipment?.map((eq, idx) => (
                           <Badge key={`${eq}-${idx}`} variant="secondary">{eq}</Badge>
                         ))}
                       </div>
+                      {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex gap-2 flex-wrap">
+                            {ex.exercise.primaryMuscles.map((muscle, idx) => (
+                              <Badge key={`primary-${muscle}-${idx}`} variant="outline" className="text-xs">
+                                {muscle}
+                              </Badge>
+                            ))}
+                          </div>
+                          {ex.exercise.secondaryMuscles && ex.exercise.secondaryMuscles.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {ex.exercise.secondaryMuscles.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="outline"

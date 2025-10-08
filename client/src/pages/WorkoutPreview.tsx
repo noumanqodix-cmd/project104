@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Repeat, TrendingUp, Info, AlertCircle } from "lucide-react";
@@ -13,6 +14,8 @@ interface ExerciseWithProgression {
   id: string;
   name: string;
   equipment: string[];
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
   sets: number;
   reps: string;
   weight: string;
@@ -95,6 +98,8 @@ export default function WorkoutPreview() {
             id: pe.id,
             name: pe.exercise.name,
             equipment: pe.exercise.equipment || [],
+            primaryMuscles: pe.exercise.primaryMuscles || [],
+            secondaryMuscles: pe.exercise.secondaryMuscles || [],
             sets: pe.sets,
             reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
             weight: '0',
@@ -180,7 +185,12 @@ export default function WorkoutPreview() {
 
   const handleSwap = (newExercise: any) => {
     setExercises(prev =>
-      prev.map(ex => ex.id === swapExercise?.id ? { ...newExercise, id: swapExercise.id } : ex)
+      prev.map(ex => ex.id === swapExercise?.id ? { 
+        ...newExercise, 
+        id: swapExercise.id,
+        primaryMuscles: newExercise.primaryMuscles || [],
+        secondaryMuscles: newExercise.secondaryMuscles || [],
+      } : ex)
     );
     setSwapExercise(null);
   };
@@ -282,6 +292,22 @@ export default function WorkoutPreview() {
                       <CardDescription className="mt-1">
                         {exercise.sets} sets × {exercise.reps} reps
                       </CardDescription>
+                      {exercise.primaryMuscles && exercise.primaryMuscles.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex gap-2 flex-wrap">
+                            {exercise.primaryMuscles.map((muscle, idx) => (
+                              <Badge key={`primary-${muscle}-${idx}`} variant="outline" className="text-xs">
+                                {muscle}
+                              </Badge>
+                            ))}
+                          </div>
+                          {exercise.secondaryMuscles && exercise.secondaryMuscles.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {exercise.secondaryMuscles.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="outline"
