@@ -54,14 +54,74 @@ export async function generateWorkoutProgram(
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
   // Safety override: if fitness test results are very weak, force beginner difficulty
+  
+  // Bodyweight test checks
   const pushups = latestAssessment.pushups || 0;
   const pullups = latestAssessment.pullups || 0;
   const squats = latestAssessment.squats || 0;
+  const isWeakBodyweight = pushups < 5 || pullups < 2 || squats < 15;
   
-  const isWeakPerformance = pushups < 5 || pullups < 2 || squats < 15;
+  // Weighted test checks (using bodyweight ratios)
+  let isWeakWeighted = false;
+  const overrideReasons: string[] = [];
+  
+  if (user.weight && user.weight > 0) {
+    // Convert weight to kg if needed for consistent calculations
+    const weightInKg = user.unitPreference === "imperial" ? user.weight * 0.453592 : user.weight;
+    
+    // Check 1RM values against beginner standards (relative to bodyweight)
+    if (latestAssessment.squat1rm) {
+      const squat1rmKg = user.unitPreference === "imperial" ? latestAssessment.squat1rm * 0.453592 : latestAssessment.squat1rm;
+      if (squat1rmKg < weightInKg * 1.0) {
+        isWeakWeighted = true;
+        overrideReasons.push('Squat 1RM < 1.0x bodyweight');
+      }
+    }
+    
+    if (latestAssessment.deadlift1rm) {
+      const deadlift1rmKg = user.unitPreference === "imperial" ? latestAssessment.deadlift1rm * 0.453592 : latestAssessment.deadlift1rm;
+      if (deadlift1rmKg < weightInKg * 1.25) {
+        isWeakWeighted = true;
+        overrideReasons.push('Deadlift 1RM < 1.25x bodyweight');
+      }
+    }
+    
+    if (latestAssessment.benchPress1rm) {
+      const bench1rmKg = user.unitPreference === "imperial" ? latestAssessment.benchPress1rm * 0.453592 : latestAssessment.benchPress1rm;
+      if (bench1rmKg < weightInKg * 0.75) {
+        isWeakWeighted = true;
+        overrideReasons.push('Bench Press 1RM < 0.75x bodyweight');
+      }
+    }
+    
+    if (latestAssessment.overheadPress1rm) {
+      const ohp1rmKg = user.unitPreference === "imperial" ? latestAssessment.overheadPress1rm * 0.453592 : latestAssessment.overheadPress1rm;
+      if (ohp1rmKg < weightInKg * 0.5) {
+        isWeakWeighted = true;
+        overrideReasons.push('Overhead Press 1RM < 0.5x bodyweight');
+      }
+    }
+    
+    if (latestAssessment.barbellRow1rm) {
+      const row1rmKg = user.unitPreference === "imperial" ? latestAssessment.barbellRow1rm * 0.453592 : latestAssessment.barbellRow1rm;
+      if (row1rmKg < weightInKg * 0.75) {
+        isWeakWeighted = true;
+        overrideReasons.push('Barbell Row 1RM < 0.75x bodyweight');
+      }
+    }
+  }
+  
+  if (isWeakBodyweight) {
+    overrideReasons.push('Weak bodyweight test results');
+  }
+  
+  const isWeakPerformance = isWeakBodyweight || isWeakWeighted;
   const effectiveFitnessLevel = isWeakPerformance ? "beginner" : fitnessLevel;
   
-  console.log(`[DIFFICULTY] User fitness level: ${fitnessLevel}, Effective level: ${effectiveFitnessLevel}${isWeakPerformance ? ' (safety override applied)' : ''}`);
+  if (isWeakPerformance) {
+    console.log(`[DIFFICULTY] Safety override applied - Reason(s): ${overrideReasons.join(', ')}`);
+  }
+  console.log(`[DIFFICULTY] User fitness level: ${fitnessLevel}, Effective level: ${effectiveFitnessLevel}${isWeakPerformance ? ' (safety override)' : ''}`);
 
   // Determine allowed exercise difficulties based on fitness level
   const allowedDifficulties: string[] = [];
