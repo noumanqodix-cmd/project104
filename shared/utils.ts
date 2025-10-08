@@ -255,3 +255,53 @@ export function calculateMovementPatternLevels(
     cardio: getMaxLevel(cardioLevel, assessment.cardioOverride),
   };
 }
+
+// Convert movement pattern level to allowed difficulty array
+export function getAllowedDifficulties(level: MovementPatternLevel): string[] {
+  if (level === 'beginner') return ['beginner'];
+  if (level === 'intermediate') return ['beginner', 'intermediate'];
+  return ['beginner', 'intermediate', 'advanced'];
+}
+
+// Get allowed difficulties map for all movement patterns
+export function getMovementDifficultiesMap(
+  levels: MovementPatternLevels,
+  fitnessLevel: string = 'beginner'
+): { [pattern: string]: string[] } {
+  const getDefault = (level: string): string[] => {
+    if (level === 'beginner') return ['beginner'];
+    if (level === 'intermediate') return ['beginner', 'intermediate'];
+    return ['beginner', 'intermediate', 'advanced'];
+  };
+  
+  return {
+    push: getAllowedDifficulties(levels.push),
+    pull: getAllowedDifficulties(levels.pull),
+    squat: getAllowedDifficulties(levels.lowerBody),
+    lunge: getAllowedDifficulties(levels.lowerBody),
+    hinge: getAllowedDifficulties(levels.hinge),
+    cardio: getAllowedDifficulties(levels.cardio),
+    core: getDefault(fitnessLevel),
+    rotation: getDefault(fitnessLevel),
+    carry: getDefault(fitnessLevel),
+  };
+}
+
+// Check if an exercise is allowed based on movement pattern difficulty
+export function isExerciseAllowed(
+  exercise: { movementPattern?: string; difficulty: string },
+  movementDifficulties: { [pattern: string]: string[] },
+  fitnessLevel: string = 'beginner'
+): boolean {
+  const pattern = exercise.movementPattern?.toLowerCase() || '';
+  const difficulty = exercise.difficulty;
+  
+  const getDefault = (level: string): string[] => {
+    if (level === 'beginner') return ['beginner'];
+    if (level === 'intermediate') return ['beginner', 'intermediate'];
+    return ['beginner', 'intermediate', 'advanced'];
+  };
+  
+  const allowedForPattern = movementDifficulties[pattern] || getDefault(fitnessLevel);
+  return allowedForPattern.includes(difficulty);
+}

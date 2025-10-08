@@ -6,6 +6,8 @@ import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecomme
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout } from "@shared/schema";
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
+import { z } from "zod";
+import { calculateAge } from "@shared/utils";
 
 // Guard against duplicate route registration (e.g., from HMR)
 let routesRegistered = false;
@@ -462,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (hasPhysicalStatChange || hasGoalChange) {
         const finalHeight = updates.height !== undefined ? updates.height : user.height;
         const finalWeight = updates.weight !== undefined ? updates.weight : user.weight;
-        const finalAge = updates.age !== undefined ? updates.age : user.age;
+        const finalAge = updates.age !== undefined ? updates.age : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : null);
         const finalGoal = updates.nutritionGoal !== undefined ? updates.nutritionGoal : user.nutritionGoal;
         
         if (finalHeight && finalWeight && finalAge) {
@@ -1444,8 +1446,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { exerciseId, movementPattern, primaryMuscles } = req.body;
       
+      // Fetch user data and fitness assessment for difficulty filtering
+      const user = await storage.getUser(userId);
+      const latestAssessment = await storage.getLatestFitnessAssessment(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Calculate movement pattern levels and get allowed difficulties
+      const { calculateMovementPatternLevels, getMovementDifficultiesMap, isExerciseAllowed: checkExerciseAllowed } = await import("@shared/utils");
+      
+      const fitnessLevel = latestAssessment?.experienceLevel || user.fitnessLevel || 'beginner';
+      
+      // Use assessment if available, otherwise default all patterns to user's declared fitness level
+      const movementLevels = latestAssessment 
+        ? calculateMovementPatternLevels(latestAssessment, user)
+        : { 
+            push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            pull: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            lowerBody: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            hinge: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            cardio: fitnessLevel as 'beginner' | 'intermediate' | 'advanced' 
+          };
+      
+      const movementDifficulties = getMovementDifficultiesMap(movementLevels, fitnessLevel);
+      
       const allExercises = await storage.getAllExercises();
       
+      // Filter by movement pattern, muscles, AND difficulty level
       const similarExercises = allExercises.filter(ex => {
         if (ex.id === exerciseId) return false;
         if (ex.movementPattern !== movementPattern) return false;
@@ -1454,7 +1483,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ex.primaryMuscles.includes(muscle)
         );
         
-        return hasMatchingMuscle;
+        if (!hasMatchingMuscle) return false;
+        
+        // Apply difficulty filtering based on user's movement pattern level
+        return checkExerciseAllowed(ex, movementDifficulties, fitnessLevel);
       });
       
       res.json(similarExercises);
