@@ -1368,10 +1368,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Convert rest day session to Zone 2 cardio session
-  app.post("/api/programs/sessions/cardio", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/programs/sessions/cardio/:date", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { scheduledDate, suggestedDuration } = req.body;
+      const scheduledDate = req.params.date;
+      const { suggestedDuration } = req.body;
 
       if (!scheduledDate) {
         return res.status(400).json({ error: "scheduledDate is required" });
