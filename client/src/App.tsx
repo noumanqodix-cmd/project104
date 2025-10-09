@@ -26,6 +26,7 @@ import Body from "./pages/Body";
 import FitnessTest from "./pages/FitnessTest";
 import WorkoutPreview from "./pages/WorkoutPreview";
 import Settings from "./pages/Settings";
+import WorkoutPage from "./pages/Workout";
 import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 import TestTypeSelector from "./components/TestTypeSelector";
@@ -377,7 +378,7 @@ function AppRoutes() {
           </Route>
 
           <Route path="/workout">
-            <WorkoutSession
+            <WorkoutPage
               onComplete={(summary) => {
                 setWorkoutSummaryData(summary);
                 setLocation("/summary");
