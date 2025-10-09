@@ -61,7 +61,7 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
   }
 
   // Check if this is a cardio session
-  const isCardioSession = nextSession?.sessionType === "cardio";
+  const isCardioSession = nextSession?.workoutType === "cardio";
 
   if (isCardioSession && nextSession) {
     return (

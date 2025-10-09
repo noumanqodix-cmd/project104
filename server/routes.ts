@@ -48,7 +48,8 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
           workoutName: programWorkout.workoutName,
           scheduledDate,
           sessionDayOfWeek: schemaDayOfWeek,
-          sessionType: (programWorkout.workoutType === 'rest' ? 'rest' : 'strength') as 'rest' | 'strength' | 'cardio',
+          sessionType: (programWorkout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
+          workoutType: programWorkout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
           completed: 0,
           status: "scheduled" as const,
         });
@@ -1401,20 +1402,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No session found for this date" });
       }
 
-      if (sessionOnDate.sessionType === 'cardio') {
-        console.log('[CARDIO] Session already cardio');
-        return res.status(400).json({ error: "This session is already a cardio session" });
+      if (sessionOnDate.sessionType === 'workout') {
+        console.log('[CARDIO] Session is already a workout (not a rest day)');
+        return res.status(400).json({ error: "This is a workout day, not a rest day. You can only add cardio to rest days." });
       }
 
-      if (sessionOnDate.sessionType === 'strength') {
-        console.log('[CARDIO] Session is strength, not rest');
-        return res.status(400).json({ error: "This is a strength training day, not a rest day" });
-      }
-
-      // Update the existing rest day session to become a cardio session
+      // Update the existing rest day session to become a cardio workout session
       const duration = suggestedDuration || 30; // Default 30 minutes
       const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
-        sessionType: "cardio",
+        sessionType: "workout",
+        workoutType: "cardio",
         workoutName: "Zone 2 Cardio",
         notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
       });

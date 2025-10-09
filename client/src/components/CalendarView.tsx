@@ -29,7 +29,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
 
   // Check if selected date is a rest day
   const isRestDay = selectedDateSessions.some(s => s.sessionType === "rest");
-  const hasCardio = selectedDateSessions.some(s => s.sessionType === "cardio");
+  const hasCardio = selectedDateSessions.some(s => s.sessionType === "workout" && s.workoutType === "cardio");
 
   // Mutation to add cardio session to a rest day
   const addCardioMutation = useMutation({
@@ -172,7 +172,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
               const dateKey = format(day, 'yyyy-MM-dd');
               const hasSessions = sessionsByDate.has(dateKey);
               const daySessions = sessionsByDate.get(dateKey) || [];
-              const hasCardioSession = daySessions.some(s => s.sessionType === "cardio");
+              const hasCardioSession = daySessions.some(s => s.sessionType === "workout" && s.workoutType === "cardio");
 
               return (
                 <button

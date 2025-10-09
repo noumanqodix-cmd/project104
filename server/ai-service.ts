@@ -27,6 +27,7 @@ export interface GeneratedProgram {
 export interface GeneratedWorkout {
   dayOfWeek: number;
   workoutName: string;
+  workoutType: "strength" | "cardio" | "hiit" | "mobility" | null;
   movementFocus: string[];
   exercises: GeneratedExercise[];
 }
@@ -457,6 +458,24 @@ IMPORTANT:
   * If list shows "Bent-Over Row (barbell/dumbbells/kettlebell)" and user has dumbbells → use exerciseName: "Bent-Over Row", equipment: "dumbbells"
   * If list shows "Push-ups (bodyweight/box)" → use exerciseName: "Push-ups", equipment: "bodyweight" (or "box" if using elevated variant)
 
+**WORKOUT TYPE CLASSIFICATION (CRITICAL):**
+Every workout MUST be classified by type to enable proper tracking and UI display:
+- **"strength"**: Workouts focused on resistance training, lifting, bodyweight strength (squats, presses, rows, etc.)
+- **"cardio"**: Steady-state cardio workouts (jogging, cycling, rowing at moderate pace)
+- **"hiit"**: High-intensity interval training workouts (Tabata, sprint intervals, circuit training)
+- **"mobility"**: Mobility-focused sessions (stretching, dynamic warm-ups, recovery work)
+- **null**: Rest days ONLY (no exercises)
+
+CLASSIFICATION RULES:
+1. If the workout contains primarily strength/resistance exercises → workoutType: "strength"
+2. If the workout contains primarily steady-state cardio → workoutType: "cardio"
+3. If the workout contains primarily HIIT/interval work → workoutType: "hiit"
+4. If the workout contains primarily mobility/stretching → workoutType: "mobility"
+5. For mixed workouts (e.g., strength + cardio finisher), classify by the PRIMARY focus:
+   - Strength workout with cardio finisher → "strength"
+   - HIIT workout with strength exercises → "hiit"
+6. Every rest day should have workoutType: null and an empty exercises array
+
 **Response Format (JSON):**
 {
   "programType": "functional strength program name",
@@ -466,6 +485,7 @@ IMPORTANT:
     {
       "dayOfWeek": ${scheduledDays[0]},
       "workoutName": "Full Body Functional Day",
+      "workoutType": "strength",
       "movementFocus": ["push", "pull", "hinge"],
       "exercises": [
         {
@@ -555,6 +575,13 @@ IMPORTANT:
           "notes": "Tabata protocol finisher - max effort during work intervals"
         }
       ]
+    },
+    {
+      "dayOfWeek": ${scheduledDays[1] || 2},
+      "workoutName": "Rest Day",
+      "workoutType": null,
+      "movementFocus": [],
+      "exercises": []
     }
   ]
 }

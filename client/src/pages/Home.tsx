@@ -168,7 +168,7 @@ export default function Home() {
     sessions?.some(s => {
       if (!s.scheduledDate || !nextSession.scheduledDate) return false;
       return new Date(s.scheduledDate).toDateString() === new Date(nextSession.scheduledDate).toDateString() &&
-        s.sessionType === "cardio";
+        s.sessionType === "workout" && s.workoutType === "cardio";
     }) : false;
   
   const isToday = nextSession && nextSession.scheduledDate ? 
@@ -450,7 +450,7 @@ export default function Home() {
                           ? `${lastSession.workout?.workoutName || "Workout"} (Skipped)`
                           : lastSession.session.sessionType === "rest" 
                             ? "Rest Day" 
-                            : lastSession.session.sessionType === "cardio"
+                            : lastSession.session.workoutType === "cardio"
                               ? "Zone 2 Cardio"
                               : lastSession.workout?.workoutName || "Session"}
                     </p>
