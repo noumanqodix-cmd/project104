@@ -164,16 +164,18 @@ export default function Home() {
     return scheduledDate >= getStartOfWeek();
   }) || [];
 
-  // TODAY'S SESSION: Find session scheduled for today's exact date
+  // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const todaySession = sessions?.find((s: any) => {
-    if (!s.scheduledDate) return false;
-    const sessionDate = new Date(s.scheduledDate);
-    sessionDate.setHours(0, 0, 0, 0);
-    return sessionDate.getTime() === today.getTime();
-  });
+  const todaySession = sessions
+    ?.filter((s: any) => s.status !== 'archived') // Exclude archived sessions
+    ?.find((s: any) => {
+      if (!s.scheduledDate) return false;
+      const sessionDate = new Date(s.scheduledDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
