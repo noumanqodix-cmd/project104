@@ -1367,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create Zone 2 cardio session for a specific date (rest day conversion)
+  // Convert rest day session to Zone 2 cardio session
   app.post("/api/programs/sessions/cardio", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
@@ -1385,10 +1385,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Parse the scheduled date
       const sessionScheduledDate = new Date(scheduledDate);
-      const dayOfWeek = sessionScheduledDate.getDay();
-      const sessionDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-      // Check if there's already a session on this date
+      // Find the existing session on this date
       const existingSessions = await storage.getUserSessions(userId);
       const sessionOnDate = existingSessions.find((s: any) => {
         if (!s.scheduledDate) return false;
@@ -1396,32 +1394,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
       });
 
-      if (sessionOnDate && sessionOnDate.sessionType === 'cardio') {
-        return res.status(400).json({ error: "Cardio session already exists for this date" });
+      if (!sessionOnDate) {
+        return res.status(404).json({ error: "No session found for this date" });
       }
 
-      if (sessionOnDate && sessionOnDate.sessionType === 'strength') {
+      if (sessionOnDate.sessionType === 'cardio') {
+        return res.status(400).json({ error: "This session is already a cardio session" });
+      }
+
+      if (sessionOnDate.sessionType === 'strength') {
         return res.status(400).json({ error: "This is a strength training day, not a rest day" });
       }
 
-      // Create Zone 2 cardio session
+      // Update the existing rest day session to become a cardio session
       const duration = suggestedDuration || 30; // Default 30 minutes
-      const session = await storage.createWorkoutSession({
-        userId,
-        programWorkoutId: null, // Cardio sessions are standalone
-        workoutName: "Zone 2 Cardio",
-        scheduledDate: sessionScheduledDate,
-        sessionDayOfWeek,
+      const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
         sessionType: "cardio",
-        status: "scheduled",
-        completed: 0,
+        workoutName: "Zone 2 Cardio",
         notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
       });
 
-      res.json(session);
+      if (!updatedSession) {
+        return res.status(500).json({ error: "Failed to update session" });
+      }
+
+      res.json(updatedSession);
     } catch (error) {
-      console.error("Create cardio session error:", error);
-      res.status(500).json({ error: "Failed to create cardio session" });
+      console.error("Convert to cardio session error:", error);
+      res.status(500).json({ error: "Failed to convert to cardio session" });
     }
   });
 
