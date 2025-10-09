@@ -557,13 +557,18 @@ export default function Settings() {
                   { value: "kettlebell", label: "Kettlebell" },
                   { value: "barbell", label: "Barbell" },
                   { value: "resistance bands", label: "Resistance Bands" },
+                  { value: "cable machine", label: "Cable Machine" },
                   { value: "pull-up bar", label: "Pull-up Bar" },
+                  { value: "trx", label: "TRX" },
                   { value: "medicine ball", label: "Medicine Ball" },
                   { value: "box", label: "Box/Bench" },
-                  { value: "trx", label: "TRX" },
                   { value: "jump rope", label: "Jump Rope" },
-                  { value: "foam roller", label: "Foam Roller" },
-                  { value: "yoga mat", label: "Yoga Mat" },
+                  { value: "rower", label: "Rower" },
+                  { value: "bike", label: "Bike" },
+                  { value: "treadmill", label: "Treadmill" },
+                  { value: "elliptical", label: "Elliptical" },
+                  { value: "assault bike", label: "Assault Bike" },
+                  { value: "stair climber", label: "Stair Climber" },
                 ].map((eq) => {
                   const domId = sanitizeId(eq.value);
                   return (
