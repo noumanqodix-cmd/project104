@@ -99,6 +99,7 @@ export const exercises = pgTable("exercises", {
   isCorrective: integer("is_corrective").notNull().default(0),
   exerciseType: text("exercise_type").notNull().default("main"),
   trackingType: text("tracking_type").notNull().default("reps"),
+  workoutType: text("workout_type").notNull().default("strength"),
   videoUrl: text("video_url"),
   formTips: text("form_tips").array(),
 });
@@ -109,6 +110,7 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({
   liftType: z.enum(["compound", "isolation"]).default("compound"),
   exerciseType: z.enum(["warmup", "main", "cooldown"]).optional(),
   trackingType: z.enum(["reps", "duration", "both"]).default("reps"),
+  workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).default("strength"),
 });
 
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
@@ -134,7 +136,7 @@ export const programWorkouts = pgTable("program_workouts", {
   dayOfWeek: integer("day_of_week").notNull(),
   workoutName: text("workout_name").notNull(),
   movementFocus: text("movement_focus").array().notNull(),
-  workoutType: text("workout_type").notNull().default("workout"),
+  workoutType: text("workout_type"),
 });
 
 export const programExercises = pgTable("program_exercises", {
@@ -187,7 +189,8 @@ export const workoutSessions = pgTable("workout_sessions", {
   sessionDate: timestamp("session_date").notNull().defaultNow(),
   scheduledDate: timestamp("scheduled_date"),
   sessionDayOfWeek: integer("session_day_of_week"),
-  sessionType: text("session_type").notNull().default("strength"),
+  sessionType: text("session_type").notNull().default("rest"),
+  workoutType: text("workout_type"),
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
   durationMinutes: integer("duration_minutes"),
@@ -212,13 +215,15 @@ export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).om
   id: true,
   sessionDate: true,
 }).extend({
-  sessionType: z.enum(["strength", "cardio", "rest"]).default("strength"),
+  sessionType: z.enum(["workout", "rest"]).default("rest"),
+  workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).optional(),
 });
 
 export const patchWorkoutSessionSchema = z.object({
   completed: z.union([z.boolean(), z.number()]).transform(val => val ? 1 : 0).optional(),
   status: z.string().optional(),
-  sessionType: z.enum(["strength", "cardio"]).optional(),
+  sessionType: z.enum(["workout", "rest"]).optional(),
+  workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).optional(),
   durationMinutes: z.number().optional(),
   caloriesBurned: z.number().optional(),
   notes: z.string().optional(),
