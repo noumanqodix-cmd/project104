@@ -16,6 +16,10 @@ export interface WeightsTestResults {
   benchPress: number;
   overheadPress: number;
   row: number;
+  dumbbellLunge: number;
+  plankHold: number;
+  farmersCarry: number;
+  mileTime: number;
 }
 
 const exercises = [
@@ -24,6 +28,10 @@ const exercises = [
   { id: "benchPress", label: "Bench Press", description: "1 rep max" },
   { id: "overheadPress", label: "Overhead Press", description: "1 rep max" },
   { id: "row", label: "Barbell Row", description: "1 rep max" },
+  { id: "dumbbellLunge", label: "Dumbbell Lunge", description: "1 rep max per hand" },
+  { id: "plankHold", label: "Plank Hold", description: "max time" },
+  { id: "farmersCarry", label: "Farmer's Carry", description: "1 rep max per hand" },
+  { id: "mileTime", label: "Mile Run", description: "time" },
 ];
 
 export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormProps) {
@@ -59,6 +67,10 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
       benchPress: unitPreference === 'imperial' ? 65 : 29,
       overheadPress: unitPreference === 'imperial' ? 45 : 20,
       row: unitPreference === 'imperial' ? 65 : 29,
+      dumbbellLunge: unitPreference === 'imperial' ? 25 : 11,
+      plankHold: 20,
+      farmersCarry: unitPreference === 'imperial' ? 35 : 16,
+      mileTime: 15,
     };
 
     const newResults = { ...results, [exercise.id]: beginnerDefaults[exercise.id] || 45 };
@@ -106,7 +118,9 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
         <div className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="value" className="text-base">
-              What's your max weight?
+              {exercise.id === 'plankHold' ? "How long can you hold?" :
+               exercise.id === 'mileTime' ? "What's your time?" : 
+               "What's your max weight?"}
             </Label>
             <Input
               id="value"
@@ -114,13 +128,17 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleNext()}
-              placeholder="Enter weight"
+              placeholder={exercise.id === 'plankHold' ? "Enter seconds" :
+                          exercise.id === 'mileTime' ? "Enter minutes" :
+                          "Enter weight"}
               className="text-4xl text-center h-20 font-mono"
               autoFocus
               data-testid="input-test-value"
             />
             <p className="text-sm text-muted-foreground text-center">
-              {unitPreference === 'imperial' ? 'pounds (lbs)' : 'kilograms (kg)'}
+              {exercise.id === 'plankHold' ? 'seconds' :
+               exercise.id === 'mileTime' ? 'minutes' :
+               unitPreference === 'imperial' ? 'pounds (lbs)' : 'kilograms (kg)'}
             </p>
           </div>
 

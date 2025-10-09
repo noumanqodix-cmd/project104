@@ -91,6 +91,9 @@ export default function OnboardingAssessment() {
         pushups: results.pushups,
         pullups: results.pullups,
         squats: results.squats,
+        walkingLunges: results.walkingLunges,
+        singleLegRdl: results.singleLegRdl,
+        plankHold: results.plankHold,
         mileTime: results.mileTime,
       },
     };
@@ -124,6 +127,10 @@ export default function OnboardingAssessment() {
         benchPress1rm: results.benchPress,
         overheadPress1rm: results.overheadPress,
         barbellRow1rm: results.row,
+        dumbbellLunge1rm: results.dumbbellLunge,
+        plankHold: results.plankHold,
+        farmersCarry1rm: results.farmersCarry,
+        mileTime: results.mileTime,
       },
     };
 
