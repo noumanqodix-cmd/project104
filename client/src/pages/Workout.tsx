@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import WorkoutSession, { WorkoutSummary } from "@/components/WorkoutSession";
 import CardioWorkoutSession, { CardioSummary } from "@/components/CardioWorkoutSession";
 import type { WorkoutSession as WorkoutSessionType, User } from "@shared/schema";
+import { parseLocalDate, isSameCalendarDay } from "@shared/dateUtils";
 
 interface WorkoutPageProps {
   onComplete: (summary: WorkoutSummary | CardioSummary) => void;
@@ -16,19 +17,6 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
   const { data: sessions, isLoading: loadingSessions } = useQuery<WorkoutSessionType[]>({
     queryKey: ["/api/workout-sessions"],
   });
-
-  // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
-  const parseLocalDate = (dateString: string): Date => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, month - 1, day); // month is 0-indexed
-  };
-
-  // Helper: Compare dates by calendar date (year/month/day) in user's timezone
-  const isSameCalendarDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
 
   // Find TODAY's session only
   const today = new Date();

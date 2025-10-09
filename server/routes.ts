@@ -8,6 +8,7 @@ import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertW
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
+import { parseLocalDate, formatLocalDate, isSameCalendarDay, isBeforeCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
 
 // Guard against duplicate route registration (e.g., from HMR)
 let routesRegistered = false;
@@ -1283,12 +1284,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Helper: Parse YYYY-MM-DD string into Date in local timezone
-      const parseLocalDate = (dateString: string): Date => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day);
-      };
-
       // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1383,22 +1378,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No active program found" });
       }
 
-      // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
-      const parseLocalDate = (dateString: string): Date => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day); // month is 0-indexed
-      };
-
       // Parse the scheduled date
       const sessionScheduledDate = parseLocalDate(scheduledDate);
-
-      // Helper: Format Date to YYYY-MM-DD using local timezone
-      const formatLocalDate = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
 
       // Find the existing session on this date (exclude archived and skipped sessions)
       const existingSessions = await storage.getUserSessions(userId);
@@ -1471,23 +1452,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
-      const parseLocalDate = (dateString: string): Date => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day); // month is 0-indexed
-      };
-
-      // Helper: Compare if date1 is before date2 by calendar date (year/month/day)
-      const isBeforeCalendarDay = (date1: Date, date2: Date) => {
-        if (date1.getFullYear() !== date2.getFullYear()) {
-          return date1.getFullYear() < date2.getFullYear();
-        }
-        if (date1.getMonth() !== date2.getMonth()) {
-          return date1.getMonth() < date2.getMonth();
-        }
-        return date1.getDate() < date2.getDate();
-      };
-
       // Get today's date (in user's timezone)
       const today = new Date();
 
@@ -1532,12 +1496,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-
-      // Helper: Parse YYYY-MM-DD string into Date in local timezone
-      const parseLocalDate = (dateString: string): Date => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day);
-      };
 
       // Get the old session to check if completion status is changing
       const oldSession = await storage.getWorkoutSession(req.params.sessionId);

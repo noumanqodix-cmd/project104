@@ -9,6 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
 import { useEffect } from "react";
+import { parseLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
 
 export default function Home() {
   const { toast } = useToast();
@@ -156,29 +157,6 @@ export default function Home() {
     startOfWeek.setDate(now.getDate() - diff);
     startOfWeek.setHours(0, 0, 0, 0);
     return startOfWeek;
-  };
-
-  // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
-  const parseLocalDate = (dateString: string): Date => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, month - 1, day); // month is 0-indexed
-  };
-
-  // Helper function: Compare dates by calendar date (year/month/day) in user's timezone
-  const isSameCalendarDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
-
-  const isAfterCalendarDay = (date1: Date, date2: Date) => {
-    if (date1.getFullYear() !== date2.getFullYear()) {
-      return date1.getFullYear() > date2.getFullYear();
-    }
-    if (date1.getMonth() !== date2.getMonth()) {
-      return date1.getMonth() > date2.getMonth();
-    }
-    return date1.getDate() > date2.getDate();
   };
 
   const sessionsThisWeek = sessions?.filter((s: any) => {
