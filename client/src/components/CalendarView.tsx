@@ -242,12 +242,12 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                           "text-xs px-2 py-1 rounded-full",
                           session.completed && session.status !== 'skipped' && "bg-green-500/20 text-green-700 dark:text-green-300",
                           session.status === 'skipped' && "bg-red-500/20 text-red-700 dark:text-red-300",
-                          session.workoutName === "Rest Day" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                          !session.completed && session.status !== 'skipped' && session.workoutName !== "Rest Day" && "bg-muted text-muted-foreground"
+                          session.sessionType === "rest" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                          !session.completed && session.status !== 'skipped' && session.sessionType !== "rest" && "bg-muted text-muted-foreground"
                         )}>
                           {session.completed && session.status !== 'skipped' ? 'Completed' :
                            session.status === 'skipped' ? 'Skipped' :
-                           session.workoutName === "Rest Day" ? 'Rest' : 'Scheduled'}
+                           session.sessionType === "rest" ? 'Rest' : 'Scheduled'}
                         </span>
                       </div>
                       
