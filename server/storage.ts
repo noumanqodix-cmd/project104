@@ -57,7 +57,6 @@ export interface IStorage {
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
   getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
-  shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void>;
   deleteIncompleteProgramSessions(programId: string): Promise<void>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
@@ -300,66 +299,6 @@ export class DbStorage implements IStorage {
   async updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined> {
     const result = await db.update(workoutSessions).set(updates).where(eq(workoutSessions.id, id)).returning();
     return result[0];
-  }
-
-  async shiftRemainingSchedule(userId: string, completedDate: Date, programId: string): Promise<void> {
-    // Helper: Parse YYYY-MM-DD string into Date in local timezone
-    const parseLocalDate = (dateString: string): Date => {
-      const [year, month, day] = dateString.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    };
-
-    // Helper: Format Date to YYYY-MM-DD using local timezone
-    const formatLocalDate = (date: Date): string => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    // Helper: Compare if date1 is after date2
-    const isAfter = (date1: Date, date2: Date): boolean => {
-      if (date1.getFullYear() !== date2.getFullYear()) {
-        return date1.getFullYear() > date2.getFullYear();
-      }
-      if (date1.getMonth() !== date2.getMonth()) {
-        return date1.getMonth() > date2.getMonth();
-      }
-      return date1.getDate() > date2.getDate();
-    };
-
-    // Get all program workouts for this program
-    const programWorkouts = await this.getProgramWorkouts(programId);
-    const programWorkoutIds = programWorkouts.map(pw => pw.id);
-    
-    if (programWorkoutIds.length === 0) {
-      return;
-    }
-
-    // Get all incomplete sessions for this program
-    const sessions = await db.select().from(workoutSessions)
-      .where(and(
-        eq(workoutSessions.userId, userId),
-        inArray(workoutSessions.programWorkoutId, programWorkoutIds),
-        eq(workoutSessions.completed, 0)
-      ));
-
-    // Filter sessions scheduled after the completed date and shift them
-    for (const session of sessions) {
-      if (session.scheduledDate) {
-        const sessionDate = parseLocalDate(session.scheduledDate);
-        
-        if (isAfter(sessionDate, completedDate)) {
-          // Shift this session backward by 1 day
-          const newDate = new Date(sessionDate);
-          newDate.setDate(newDate.getDate() - 1);
-          
-          await db.update(workoutSessions)
-            .set({ scheduledDate: formatLocalDate(newDate) })
-            .where(eq(workoutSessions.id, session.id));
-        }
-      }
-    }
   }
 
   async deleteIncompleteProgramSessions(programId: string): Promise<void> {
