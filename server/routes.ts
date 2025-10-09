@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to retrieve user after profile update" });
       }
       
-      // Save fitness assessment
+      // Save or update fitness assessment (prevent duplicates on retry/double-submit)
       if (fitnessTest || weightsTest) {
         const assessmentData = {
           userId,
@@ -177,10 +177,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...fitnessTest,
           ...weightsTest,
         };
-        await storage.createFitnessAssessment(assessmentData);
+        
+        // Check if assessment exists for today
+        const existingAssessments = await storage.getUserFitnessAssessments(userId);
+        const today = new Date();
+        const todayAssessment = existingAssessments.find(a => {
+          const testDate = new Date(a.testDate);
+          return testDate.toDateString() === today.toDateString();
+        });
+        
+        if (todayAssessment) {
+          // Update existing assessment instead of creating duplicate
+          console.log("[ONBOARDING] Updating existing assessment for today");
+          await storage.updateFitnessAssessment(todayAssessment.id, assessmentData);
+        } else {
+          await storage.createFitnessAssessment(assessmentData);
+        }
       }
       
-      res.json({ success: true });
+      // Automatically generate workout program after onboarding
+      console.log("[ONBOARDING] Automatically generating workout program after assessment completion");
+      
+      let latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      
+      // If no assessment exists (user skipped test), create conservative defaults based on experience level
+      if (!latestAssessment) {
+        console.log("[ONBOARDING] No fitness assessment found. Using conservative defaults based on experience level:", user.fitnessLevel || "beginner");
+        
+        const conservativeExperienceLevel = user.fitnessLevel || "beginner";
+        const conservativeDefaults: any = {
+          userId,
+          experienceLevel: conservativeExperienceLevel,
+          testDate: new Date(),
+        };
+        
+        // Set conservative bodyweight test defaults based on experience level
+        if (conservativeExperienceLevel === "advanced") {
+          conservativeDefaults.pushups = 15;
+          conservativeDefaults.pullups = 5;
+          conservativeDefaults.squats = 30;
+          conservativeDefaults.mileTime = 9;
+        } else if (conservativeExperienceLevel === "intermediate") {
+          conservativeDefaults.pushups = 10;
+          conservativeDefaults.pullups = 3;
+          conservativeDefaults.squats = 20;
+          conservativeDefaults.mileTime = 11;
+        } else {
+          conservativeDefaults.pushups = 5;
+          conservativeDefaults.pullups = 0;
+          conservativeDefaults.squats = 10;
+          conservativeDefaults.mileTime = 15;
+        }
+        
+        latestAssessment = conservativeDefaults;
+      }
+
+      const availableExercises = await storage.getAllExercises();
+      if (availableExercises.length === 0) {
+        console.error("[ONBOARDING] Master exercise database is empty. Returning success without program generation.");
+        return res.json({ success: true });
+      }
+
+      console.log("[ONBOARDING] Generating program for user:", userId);
+      const generatedProgram = await generateWorkoutProgram({
+        user,
+        latestAssessment,
+        availableExercises,
+      });
+
+      // Archive any existing active programs
+      const existingPrograms = await storage.getUserPrograms(userId);
+      for (const oldProgram of existingPrograms) {
+        if (oldProgram.isActive === 1) {
+          await storage.updateWorkoutProgram(oldProgram.id, { isActive: 0 });
+        }
+      }
+
+      // Save the generated program
+      const newProgram = await storage.createWorkoutProgram({
+        userId,
+        programType: generatedProgram.programType || "AI Generated Program",
+        weeklyStructure: generatedProgram.weeklyStructure || "Personalized training program",
+        durationWeeks: generatedProgram.durationWeeks || 8,
+        isActive: 1,
+      });
+
+      console.log("[ONBOARDING] Program generated successfully:", newProgram.id);
+
+      // Save generated workout sessions and keep track of created programWorkouts
+      const createdProgramWorkouts = [];
+      for (const workout of generatedProgram.workouts) {
+        const programWorkout = await storage.createProgramWorkout({
+          programId: newProgram.id,
+          workoutName: workout.workoutName,
+          dayOfWeek: workout.dayOfWeek,
+          workoutType: workout.workoutType || null,
+          movementFocus: workout.movementFocus || [],
+        });
+        
+        createdProgramWorkouts.push(programWorkout);
+
+        for (const exercise of workout.exercises) {
+          const matchingExercise = availableExercises.find(
+            ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+          );
+
+          await storage.createProgramExercise({
+            workoutId: programWorkout.id,
+            exerciseId: matchingExercise?.id || null,
+            equipment: exercise.equipment || "bodyweight",
+            sets: exercise.sets,
+            repsMin: exercise.repsMin || null,
+            repsMax: exercise.repsMax || null,
+            recommendedWeight: exercise.recommendedWeight || null,
+            durationSeconds: exercise.durationSeconds || null,
+            workSeconds: exercise.workSeconds || null,
+            restSeconds: exercise.restSeconds,
+            targetRPE: exercise.targetRPE || null,
+            targetRIR: exercise.targetRIR || null,
+            notes: exercise.notes || null,
+            supersetGroup: exercise.supersetGroup || null,
+            supersetOrder: exercise.supersetOrder || null,
+            orderIndex: workout.exercises.indexOf(exercise),
+          });
+        }
+      }
+
+      console.log("[ONBOARDING] Workout sessions created, generating scheduled sessions");
+
+      // Generate scheduled workout sessions for the program using created programWorkouts
+      const today = new Date();
+
+      for (let week = 0; week < (newProgram.durationWeeks || 8); week++) {
+        for (const programWorkout of createdProgramWorkouts) {
+          const dayOffset = week * 7 + programWorkout.dayOfWeek;
+          const scheduledDate = new Date(today);
+          scheduledDate.setDate(today.getDate() + dayOffset);
+
+          await storage.createWorkoutSession({
+            userId,
+            programWorkoutId: programWorkout.id,
+            scheduledDate: scheduledDate,
+            workoutType: programWorkout.workoutType,
+            completed: 0,
+          });
+        }
+      }
+
+      console.log("[ONBOARDING] Program generation complete");
+      
+      res.json({ success: true, programGenerated: true });
     } catch (error) {
       console.error("Complete onboarding assessment error:", error);
       res.status(500).json({ error: "Failed to complete onboarding assessment" });
