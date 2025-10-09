@@ -1395,15 +1395,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
       });
 
+      console.log('[CARDIO] Date:', scheduledDate, 'Session found:', sessionOnDate ? { id: sessionOnDate.id, type: sessionOnDate.sessionType, workoutName: sessionOnDate.workoutName } : 'none');
+
       if (!sessionOnDate) {
         return res.status(404).json({ error: "No session found for this date" });
       }
 
       if (sessionOnDate.sessionType === 'cardio') {
+        console.log('[CARDIO] Session already cardio');
         return res.status(400).json({ error: "This session is already a cardio session" });
       }
 
       if (sessionOnDate.sessionType === 'strength') {
+        console.log('[CARDIO] Session is strength, not rest');
         return res.status(400).json({ error: "This is a strength training day, not a rest day" });
       }
 
