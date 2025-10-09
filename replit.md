@@ -27,8 +27,9 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
       - **Rest Day Actions**: "Add Cardio Session" (archives rest, creates cardio) or "Complete Rest Day" (marks completed)
       - **Workout Actions**: "Start Workout" or "Skip" (marks skipped with `completed=0`, `status='skipped'`)
       - **Next Workout Preview**: View-only preview of next upcoming session (excludes skipped/archived/completed)
-      - **Date-Based Archival**: Sessions stay visible with their completion/skipped status all day. When date changes and Home page loads, previous day's completed/skipped sessions are automatically archived via POST `/api/workout-sessions/archive-old`. Archival happens on page load, not on completion/skip action.
+      - **Date-Based Archival**: Sessions stay visible with their completion/skipped status all day. When date changes and Home page loads, previous day's completed/skipped sessions are automatically archived via POST `/api/workout-sessions/archive-old`. Archival happens on page load, not on completion/skip action. **Important:** Archived sessions can ONLY exist for past dates, never for today's date.
       - **Status Persistence**: Completed/skipped status remains visible for current day, only gets archived when viewing tomorrow's workout
+      - **Home Page Session Logic**: Explicitly excludes archived sessions when finding today's workout to ensure current session is always displayed
 - **Calorie Tracking System**: Incorporates MET (Metabolic Equivalent of Task) calculations for calorie expenditure. Calories are calculated on both frontend and backend, with automatic intensity mapping to MET values and unit conversion.
 - **HIIT Interval Training System**: Supports HIIT with automated work/rest timers and multiple cardio equipment options. GPT-4 generates HIIT exercises with common protocols and custom intervals. A dedicated `HIITIntervalTimer` component handles the countdown and progress tracking for HIIT workouts.
 
