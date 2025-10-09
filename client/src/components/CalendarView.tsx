@@ -145,6 +145,10 @@ export function CalendarView({ sessions }: CalendarViewProps) {
           <div className="w-3 h-3 rounded-sm bg-muted border border-border" />
           <span className="text-muted-foreground">Scheduled</span>
         </div>
+        <div className="flex items-center gap-2">
+          <Heart className="h-3 w-3 text-red-500 fill-red-500" />
+          <span className="text-muted-foreground">Cardio</span>
+        </div>
       </div>
 
       {/* Calendar Grid */}
@@ -167,6 +171,8 @@ export function CalendarView({ sessions }: CalendarViewProps) {
               const dayColor = getDayColor(day);
               const dateKey = format(day, 'yyyy-MM-dd');
               const hasSessions = sessionsByDate.has(dateKey);
+              const daySessions = sessionsByDate.get(dateKey) || [];
+              const hasCardioSession = daySessions.some(s => s.sessionType === "cardio");
 
               return (
                 <button
@@ -188,6 +194,12 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                   )}>
                     {format(day, 'd')}
                   </span>
+                  {hasCardioSession && (
+                    <Heart 
+                      className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 text-red-500 fill-red-500" 
+                      data-testid={`cardio-indicator-${format(day, 'yyyy-MM-dd')}`}
+                    />
+                  )}
                 </button>
               );
             })}
