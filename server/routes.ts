@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/onboarding-assessment/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { fitnessTest, weightsTest, experienceLevel, ...profileData } = req.body;
+      const { fitnessTest, weightsTest, experienceLevel, ...profileData} = req.body;
       
       // Convert dateOfBirth string to Date object if present
       if (profileData.dateOfBirth && typeof profileData.dateOfBirth === 'string') {
@@ -152,6 +152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (profileData.tdee !== undefined) {
         profileData.targetCalories = profileData.tdee;
         delete profileData.tdee;
+      }
+      
+      // Map experienceLevel to user.fitnessLevel for consistency with AI service
+      if (experienceLevel) {
+        profileData.fitnessLevel = experienceLevel;
       }
       
       // Update user profile with onboarding data
