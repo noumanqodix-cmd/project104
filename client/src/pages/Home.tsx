@@ -388,7 +388,7 @@ export default function Home() {
                           });
                           return;
                         }
-                        addCardioMutation.mutate(new Date(todaySession.scheduledDate));
+                        addCardioMutation.mutate(parseLocalDate(todaySession.scheduledDate));
                       }}
                       disabled={addCardioMutation.isPending}
                       data-testid="button-add-cardio-home"
