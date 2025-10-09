@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dayOfWeek: workout.dayOfWeek,
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
-          workoutType: "workout",
+          workoutType: workout.workoutType,
         });
         createdProgramWorkouts.push(programWorkout);
 
@@ -278,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dayOfWeek,
             workoutName: "Rest Day",
             movementFocus: [],
-            workoutType: "rest",
+            workoutType: null,
           });
           createdProgramWorkouts.push(restDay);
         }
@@ -387,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dayOfWeek: workout.dayOfWeek,
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
-          workoutType: "workout",
+          workoutType: workout.workoutType,
         });
         createdProgramWorkouts.push(programWorkout);
 
@@ -427,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dayOfWeek,
             workoutName: "Rest Day",
             movementFocus: [],
-            workoutType: "rest",
+            workoutType: null,
           });
           createdProgramWorkouts.push(restDay);
         }
@@ -830,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dayOfWeek: workout.dayOfWeek,
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
-          workoutType: "workout",
+          workoutType: workout.workoutType,
         });
         createdProgramWorkouts.push(programWorkout);
 
@@ -879,7 +879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dayOfWeek,
             workoutName: "Rest Day",
             movementFocus: [],
-            workoutType: "rest",
+            workoutType: null,
           });
           createdProgramWorkouts.push(restDay);
         }
@@ -968,7 +968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dayOfWeek: workout.dayOfWeek,
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
-          workoutType: "workout",
+          workoutType: workout.workoutType,
         });
         createdProgramWorkouts.push(programWorkout);
 
@@ -1017,7 +1017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dayOfWeek,
             workoutName: "Rest Day",
             movementFocus: [],
-            workoutType: "rest",
+            workoutType: null,
           });
           createdProgramWorkouts.push(restDay);
         }
