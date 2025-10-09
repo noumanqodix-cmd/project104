@@ -1606,18 +1606,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // If session was just completed, shift the remaining schedule
-      if (oldSession.completed === 0 && validatedData.completed === 1 && session.programWorkoutId && session.scheduledDate) {
-        const programWorkout = await storage.getProgramWorkout(session.programWorkoutId);
-        if (programWorkout) {
-          await storage.shiftRemainingSchedule(
-            userId,
-            parseLocalDate(session.scheduledDate),
-            programWorkout.programId
-          );
-        }
-      }
-
       res.json(session);
     } catch (error) {
       console.error("Patch session error:", error);
