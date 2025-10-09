@@ -1027,6 +1027,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Delete all future sessions from today onwards to prevent duplicates
+      const today = new Date();
+      const todayString = formatLocalDate(today);
+      const deletedCount = await storage.deleteFutureSessions(userId, todayString);
+      console.log(`[REGENERATE] Deleted ${deletedCount} future sessions from ${todayString} onwards`);
+
       // Generate workout schedule for entire program duration
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
 

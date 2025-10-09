@@ -58,6 +58,7 @@ export interface IStorage {
   getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
   deleteIncompleteProgramSessions(programId: string): Promise<void>;
+  deleteFutureSessions(userId: string, fromDate: string): Promise<number>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
   getSessionSets(sessionId: string): Promise<WorkoutSet[]>;
@@ -77,7 +78,7 @@ import {
   workoutSessions, 
   workoutSets 
 } from "@shared/schema";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, gte } from "drizzle-orm";
 
 export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -316,6 +317,21 @@ export class DbStorage implements IStorage {
         inArray(workoutSessions.programWorkoutId, programWorkoutIds),
         eq(workoutSessions.completed, 0)
       ));
+  }
+
+  async deleteFutureSessions(userId: string, fromDate: string): Promise<number> {
+    // Delete INCOMPLETE sessions from the specified date onwards for the user
+    // This ensures only one session per date when regenerating programs
+    // Preserves completed sessions to maintain workout history
+    const result = await db.delete(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        gte(workoutSessions.scheduledDate, fromDate),
+        eq(workoutSessions.completed, 0)
+      ))
+      .returning();
+    
+    return result.length;
   }
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {
