@@ -279,12 +279,6 @@ export default function Settings() {
 
   const handleCloseGenerationModal = () => {
     setShowGenerationModal(false);
-    if (generationStatus === 'success') {
-      toast({
-        title: "Program Generated",
-        description: "Your new workout program has been created!",
-      });
-    }
   };
 
   const updateUnitPreferenceMutation = useMutation({
