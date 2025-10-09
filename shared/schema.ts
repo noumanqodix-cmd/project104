@@ -187,6 +187,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   sessionDate: timestamp("session_date").notNull().defaultNow(),
   scheduledDate: timestamp("scheduled_date"),
   sessionDayOfWeek: integer("session_day_of_week"),
+  sessionType: text("session_type").notNull().default("strength"),
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
   durationMinutes: integer("duration_minutes"),
@@ -210,11 +211,14 @@ export const workoutSets = pgTable("workout_sets", {
 export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).omit({
   id: true,
   sessionDate: true,
+}).extend({
+  sessionType: z.enum(["strength", "cardio"]).default("strength"),
 });
 
 export const patchWorkoutSessionSchema = z.object({
   completed: z.union([z.boolean(), z.number()]).transform(val => val ? 1 : 0).optional(),
   status: z.string().optional(),
+  sessionType: z.enum(["strength", "cardio"]).optional(),
   durationMinutes: z.number().optional(),
   caloriesBurned: z.number().optional(),
   notes: z.string().optional(),
