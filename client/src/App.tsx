@@ -312,8 +312,10 @@ function AppRoutes() {
     mutationFn: async ({ sessionId, ...workoutData }: any) => {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, workoutData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+    onSuccess: async () => {
+      // Invalidate cache and force a fresh fetch (including inactive queries)
+      await queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      await queryClient.fetchQuery({ queryKey: ["/api/workout-sessions"] });
     },
   });
 
