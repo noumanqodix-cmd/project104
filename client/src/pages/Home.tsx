@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
+import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User, FitnessAssessment } from "@shared/schema";
 import { useEffect, useState } from "react";
 import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
 import {
@@ -23,6 +23,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [showGenerationModal, setShowGenerationModal] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
+  const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -34,6 +35,11 @@ export default function Home() {
 
   const { data: sessions } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
+  });
+
+  const { data: fitnessAssessments, isLoading: assessmentsLoading } = useQuery<FitnessAssessment[]>({
+    queryKey: ["/api/fitness-assessments"],
+    enabled: !!user,
   });
 
   const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<ProgramWorkout[]>({
@@ -129,6 +135,24 @@ export default function Home() {
 
   const handleCloseGenerationModal = () => {
     setShowGenerationModal(false);
+  };
+
+  const handleGenerateProgram = () => {
+    // Don't proceed if assessments are still loading
+    if (assessmentsLoading) {
+      return;
+    }
+
+    // Check if user has completed fitness assessment
+    if (!fitnessAssessments || fitnessAssessments.length === 0) {
+      setShowAssessmentRequiredDialog(true);
+      return;
+    }
+
+    // Proceed with program generation
+    setShowGenerationModal(true);
+    setGenerationStatus('generating');
+    generateProgramMutation.mutate();
   };
 
   // Archive old completed/skipped sessions when page loads
@@ -314,12 +338,8 @@ export default function Home() {
               <Button 
                 className="w-full" 
                 size="lg"
-                onClick={() => {
-                  setShowGenerationModal(true);
-                  setGenerationStatus('generating');
-                  generateProgramMutation.mutate();
-                }}
-                disabled={generateProgramMutation.isPending}
+                onClick={handleGenerateProgram}
+                disabled={generateProgramMutation.isPending || assessmentsLoading}
                 data-testid="button-generate-program"
               >
                 <Sparkles className="h-5 w-5 mr-2" />
@@ -693,6 +713,38 @@ export default function Home() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAssessmentRequiredDialog} onOpenChange={setShowAssessmentRequiredDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-primary" />
+              Fitness Assessment Required
+            </DialogTitle>
+            <DialogDescription>
+              Complete your fitness assessment first to generate a personalized workout program tailored to your abilities and goals.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAssessmentRequiredDialog(false)}
+              data-testid="button-cancel-assessment"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                setShowAssessmentRequiredDialog(false);
+                setLocation("/assessment");
+              }}
+              data-testid="button-go-to-assessment"
+            >
+              Go to Assessment
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
