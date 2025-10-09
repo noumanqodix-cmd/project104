@@ -83,7 +83,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
     if (hasSkipped) return 'bg-red-500/20 hover:bg-red-500/30 border-red-500/50';
     
     // Third priority: Check if it's a rest day
-    const hasRestDay = daySessions.some(s => s.workoutName === "Rest Day");
+    const hasRestDay = daySessions.some(s => s.sessionType === "rest");
     if (hasRestDay) return 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/50';
     
     // Default: Scheduled (all other cases - rely on backend status, don't compute client-side)
