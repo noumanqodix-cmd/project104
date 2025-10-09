@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { poundsToKg } from "@/lib/calorie-calculator";
+import { calculateAge } from "@shared/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,12 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const unitPreference = user?.unitPreference || 'imperial';
+
+  // Calculate Zone 2 heart rate range
+  const age = calculateAge(user?.dateOfBirth) || 25; // Default to 25 if no DOB
+  const maxHR = 220 - age;
+  const zone2Min = Math.round(maxHR * 0.60);
+  const zone2Max = Math.round(maxHR * 0.70);
 
   // Calculate Zone 2 calories based on elapsed time and user weight
   const calculateZone2Calories = (durationMinutes: number): number => {
@@ -144,7 +151,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
             Zone 2 Cardio Session
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Low-intensity steady-state cardio. Target: 60-70% max heart rate
+            Low-intensity steady-state cardio. Target: {zone2Min}-{zone2Max} bpm (60-70% max HR)
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
