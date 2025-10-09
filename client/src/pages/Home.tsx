@@ -444,13 +444,15 @@ export default function Home() {
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastSession.session.status === "skipped" && lastSession.workout?.workoutType === "rest"
+                      {lastSession.session.status === "skipped" && lastSession.session.sessionType === "rest"
                         ? "Rest Day (Skipped)"
                         : lastSession.session.status === "skipped"
                           ? `${lastSession.workout?.workoutName || "Workout"} (Skipped)`
-                          : lastSession.workout?.workoutType === "rest" 
+                          : lastSession.session.sessionType === "rest" 
                             ? "Rest Day" 
-                            : lastSession.workout?.workoutName || "Session"}
+                            : lastSession.session.sessionType === "cardio"
+                              ? "Zone 2 Cardio"
+                              : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
                       {formatDate(lastSession.session.sessionDate)}
