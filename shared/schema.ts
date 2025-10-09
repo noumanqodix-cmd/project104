@@ -212,7 +212,7 @@ export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).om
   id: true,
   sessionDate: true,
 }).extend({
-  sessionType: z.enum(["strength", "cardio"]).default("strength"),
+  sessionType: z.enum(["strength", "cardio", "rest"]).default("strength"),
 });
 
 export const patchWorkoutSessionSchema = z.object({
