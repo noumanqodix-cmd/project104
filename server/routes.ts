@@ -1027,11 +1027,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Delete all future sessions from today onwards to prevent duplicates
+      // Delete all incomplete future sessions from today onwards to prevent duplicates
       const today = new Date();
       const todayString = formatLocalDate(today);
+      
+      // Log sessions before deletion for debugging
+      const allSessionsBefore = await storage.getUserSessions(userId);
+      const todaySessionsBefore = allSessionsBefore.filter(s => s.scheduledDate === todayString);
+      console.log(`[REGENERATE] Sessions for ${todayString} BEFORE deletion:`, 
+        todaySessionsBefore.map(s => ({ id: s.id, completed: s.completed, workoutName: s.workoutName, status: s.status })));
+      
       const deletedCount = await storage.deleteFutureSessions(userId, todayString);
-      console.log(`[REGENERATE] Deleted ${deletedCount} future sessions from ${todayString} onwards`);
+      console.log(`[REGENERATE] Deleted ${deletedCount} incomplete future sessions from ${todayString} onwards`);
+      
+      // Log sessions after deletion for debugging
+      const allSessionsAfter = await storage.getUserSessions(userId);
+      const todaySessionsAfter = allSessionsAfter.filter(s => s.scheduledDate === todayString);
+      console.log(`[REGENERATE] Sessions for ${todayString} AFTER deletion:`, 
+        todaySessionsAfter.map(s => ({ id: s.id, completed: s.completed, workoutName: s.workoutName, status: s.status })));
 
       // Generate workout schedule for entire program duration
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
