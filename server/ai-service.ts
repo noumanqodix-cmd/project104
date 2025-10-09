@@ -83,9 +83,15 @@ export async function generateWorkoutProgram(
   }
   
   if (latestAssessment.lowerBodyOverride) {
-    overrideReasons.push(`Lower body exercises: ${movementPatternLevels.lowerBody} (manual override to ${latestAssessment.lowerBodyOverride})`);
-  } else if (movementPatternLevels.lowerBody !== fitnessLevel as any) {
-    overrideReasons.push(`Lower body exercises: ${movementPatternLevels.lowerBody} (based on test performance)`);
+    overrideReasons.push(`Squat exercises: ${movementPatternLevels.squat} (manual override to ${latestAssessment.lowerBodyOverride})`);
+    overrideReasons.push(`Lunge exercises: ${movementPatternLevels.lunge} (manual override to ${latestAssessment.lowerBodyOverride})`);
+  } else {
+    if (movementPatternLevels.squat !== fitnessLevel as any) {
+      overrideReasons.push(`Squat exercises: ${movementPatternLevels.squat} (based on test performance)`);
+    }
+    if (movementPatternLevels.lunge !== fitnessLevel as any) {
+      overrideReasons.push(`Lunge exercises: ${movementPatternLevels.lunge} (based on test performance)`);
+    }
   }
   
   if (latestAssessment.hingeOverride) {
@@ -98,6 +104,15 @@ export async function generateWorkoutProgram(
     overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (manual override to ${latestAssessment.cardioOverride})`);
   } else if (movementPatternLevels.cardio !== fitnessLevel as any) {
     overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (based on test performance)`);
+  }
+  
+  // Log core and carry patterns if different from fitness level
+  if (movementPatternLevels.core !== fitnessLevel as any) {
+    overrideReasons.push(`Core exercises: ${movementPatternLevels.core} (based on test performance)`);
+  }
+  
+  if (movementPatternLevels.carry !== fitnessLevel as any) {
+    overrideReasons.push(`Carry exercises: ${movementPatternLevels.carry} (based on test performance)`);
   }
   
   if (overrideReasons.length > 0) {
@@ -113,6 +128,8 @@ export async function generateWorkoutProgram(
     squat: movementDifficulties.squat,
     lunge: movementDifficulties.lunge,
     hinge: movementDifficulties.hinge,
+    core: movementDifficulties.core,
+    carry: movementDifficulties.carry,
     cardio: movementDifficulties.cardio,
   });
 

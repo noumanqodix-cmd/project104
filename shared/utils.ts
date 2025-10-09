@@ -23,8 +23,11 @@ export type MovementPatternLevel = 'beginner' | 'intermediate' | 'advanced';
 export interface MovementPatternLevels {
   push: MovementPatternLevel;
   pull: MovementPatternLevel;
-  lowerBody: MovementPatternLevel; // Squat/Lunge combined
+  squat: MovementPatternLevel;
+  lunge: MovementPatternLevel;
   hinge: MovementPatternLevel;
+  core: MovementPatternLevel;
+  carry: MovementPatternLevel;
   cardio: MovementPatternLevel;
 }
 
@@ -33,12 +36,17 @@ interface AssessmentData {
   pushups?: number | null;
   pullups?: number | null;
   squats?: number | null;
+  walkingLunges?: number | null;
+  singleLegRDL?: number | null;
+  plankHold?: number | null;
   mileTime?: number | null;
   squat1rm?: number | null;
   deadlift1rm?: number | null;
   benchPress1rm?: number | null;
   overheadPress1rm?: number | null;
   barbellRow1rm?: number | null;
+  dumbbellLunge1rm?: number | null;
+  farmersCarry1rm?: number | null;
   pushOverride?: string | null;
   pullOverride?: string | null;
   lowerBodyOverride?: string | null;
@@ -123,8 +131,11 @@ export function calculateMovementPatternLevels(
   // Calculate levels based purely on test metrics, allowing progression
   let pushLevel: MovementPatternLevel = 'beginner';
   let pullLevel: MovementPatternLevel = 'beginner';
-  let lowerBodyLevel: MovementPatternLevel = 'beginner';
+  let squatLevel: MovementPatternLevel = 'beginner';
+  let lungeLevel: MovementPatternLevel = 'beginner';
   let hingeLevel: MovementPatternLevel = 'beginner';
+  let coreLevel: MovementPatternLevel = 'beginner';
+  let carryLevel: MovementPatternLevel = 'beginner';
   let cardioLevel: MovementPatternLevel = 'beginner';
   
   // Push pattern - based on pushups or bench/OHP performance
@@ -143,20 +154,40 @@ export function calculateMovementPatternLevels(
     pullLevel = 'intermediate';
   }
   
-  // Lower body - based on squats or squat 1RM
+  // Squat pattern - based on bodyweight squats or squat 1RM
   const squats = assessment.squats || 0;
   if (squats >= 40) {
-    lowerBodyLevel = 'advanced';
+    squatLevel = 'advanced';
   } else if (squats >= 25) {
-    lowerBodyLevel = 'intermediate';
+    squatLevel = 'intermediate';
   }
   
-  // Hinge - based on squats (stability) or deadlift 1RM
-  if (squats >= 40) {
+  // Lunge pattern - based on walking lunges or dumbbell lunge 1RM
+  const walkingLunges = assessment.walkingLunges || 0;
+  if (walkingLunges >= 30) {
+    lungeLevel = 'advanced';
+  } else if (walkingLunges >= 20) {
+    lungeLevel = 'intermediate';
+  }
+  
+  // Hinge pattern - based on single-leg RDL or deadlift 1RM
+  const singleLegRDL = assessment.singleLegRDL || 0;
+  if (singleLegRDL >= 15) {
     hingeLevel = 'advanced';
-  } else if (squats >= 25) {
+  } else if (singleLegRDL >= 10) {
     hingeLevel = 'intermediate';
   }
+  
+  // Core pattern - based on plank hold time
+  const plankHold = assessment.plankHold || 0;
+  if (plankHold >= 90) {
+    coreLevel = 'advanced';
+  } else if (plankHold >= 60) {
+    coreLevel = 'intermediate';
+  }
+  
+  // Carry pattern - defaults to beginner (no bodyweight test, only weighted)
+  // Will be updated if weighted test is available
   
   // Cardio - based on mile time
   const mileTime = assessment.mileTime || 999;
@@ -170,16 +201,42 @@ export function calculateMovementPatternLevels(
   if (user.weight && user.weight > 0) {
     const weightInKg = user.unitPreference === 'imperial' ? user.weight * 0.453592 : user.weight;
     
-    // Squat 1RM for lower body level
+    // Squat 1RM for squat level
     if (assessment.squat1rm) {
       const squat1rmKg = user.unitPreference === 'imperial' ? assessment.squat1rm * 0.453592 : assessment.squat1rm;
       const ratio = squat1rmKg / weightInKg;
       if (ratio >= 2.0) {
-        lowerBodyLevel = 'advanced';
+        squatLevel = 'advanced';
       } else if (ratio >= 1.5) {
-        lowerBodyLevel = 'intermediate';
+        squatLevel = 'intermediate';
       } else if (ratio < 1.0) {
-        lowerBodyLevel = 'beginner';
+        squatLevel = 'beginner';
+      }
+    }
+    
+    // Dumbbell Lunge 1RM for lunge level
+    if (assessment.dumbbellLunge1rm) {
+      const lunge1rmKg = user.unitPreference === 'imperial' ? assessment.dumbbellLunge1rm * 0.453592 : assessment.dumbbellLunge1rm;
+      const ratio = lunge1rmKg / weightInKg;
+      if (ratio >= 1.5) {
+        lungeLevel = 'advanced';
+      } else if (ratio >= 1.0) {
+        lungeLevel = 'intermediate';
+      } else if (ratio < 0.75) {
+        lungeLevel = 'beginner';
+      }
+    }
+    
+    // Farmer's Carry 1RM for carry level
+    if (assessment.farmersCarry1rm) {
+      const carry1rmKg = user.unitPreference === 'imperial' ? assessment.farmersCarry1rm * 0.453592 : assessment.farmersCarry1rm;
+      const ratio = carry1rmKg / weightInKg;
+      if (ratio >= 2.0) {
+        carryLevel = 'advanced';
+      } else if (ratio >= 1.5) {
+        carryLevel = 'intermediate';
+      } else if (ratio < 1.0) {
+        carryLevel = 'beginner';
       }
     }
     
@@ -250,8 +307,11 @@ export function calculateMovementPatternLevels(
   return {
     push: getMaxLevel(pushLevel, assessment.pushOverride),
     pull: getMaxLevel(pullLevel, assessment.pullOverride),
-    lowerBody: getMaxLevel(lowerBodyLevel, assessment.lowerBodyOverride),
+    squat: getMaxLevel(squatLevel, assessment.lowerBodyOverride),
+    lunge: getMaxLevel(lungeLevel, assessment.lowerBodyOverride),
     hinge: getMaxLevel(hingeLevel, assessment.hingeOverride),
+    core: getMaxLevel(coreLevel, undefined),
+    carry: getMaxLevel(carryLevel, undefined),
     cardio: getMaxLevel(cardioLevel, assessment.cardioOverride),
   };
 }
@@ -277,13 +337,13 @@ export function getMovementDifficultiesMap(
   return {
     push: getAllowedDifficulties(levels.push),
     pull: getAllowedDifficulties(levels.pull),
-    squat: getAllowedDifficulties(levels.lowerBody),
-    lunge: getAllowedDifficulties(levels.lowerBody),
+    squat: getAllowedDifficulties(levels.squat),
+    lunge: getAllowedDifficulties(levels.lunge),
     hinge: getAllowedDifficulties(levels.hinge),
+    core: getAllowedDifficulties(levels.core),
+    carry: getAllowedDifficulties(levels.carry),
     cardio: getAllowedDifficulties(levels.cardio),
-    core: getDefault(fitnessLevel),
     rotation: getDefault(fitnessLevel),
-    carry: getDefault(fitnessLevel),
   };
 }
 
