@@ -1558,6 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId,
         sessionDayOfWeek,
+        scheduledDate: req.body.scheduledDate || formatLocalDate(today),
       });
 
       // Validate that the programWorkoutId exists and belongs to user's program
@@ -1614,11 +1615,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Set today's date as scheduledDate if not provided
       const session = await storage.createWorkoutSession({
         ...validatedData,
         workoutName,
-        scheduledDate: validatedData.scheduledDate || formatLocalDate(today),
       });
       res.json(session);
     } catch (error) {
