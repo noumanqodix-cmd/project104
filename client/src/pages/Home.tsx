@@ -211,19 +211,17 @@ export default function Home() {
   const isTodayComplete = todaySession?.completed === 1;
   const isTodaySkipped = todaySession?.status === "skipped";
   
-  // NEXT WORKOUT PREVIEW: Find the next upcoming session (future only, for preview, exclude completed/skipped)
+  // NEXT WORKOUT PREVIEW: Always show tomorrow's session (next calendar day), regardless of status
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  
   const nextUpcomingSession = sessions
-    ?.filter((s: any) => {
-      if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
-      if (s.completed === 1) return false;
+    ?.filter((s: any) => s.status !== 'archived') // Only exclude archived
+    ?.find((s: any) => {
+      if (!s.scheduledDate) return false;
       const sessionDate = parseLocalDate(s.scheduledDate);
-      return isAfterCalendarDay(sessionDate, today);
-    })
-    .sort((a: any, b: any) => {
-      const dateA = parseLocalDate(a.scheduledDate).getTime();
-      const dateB = parseLocalDate(b.scheduledDate).getTime();
-      return dateA - dateB;
-    })[0];
+      return isSameCalendarDay(sessionDate, tomorrow);
+    });
 
   const nextUpcomingWorkout = nextUpcomingSession ? programWorkouts?.find(w => w.id === nextUpcomingSession.programWorkoutId) : null;
   
