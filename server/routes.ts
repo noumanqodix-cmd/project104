@@ -143,6 +143,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { fitnessTest, weightsTest, experienceLevel, ...profileData } = req.body;
       
+      // Convert dateOfBirth string to Date object if present
+      if (profileData.dateOfBirth && typeof profileData.dateOfBirth === 'string') {
+        profileData.dateOfBirth = new Date(profileData.dateOfBirth);
+      }
+      
+      // Map frontend 'tdee' field to backend 'targetCalories' field
+      if (profileData.tdee !== undefined) {
+        profileData.targetCalories = profileData.tdee;
+        delete profileData.tdee;
+      }
+      
       // Update user profile with onboarding data
       if (Object.keys(profileData).length > 0) {
         await storage.updateUser(userId, profileData);

@@ -21,17 +21,42 @@ export default function OnboardingAssessment() {
 
   const completeAssessmentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/onboarding-assessment/complete", data);
-      return await response.json();
+      // Check if user is authenticated
+      try {
+        const userResponse = await apiRequest("GET", "/api/auth/user");
+        const user = await userResponse.json();
+        
+        if (user && user.id) {
+          // User is authenticated, save directly
+          const response = await apiRequest("POST", "/api/onboarding-assessment/complete", data);
+          return { authenticated: true, data: await response.json() };
+        }
+      } catch (error) {
+        // User not authenticated
+      }
+      
+      // User not authenticated, save to localStorage and redirect to login
+      return { authenticated: false, data };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
-      toast({
-        title: "Assessment Complete!",
-        description: "Your profile has been set up successfully.",
-      });
-      setLocation("/home");
+    onSuccess: (result) => {
+      if (result.authenticated) {
+        // Direct save successful
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+        toast({
+          title: "Assessment Complete!",
+          description: "Your profile has been set up successfully.",
+        });
+        setLocation("/home");
+      } else {
+        // Save to localStorage and redirect to login
+        const onboardingData = {
+          questionnaireData: result.data,
+          isOnboardingAssessment: true,
+        };
+        localStorage.setItem('fitforge_onboarding_data', JSON.stringify(onboardingData));
+        window.location.href = "/api/login";
+      }
     },
     onError: (error: any) => {
       toast({
@@ -112,6 +137,10 @@ export default function OnboardingAssessment() {
           <QuestionnaireFlow
             onComplete={(data) => {
               setQuestionnaireData(data);
+              // Save unitPreference to localStorage for NutritionAssessment to read
+              if (data.unitPreference) {
+                localStorage.setItem('unitPreference', data.unitPreference);
+              }
               setCurrentStep("nutrition");
             }}
             onBack={() => setLocation("/")}

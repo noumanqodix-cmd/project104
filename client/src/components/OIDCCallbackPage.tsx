@@ -53,6 +53,22 @@ export default function OIDCCallbackPage() {
         }
 
         const onboardingData = JSON.parse(storedData);
+        
+        // Check if this is the new comprehensive assessment flow
+        if (onboardingData.isOnboardingAssessment) {
+          console.log("Processing comprehensive assessment data");
+          const assessmentData = onboardingData.questionnaireData;
+          
+          // Call the comprehensive assessment endpoint
+          await apiRequest('POST', '/api/onboarding-assessment/complete', assessmentData);
+          
+          // Clear localStorage and redirect
+          localStorage.removeItem('fitforge_onboarding_data');
+          setLocation("/home");
+          return;
+        }
+        
+        // Old onboarding flow (legacy support)
         const { questionnaireData, generatedProgram } = onboardingData;
 
         // Store for later use in case user confirms replacement
