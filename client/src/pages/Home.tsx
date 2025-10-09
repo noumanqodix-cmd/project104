@@ -477,6 +477,22 @@ export default function Home() {
                     {currentWeekRange} • {activeProgram.durationWeeks} week program
                   </p>
                 </div>
+                {user?.equipment && user.equipment.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Equipment</p>
+                    <div className="flex flex-wrap gap-2">
+                      {user.equipment.map((item, index) => (
+                        <span 
+                          key={index}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                          data-testid={`equipment-${item.toLowerCase().replace(/\s+/g, "-")}`}
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <Link href="/program">
                   <Button variant="outline" className="w-full" data-testid="button-view-program-details">
                     View Program Details
