@@ -20,6 +20,13 @@ The application uses Replit Auth (OpenID Connect) for authentication, supporting
 ### Data Storage
 PostgreSQL is the primary database, accessed via Drizzle ORM. The schema includes Users (with OIDC fields, `dateOfBirth`), Fitness Assessments, an Exercise Database (163 AI-generated exercises with both functional and isolation work), Workout Programs (with history tracking), and Performance Tracking. User ages are dynamically calculated from `dateOfBirth`. Workout sessions are pre-generated with specific `scheduledDate` values for the entire program duration.
 
+**Session Type Classification (October 2025)**: Clear data model separates session indicators from workout classifications:
+- `sessionType` ("workout" | "rest"): Indicates whether there's a workout scheduled
+- `workoutType` ("strength" | "cardio" | "hiit" | "mobility" | null): Classifies the workout type when present
+- AI-generated programs now persist the exact workoutType classification (strength/cardio/hiit/mobility) from GPT-4
+- Rest days are stored with `workoutType: null` (not "rest") to maintain data integrity
+- Session creation logic: workoutType present → sessionType='workout', workoutType null → sessionType='rest'
+
 ### AI-Powered Adaptive Training System
 FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
