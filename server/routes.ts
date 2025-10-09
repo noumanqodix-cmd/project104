@@ -1228,6 +1228,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create Zone 2 cardio session for a specific date (rest day conversion)
+  app.post("/api/programs/sessions/cardio", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { scheduledDate, suggestedDuration } = req.body;
+
+      if (!scheduledDate) {
+        return res.status(400).json({ error: "scheduledDate is required" });
+      }
+
+      // Get user's active program
+      const activeProgram = await storage.getActiveProgram(userId);
+      if (!activeProgram) {
+        return res.status(404).json({ error: "No active program found" });
+      }
+
+      // Parse the scheduled date
+      const sessionScheduledDate = new Date(scheduledDate);
+      const dayOfWeek = sessionScheduledDate.getDay();
+      const sessionDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+      // Check if there's already a session on this date
+      const existingSessions = await storage.getUserSessions(userId);
+      const sessionOnDate = existingSessions.find((s: any) => {
+        if (!s.scheduledDate) return false;
+        const existingDate = new Date(s.scheduledDate);
+        return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
+      });
+
+      if (sessionOnDate && sessionOnDate.sessionType === 'cardio') {
+        return res.status(400).json({ error: "Cardio session already exists for this date" });
+      }
+
+      if (sessionOnDate && sessionOnDate.sessionType === 'strength') {
+        return res.status(400).json({ error: "This is a strength training day, not a rest day" });
+      }
+
+      // Create Zone 2 cardio session
+      const duration = suggestedDuration || 30; // Default 30 minutes
+      const session = await storage.createWorkoutSession({
+        userId,
+        programWorkoutId: null, // Cardio sessions are standalone
+        workoutName: "Zone 2 Cardio",
+        scheduledDate: sessionScheduledDate,
+        sessionDayOfWeek,
+        sessionType: "cardio",
+        status: "scheduled",
+        completed: 0,
+        notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
+      });
+
+      res.json(session);
+    } catch (error) {
+      console.error("Create cardio session error:", error);
+      res.status(500).json({ error: "Failed to create cardio session" });
+    }
+  });
+
   app.put("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
