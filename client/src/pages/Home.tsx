@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -45,6 +45,27 @@ export default function Home() {
       toast({
         title: "Failed to Skip",
         description: error.message || "Failed to skip day",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addCardioMutation = useMutation({
+    mutationFn: async (date: Date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      toast({
+        title: "Cardio Session Added!",
+        description: "Zone 2 cardio workout has been added to this rest day.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add cardio session. Please try again.",
         variant: "destructive",
       });
     },
@@ -141,6 +162,14 @@ export default function Home() {
 
   const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
   const isRestDay = nextWorkout?.workoutType === "rest" || false;
+  
+  // Check if the rest day already has a cardio session
+  const hasCardioOnRestDay = isRestDay && nextSession?.scheduledDate ? 
+    sessions?.some(s => {
+      if (!s.scheduledDate || !nextSession.scheduledDate) return false;
+      return new Date(s.scheduledDate).toDateString() === new Date(nextSession.scheduledDate).toDateString() &&
+        s.sessionType === "cardio";
+    }) : false;
   
   const isToday = nextSession && nextSession.scheduledDate ? 
     new Date(nextSession.scheduledDate).toDateString() === today.toDateString() : 
@@ -302,6 +331,32 @@ export default function Home() {
                           Recovery is part of the program
                         </p>
                       </div>
+                      
+                      {/* Add Cardio Button for Rest Days */}
+                      {!hasCardioOnRestDay && nextSession?.scheduledDate && (
+                        <Button
+                          variant="default"
+                          size="lg"
+                          className="w-full"
+                          onClick={() => {
+                            if (!nextSession?.scheduledDate) {
+                              toast({
+                                title: "Error",
+                                description: "Session date not loaded. Please refresh.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            addCardioMutation.mutate(new Date(nextSession.scheduledDate));
+                          }}
+                          disabled={addCardioMutation.isPending}
+                          data-testid="button-add-cardio-home"
+                        >
+                          <Plus className="h-5 w-5 mr-2" />
+                          {addCardioMutation.isPending ? "Adding..." : "Add Cardio Session"}
+                        </Button>
+                      )}
+
                       <Button 
                         variant="outline"
                         size="lg"
