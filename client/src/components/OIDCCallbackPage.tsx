@@ -27,7 +27,27 @@ export default function OIDCCallbackPage() {
         const storedData = localStorage.getItem('fitforge_onboarding_data');
         
         if (!storedData) {
-          console.log("No onboarding data found, user might be returning - redirecting to home");
+          console.log("No onboarding data found, checking if user needs assessment");
+          
+          // Smart detection: Check if user has complete profile data
+          const userResponse = await apiRequest('GET', '/api/auth/user');
+          const user = await userResponse.json();
+          
+          // Check if essential profile fields are missing
+          const missingProfileData = !user.equipment || 
+                                      !user.workoutDuration || 
+                                      !user.daysPerWeek || 
+                                      !user.nutritionGoal ||
+                                      user.height === null ||
+                                      user.weight === null;
+          
+          if (missingProfileData) {
+            console.log("User missing profile data, redirecting to assessment");
+            setLocation("/onboarding-assessment");
+            return;
+          }
+          
+          // User has profile data, redirect to home
           setLocation("/home");
           return;
         }

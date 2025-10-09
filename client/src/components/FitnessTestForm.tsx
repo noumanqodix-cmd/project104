@@ -46,6 +46,26 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
     }
   };
 
+  const handleDontKnow = () => {
+    // Set beginner-level default values for "Don't Know"
+    const beginnerDefaults: Record<string, number> = {
+      pushups: 5,
+      pullups: 0,
+      squats: 10,
+      mileTime: 15,
+    };
+
+    const newResults = { ...results, [exercise.id]: beginnerDefaults[exercise.id] || 1 };
+    setResults(newResults);
+    setValue("");
+
+    if (currentExercise < exercises.length - 1) {
+      setCurrentExercise(currentExercise + 1);
+    } else {
+      onComplete(newResults as FitnessTestResults);
+    }
+  };
+
   const handleBack = () => {
     if (currentExercise > 0) {
       setCurrentExercise(currentExercise - 1);
@@ -99,15 +119,26 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
             </p>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={handleNext}
-            disabled={!value || parseFloat(value) <= 0}
-            data-testid="button-next-exercise"
-          >
-            {currentExercise < exercises.length - 1 ? "Next Exercise" : "Complete Test"}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={handleDontKnow}
+              data-testid="button-dont-know"
+            >
+              Don't Know
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={handleNext}
+              disabled={!value || parseFloat(value) <= 0}
+              data-testid="button-next-exercise"
+            >
+              {currentExercise < exercises.length - 1 ? "Next" : "Complete"}
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

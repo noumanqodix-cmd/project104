@@ -738,7 +738,7 @@ export default function Home() {
             <Button 
               onClick={() => {
                 setShowAssessmentRequiredDialog(false);
-                setLocation("/assessment");
+                setLocation("/onboarding-assessment");
               }}
               data-testid="button-go-to-assessment"
             >

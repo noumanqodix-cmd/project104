@@ -137,6 +137,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // New endpoint for comprehensive onboarding assessment
+  app.post("/api/onboarding-assessment/complete", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { fitnessTest, weightsTest, experienceLevel, ...profileData } = req.body;
+      
+      // Update user profile with onboarding data
+      if (Object.keys(profileData).length > 0) {
+        await storage.updateUser(userId, profileData);
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(500).json({ error: "Failed to retrieve user after profile update" });
+      }
+      
+      // Save fitness assessment
+      if (fitnessTest || weightsTest) {
+        const assessmentData = {
+          userId,
+          experienceLevel: experienceLevel || profileData.fitnessLevel || "beginner",
+          ...fitnessTest,
+          ...weightsTest,
+        };
+        await storage.createFitnessAssessment(assessmentData);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Complete onboarding assessment error:", error);
+      res.status(500).json({ error: "Failed to complete onboarding assessment" });
+    }
+  });
+
   // Complete onboarding after OIDC login - saves assessment and program data
   app.post("/api/auth/complete-onboarding", isAuthenticated, async (req: any, res: Response) => {
     try {

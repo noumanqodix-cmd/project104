@@ -31,6 +31,7 @@ import WeightsTestForm from "./components/WeightsTestForm";
 import BottomNavigation from "./components/BottomNavigation";
 import TestTypeSelector from "./components/TestTypeSelector";
 import ProgramPreviewPage from "./components/ProgramPreviewPage";
+import OnboardingAssessment from "./components/OnboardingAssessment";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -44,7 +45,7 @@ function OnboardingFlow() {
       case "welcome":
         return (
           <WelcomePage
-            onGetStarted={() => setCurrentStep("questionnaire")}
+            onGetStarted={() => setLocation("/onboarding-assessment")}
             onLogin={() => window.location.href = "/api/login"}
           />
         );
@@ -425,6 +426,10 @@ function AppRoutes() {
 
           <Route path="/auth/callback">
             <OIDCCallbackPage />
+          </Route>
+
+          <Route path="/onboarding-assessment">
+            <OnboardingAssessment />
           </Route>
 
           <Route path="/">

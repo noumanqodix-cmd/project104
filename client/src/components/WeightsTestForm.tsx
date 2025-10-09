@@ -51,6 +51,27 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
     }
   };
 
+  const handleDontKnow = () => {
+    // Set beginner-level default values for "Don't Know"
+    const beginnerDefaults: Record<string, number> = {
+      squat: unitPreference === 'imperial' ? 95 : 43,
+      deadlift: unitPreference === 'imperial' ? 135 : 61,
+      benchPress: unitPreference === 'imperial' ? 65 : 29,
+      overheadPress: unitPreference === 'imperial' ? 45 : 20,
+      row: unitPreference === 'imperial' ? 65 : 29,
+    };
+
+    const newResults = { ...results, [exercise.id]: beginnerDefaults[exercise.id] || 45 };
+    setResults(newResults);
+    setValue("");
+
+    if (currentExercise < exercises.length - 1) {
+      setCurrentExercise(currentExercise + 1);
+    } else {
+      onComplete(newResults as WeightsTestResults);
+    }
+  };
+
   const handleBack = () => {
     if (currentExercise > 0) {
       setCurrentExercise(currentExercise - 1);
@@ -103,15 +124,26 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
             </p>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={handleNext}
-            disabled={!value || parseFloat(value) <= 0}
-            data-testid="button-next-exercise"
-          >
-            {currentExercise < exercises.length - 1 ? "Next Exercise" : "Complete Test"}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={handleDontKnow}
+              data-testid="button-dont-know"
+            >
+              Don't Know
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={handleNext}
+              disabled={!value || parseFloat(value) <= 0}
+              data-testid="button-next-exercise"
+            >
+              {currentExercise < exercises.length - 1 ? "Next" : "Complete"}
+            </Button>
+          </div>
         </div>
       </Card>
     </div>
