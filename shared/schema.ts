@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp, json, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, timestamp, date, json, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -187,7 +187,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   programWorkoutId: varchar("program_workout_id"),
   workoutName: text("workout_name"),
   sessionDate: timestamp("session_date").notNull().defaultNow(),
-  scheduledDate: timestamp("scheduled_date"),
+  scheduledDate: date("scheduled_date"),
   sessionDayOfWeek: integer("session_day_of_week"),
   sessionType: text("session_type").notNull().default("rest"),
   workoutType: text("workout_type"),
@@ -217,6 +217,7 @@ export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).om
 }).extend({
   sessionType: z.enum(["workout", "rest"]).default("rest"),
   workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).optional(),
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional(),
 });
 
 export const patchWorkoutSessionSchema = z.object({

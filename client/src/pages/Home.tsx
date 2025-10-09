@@ -135,7 +135,7 @@ export default function Home() {
   const totalCompletedSessions = completedSessions.length;
 
   const formatDate = (dateString: string | Date) => {
-    const date = new Date(dateString);
+    const date = typeof dateString === 'string' ? parseLocalDate(dateString) : dateString;
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
       month: 'long', 
@@ -144,7 +144,7 @@ export default function Home() {
   };
 
   const getDayName = (dateString: string | Date) => {
-    const date = new Date(dateString);
+    const date = typeof dateString === 'string' ? parseLocalDate(dateString) : dateString;
     return date.toLocaleDateString('en-US', { weekday: 'long' });
   };
 
@@ -158,23 +158,44 @@ export default function Home() {
     return startOfWeek;
   };
 
+  // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  };
+
+  // Helper function: Compare dates by calendar date (year/month/day) in user's timezone
+  const isSameCalendarDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
+
+  const isAfterCalendarDay = (date1: Date, date2: Date) => {
+    if (date1.getFullYear() !== date2.getFullYear()) {
+      return date1.getFullYear() > date2.getFullYear();
+    }
+    if (date1.getMonth() !== date2.getMonth()) {
+      return date1.getMonth() > date2.getMonth();
+    }
+    return date1.getDate() > date2.getDate();
+  };
+
   const sessionsThisWeek = sessions?.filter((s: any) => {
     if (!s.scheduledDate) return false;
-    const scheduledDate = new Date(s.scheduledDate);
+    const scheduledDate = parseLocalDate(s.scheduledDate);
     return scheduledDate >= getStartOfWeek();
   }) || [];
 
   // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
   
   const todaySession = sessions
     ?.filter((s: any) => s.status !== 'archived') // Exclude archived sessions
     ?.find((s: any) => {
       if (!s.scheduledDate) return false;
-      const sessionDate = new Date(s.scheduledDate);
-      sessionDate.setHours(0, 0, 0, 0);
-      return sessionDate.getTime() === today.getTime();
+      const sessionDate = parseLocalDate(s.scheduledDate);
+      return isSameCalendarDay(sessionDate, today);
     });
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
@@ -187,13 +208,12 @@ export default function Home() {
     ?.filter((s: any) => {
       if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
       if (s.completed === 1) return false;
-      const sessionDate = new Date(s.scheduledDate);
-      sessionDate.setHours(0, 0, 0, 0);
-      return sessionDate.getTime() > today.getTime();
+      const sessionDate = parseLocalDate(s.scheduledDate);
+      return isAfterCalendarDay(sessionDate, today);
     })
     .sort((a: any, b: any) => {
-      const dateA = new Date(a.scheduledDate).getTime();
-      const dateB = new Date(b.scheduledDate).getTime();
+      const dateA = parseLocalDate(a.scheduledDate).getTime();
+      const dateB = parseLocalDate(b.scheduledDate).getTime();
       return dateA - dateB;
     })[0];
 

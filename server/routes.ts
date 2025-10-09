@@ -32,6 +32,12 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
       const scheduledDate = new Date(today);
       scheduledDate.setDate(today.getDate() + dayOffset);
       
+      // Convert Date to YYYY-MM-DD string using local timezone components (not UTC)
+      const year = scheduledDate.getFullYear();
+      const month = String(scheduledDate.getMonth() + 1).padStart(2, '0');
+      const day = String(scheduledDate.getDate()).padStart(2, '0');
+      const scheduledDateString = `${year}-${month}-${day}`;
+      
       // Get calendar day-of-week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
       const calendarDay = scheduledDate.getDay();
       
@@ -46,7 +52,7 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
           userId,
           programWorkoutId: programWorkout.id,
           workoutName: programWorkout.workoutName,
-          scheduledDate,
+          scheduledDate: scheduledDateString,
           sessionDayOfWeek: schemaDayOfWeek,
           sessionType: (programWorkout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
           workoutType: programWorkout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
@@ -1277,6 +1283,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
+      // Helper: Parse YYYY-MM-DD string into Date in local timezone
+      const parseLocalDate = (dateString: string): Date => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      };
+
       // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1318,8 +1330,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    s.status === 'scheduled'; // Only pre-scheduled sessions
           })
           .sort((a: any, b: any) => {
-            const dateA = new Date(a.scheduledDate).getTime();
-            const dateB = new Date(b.scheduledDate).getTime();
+            const dateA = parseLocalDate(a.scheduledDate).getTime();
+            const dateB = parseLocalDate(b.scheduledDate).getTime();
             return dateA - dateB; // Ascending order - earliest first
           });
         
@@ -1340,7 +1352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (programWorkout && existingScheduledSession.scheduledDate) {
               await storage.shiftRemainingSchedule(
                 userId,
-                existingScheduledSession.scheduledDate,
+                parseLocalDate(existingScheduledSession.scheduledDate),
                 programWorkout.programId
               );
             }
@@ -1385,15 +1397,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No active program found" });
       }
 
+      // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
+      const parseLocalDate = (dateString: string): Date => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day); // month is 0-indexed
+      };
+
       // Parse the scheduled date
-      const sessionScheduledDate = new Date(scheduledDate);
+      const sessionScheduledDate = parseLocalDate(scheduledDate);
+
+      // Helper: Format Date to YYYY-MM-DD using local timezone
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
 
       // Find the existing session on this date (exclude archived and skipped sessions)
       const existingSessions = await storage.getUserSessions(userId);
       const sessionOnDate = existingSessions.find((s: any) => {
         if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
-        const existingDate = new Date(s.scheduledDate);
-        return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
+        const existingDate = parseLocalDate(s.scheduledDate);
+        return formatLocalDate(existingDate) === formatLocalDate(sessionScheduledDate);
       });
 
       console.log('[CARDIO] Date:', scheduledDate, 'Session found:', sessionOnDate ? { id: sessionOnDate.id, type: sessionOnDate.sessionType, workoutName: sessionOnDate.workoutName } : 'none');
@@ -1414,9 +1440,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create a new cardio session with the same scheduled date
       const duration = suggestedDuration || 30; // Default 30 minutes
+      const year = sessionScheduledDate.getFullYear();
+      const month = String(sessionScheduledDate.getMonth() + 1).padStart(2, '0');
+      const day = String(sessionScheduledDate.getDate()).padStart(2, '0');
       const newCardioSession = await storage.createWorkoutSession({
         userId,
-        scheduledDate: sessionScheduledDate,
+        scheduledDate: `${year}-${month}-${day}`,
         sessionType: "workout",
         workoutType: "cardio",
         workoutName: "Zone 2 Cardio",
@@ -1456,9 +1485,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Get today's date at midnight
+      // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
+      const parseLocalDate = (dateString: string): Date => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day); // month is 0-indexed
+      };
+
+      // Helper: Compare if date1 is before date2 by calendar date (year/month/day)
+      const isBeforeCalendarDay = (date1: Date, date2: Date) => {
+        if (date1.getFullYear() !== date2.getFullYear()) {
+          return date1.getFullYear() < date2.getFullYear();
+        }
+        if (date1.getMonth() !== date2.getMonth()) {
+          return date1.getMonth() < date2.getMonth();
+        }
+        return date1.getDate() < date2.getDate();
+      };
+
+      // Get today's date (in user's timezone)
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
 
       // Get all sessions for this user
       const allSessions = await storage.getUserSessions(userId);
@@ -1468,13 +1513,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!session.scheduledDate) return false;
         if (session.status === 'archived') return false; // Already archived
         
-        const sessionDate = new Date(session.scheduledDate);
-        sessionDate.setHours(0, 0, 0, 0);
+        const sessionDate = parseLocalDate(session.scheduledDate);
         
         // Archive if:
-        // 1. Session is from a previous date AND
+        // 1. Session is from a previous date (by calendar date) AND
         // 2. Session is completed (completed=1) OR skipped (status='skipped')
-        if (sessionDate.getTime() < today.getTime()) {
+        if (isBeforeCalendarDay(sessionDate, today)) {
           return session.completed === 1 || session.status === 'skipped';
         }
         return false;
@@ -1502,6 +1546,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
+
+      // Helper: Parse YYYY-MM-DD string into Date in local timezone
+      const parseLocalDate = (dateString: string): Date => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      };
 
       // Get the old session to check if completion status is changing
       const oldSession = await storage.getWorkoutSession(req.params.sessionId);
@@ -1576,7 +1626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (programWorkout) {
           await storage.shiftRemainingSchedule(
             userId,
-            session.scheduledDate,
+            parseLocalDate(session.scheduledDate),
             programWorkout.programId
           );
         }

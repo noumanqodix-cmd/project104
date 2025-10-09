@@ -17,16 +17,27 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
     queryKey: ["/api/workout-sessions"],
   });
 
+  // Helper: Parse YYYY-MM-DD string into Date in local timezone (not UTC)
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  };
+
+  // Helper: Compare dates by calendar date (year/month/day) in user's timezone
+  const isSameCalendarDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
+
   // Find TODAY's session only
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
   
   const todaySession = sessions?.find((s: any) => {
     if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
     if (s.completed === 1) return false;
-    const sessionDate = new Date(s.scheduledDate);
-    sessionDate.setHours(0, 0, 0, 0);
-    return sessionDate.getTime() === today.getTime();
+    const sessionDate = parseLocalDate(s.scheduledDate);
+    return isSameCalendarDay(sessionDate, today);
   });
 
   if (loadingSessions || !user) {
