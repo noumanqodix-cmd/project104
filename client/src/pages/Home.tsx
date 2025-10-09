@@ -196,15 +196,19 @@ export default function Home() {
   }) || [];
 
   // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
+  // Prioritize incomplete sessions over completed ones
   const today = new Date();
   
-  const todaySession = sessions
-    ?.filter((s: any) => s.status !== 'archived') // Exclude archived sessions
-    ?.find((s: any) => {
-      if (!s.scheduledDate) return false;
+  const todaySessions = sessions
+    ?.filter((s: any) => {
+      if (s.status === 'archived' || !s.scheduledDate) return false;
       const sessionDate = parseLocalDate(s.scheduledDate);
       return isSameCalendarDay(sessionDate, today);
-    });
+    }) || [];
+  
+  // First try to find an incomplete session
+  const todaySession = todaySessions.find((s: any) => s.completed !== 1 && s.status !== 'skipped') 
+    || todaySessions[0]; // Fall back to first session if all are complete
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
