@@ -27,6 +27,14 @@ PostgreSQL is the primary database, accessed via Drizzle ORM. The schema include
 - Rest days are stored with `workoutType: null` (not "rest") to maintain data integrity
 - Session creation logic: workoutType present → sessionType='workout', workoutType null → sessionType='rest'
 
+**Session Archival System (October 2025)**: Automatic archival prevents duplicate sessions and maintains clean workout queue:
+- When sessions are completed or skipped, they are automatically marked with `status='archived'`
+- Frontend filters exclude archived sessions from "next workout" view: `status !== 'archived'`
+- Add cardio endpoint excludes archived sessions when finding rest days
+- Each scheduled date maintains maximum one non-archived session
+- Archived sessions remain in database for history/progress tracking but don't interfere with active workout flow
+- Cleanup system maintains data integrity by archiving duplicate sessions, keeping only most recent incomplete session per date
+
 ### AI-Powered Adaptive Training System
 FitForge utilizes an AI (OpenAI GPT-4/GPT-4-mini) for personalized workout program generation and adaptation.
 - **Test Type Selection**: Users choose between Bodyweight or Weights tests during onboarding.
