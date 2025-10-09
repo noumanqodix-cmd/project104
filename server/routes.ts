@@ -48,6 +48,7 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
           workoutName: programWorkout.workoutName,
           scheduledDate,
           sessionDayOfWeek: schemaDayOfWeek,
+          sessionType: programWorkout.workoutType === 'rest' ? 'cardio' : 'strength',
           completed: 0,
           status: "scheduled" as const,
         });
@@ -893,6 +894,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regenerate program endpoint (alias to generate for Settings page)
+  app.post("/api/programs/regenerate", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      if (!latestAssessment) {
+        return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
+      }
+
+      const availableExercises = await storage.getAllExercises();
+      if (availableExercises.length === 0) {
+        console.error("Master exercise database is empty. Admin must populate via /api/admin/populate-master-exercises");
+        return res.status(500).json({ 
+          error: "Exercise database not initialized. Please contact support." 
+        });
+      }
+
+      console.log("Regenerating program with complete fitness profile:", {
+        hasPushups: !!latestAssessment.pushups,
+        hasPullups: !!latestAssessment.pullups,
+        hasBenchPress1RM: !!latestAssessment.benchPress1rm,
+        hasSquat1RM: !!latestAssessment.squat1rm,
+        nutritionGoal: user.nutritionGoal,
+      });
+
+      console.log("[TEMPLATE] Starting program regeneration with nutrition goal:", user.nutritionGoal);
+      const generatedProgram = await generateWorkoutProgram({
+        user,
+        latestAssessment,
+        availableExercises,
+      });
+      console.log("[TEMPLATE] Program regeneration completed successfully");
+
+      const existingPrograms = await storage.getUserPrograms(userId);
+      for (const oldProgram of existingPrograms) {
+        if (oldProgram.isActive === 1) {
+          // Delete incomplete workout sessions from old program before archiving
+          await storage.deleteIncompleteProgramSessions(oldProgram.id);
+          
+          await storage.updateWorkoutProgram(oldProgram.id, { 
+            isActive: 0,
+            archivedDate: new Date(),
+            archivedReason: "replaced"
+          });
+        }
+      }
+
+      const program = await storage.createWorkoutProgram({
+        userId,
+        fitnessAssessmentId: latestAssessment.id,
+        programType: generatedProgram.programType,
+        weeklyStructure: generatedProgram.weeklyStructure,
+        durationWeeks: generatedProgram.durationWeeks,
+        intensityLevel: determineIntensityFromProgramType(generatedProgram.programType),
+        isActive: 1,
+      });
+
+      const scheduledDays = new Set<number>();
+      const createdProgramWorkouts: ProgramWorkout[] = [];
+      
+      for (const workout of generatedProgram.workouts) {
+        scheduledDays.add(workout.dayOfWeek);
+        
+        const programWorkout = await storage.createProgramWorkout({
+          programId: program.id,
+          dayOfWeek: workout.dayOfWeek,
+          workoutName: workout.workoutName,
+          movementFocus: workout.movementFocus,
+          workoutType: "workout",
+        });
+        createdProgramWorkouts.push(programWorkout);
+
+        for (let i = 0; i < workout.exercises.length; i++) {
+          const exercise = workout.exercises[i];
+          const matchingExercise = availableExercises.find(
+            ex => ex.name.toLowerCase() === exercise.exerciseName.toLowerCase()
+          );
+
+          if (matchingExercise) {
+            // Use AI-provided weight, or fallback to estimation if not provided
+            let recommendedWeight = exercise.recommendedWeight;
+            if (!recommendedWeight && !exercise.isWarmup) {
+              recommendedWeight = estimateWeightFromBodyweightTest(
+                matchingExercise.equipment || [],
+                matchingExercise.movementPattern,
+                latestAssessment
+              );
+            }
+            
+            await storage.createProgramExercise({
+              workoutId: programWorkout.id,
+              exerciseId: matchingExercise.id,
+              orderIndex: i,
+              sets: exercise.sets,
+              repsMin: exercise.repsMin,
+              repsMax: exercise.repsMax,
+              recommendedWeight,
+              durationSeconds: exercise.durationSeconds,
+              workSeconds: exercise.workSeconds,
+              restSeconds: exercise.restSeconds,
+              targetRPE: exercise.targetRPE,
+              targetRIR: exercise.targetRIR,
+              notes: exercise.notes,
+              supersetGroup: exercise.supersetGroup || null,
+              supersetOrder: exercise.supersetOrder || null,
+            });
+          }
+        }
+      }
+      
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+        if (!scheduledDays.has(dayOfWeek)) {
+          const restDay = await storage.createProgramWorkout({
+            programId: program.id,
+            dayOfWeek,
+            workoutName: "Rest Day",
+            movementFocus: [],
+            workoutType: "rest",
+          });
+          createdProgramWorkouts.push(restDay);
+        }
+      }
+
+      // Generate workout schedule for entire program duration
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
+
+      res.json({ program, generatedProgram });
+    } catch (error) {
+      console.error("Regenerate program error:", error);
+      res.status(500).json({ error: "Failed to regenerate workout program" });
+    }
+  });
+
   app.post("/api/programs/preview", async (req: Request, res: Response) => {
     try {
       const { 
@@ -1239,7 +1378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user's active program
-      const activeProgram = await storage.getActiveProgram(userId);
+      const activeProgram = await storage.getUserActiveProgram(userId);
       if (!activeProgram) {
         return res.status(404).json({ error: "No active program found" });
       }
