@@ -14,6 +14,9 @@ export interface FitnessTestResults {
   pushups: number;
   pullups: number;
   squats: number;
+  walkingLunges: number;
+  singleLegRdl: number;
+  plankHold: number;
   mileTime: number;
 }
 
@@ -21,6 +24,9 @@ const exercises = [
   { id: "pushups", label: "Push-ups", unit: "reps" },
   { id: "pullups", label: "Pull-ups", unit: "reps" },
   { id: "squats", label: "Air Squats", unit: "reps" },
+  { id: "walkingLunges", label: "Walking Lunges", unit: "reps" },
+  { id: "singleLegRdl", label: "Single-leg RDL", unit: "reps per leg" },
+  { id: "plankHold", label: "Plank Hold", unit: "seconds" },
   { id: "mileTime", label: "Mile Run Time", unit: "minutes" },
 ];
 
@@ -52,6 +58,9 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
       pushups: 5,
       pullups: 0,
       squats: 10,
+      walkingLunges: 10,
+      singleLegRdl: 5,
+      plankHold: 20,
       mileTime: 15,
     };
 
