@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   Dumbbell,
   RefreshCw,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Loader2
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -37,6 +38,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -64,6 +72,8 @@ export default function Settings() {
   const [workoutDuration, setWorkoutDuration] = useState(60);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [showGenerationModal, setShowGenerationModal] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [age, setAge] = useState("");
@@ -252,28 +262,29 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
-      setShowRegenerateDialog(false);
-      toast({
-        title: "Program Generated",
-        description: "Your new workout program has been created!",
-      });
+      setGenerationStatus('success');
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to generate new program. Please try again.";
-      const needsAssessment = errorMessage.includes("fitness assessment");
-      
-      toast({
-        title: needsAssessment ? "Fitness Assessment Required" : "Error",
-        description: needsAssessment 
-          ? "Please complete a fitness assessment before generating a program." 
-          : errorMessage,
-        variant: "destructive",
-      });
+      setGenerationStatus('error');
     },
   });
 
   const handleRegenerateProgram = () => {
+    setShowRegenerateDialog(false);
+    setShowGenerationModal(true);
+    setGenerationStatus('generating');
     generateNewProgramMutation.mutate();
+  };
+
+  const handleCloseGenerationModal = () => {
+    setShowGenerationModal(false);
+    if (generationStatus === 'success') {
+      toast({
+        title: "Program Generated",
+        description: "Your new workout program has been created!",
+      });
+    }
   };
 
   const updateUnitPreferenceMutation = useMutation({
@@ -871,6 +882,73 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Program Generation Modal */}
+      <Dialog open={showGenerationModal} onOpenChange={(open) => {
+        if (!open && generationStatus !== 'generating') {
+          handleCloseGenerationModal();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-program-generation">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {generationStatus === 'generating' && (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Generating Your Program
+                </>
+              )}
+              {generationStatus === 'success' && (
+                <>
+                  <Dumbbell className="h-5 w-5 text-green-500" />
+                  Program Generated Successfully!
+                </>
+              )}
+              {generationStatus === 'error' && (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Generation Failed
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {generationStatus === 'generating' && (
+                <>
+                  <div className="space-y-4 py-4">
+                    <p>Our AI is creating your personalized workout program...</p>
+                    <p className="text-sm text-muted-foreground">This may take a few moments. Please wait.</p>
+                  </div>
+                </>
+              )}
+              {generationStatus === 'success' && (
+                <div className="space-y-4 py-4">
+                  <p>Your new workout program has been created and is ready to use!</p>
+                  <Button 
+                    onClick={handleCloseGenerationModal}
+                    className="w-full"
+                    data-testid="button-generation-ok"
+                  >
+                    OK
+                  </Button>
+                </div>
+              )}
+              {generationStatus === 'error' && (
+                <div className="space-y-4 py-4">
+                  <p className="text-destructive">Failed to generate your program. Please try again.</p>
+                  <Button 
+                    onClick={handleCloseGenerationModal}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-generation-close"
+                  >
+                    Close
+                  </Button>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
