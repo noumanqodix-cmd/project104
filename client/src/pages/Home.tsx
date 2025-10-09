@@ -9,7 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
 import { useEffect } from "react";
-import { parseLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
+import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
 
 export default function Home() {
   const { toast } = useToast();
@@ -74,7 +74,7 @@ export default function Home() {
 
   const addCardioMutation = useMutation({
     mutationFn: async (date: Date) => {
-      const dateStr = format(date, 'yyyy-MM-dd');
+      const dateStr = formatLocalDate(date);
       return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
     },
     onSuccess: () => {

@@ -9,6 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutSession } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { formatLocalDate } from "@shared/dateUtils";
 
 interface CalendarViewProps {
   sessions: WorkoutSession[];
@@ -34,7 +35,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
   // Mutation to add cardio session to a rest day
   const addCardioMutation = useMutation({
     mutationFn: async (date: Date) => {
-      const dateStr = format(date, 'yyyy-MM-dd');
+      const dateStr = formatLocalDate(date);
       return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
     },
     onSuccess: () => {
@@ -59,7 +60,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
   sessions.forEach(session => {
     // Use scheduledDate if available, otherwise fall back to sessionDate
     const displayDate = session.scheduledDate ? new Date(session.scheduledDate) : new Date(session.sessionDate);
-    const dateKey = format(displayDate, 'yyyy-MM-dd');
+    const dateKey = formatLocalDate(displayDate);
     if (!sessionsByDate.has(dateKey)) {
       sessionsByDate.set(dateKey, []);
     }
@@ -69,7 +70,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
   // Get day color based on session status (using backend status field)
   // Priority: Completed > Skipped > Rest > Scheduled
   const getDayColor = (date: Date): string => {
-    const dateKey = format(date, 'yyyy-MM-dd');
+    const dateKey = formatLocalDate(date);
     const daySessions = sessionsByDate.get(dateKey) || [];
     
     if (daySessions.length === 0) return '';
@@ -169,7 +170,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
               const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
               const isToday = isSameDay(day, new Date());
               const dayColor = getDayColor(day);
-              const dateKey = format(day, 'yyyy-MM-dd');
+              const dateKey = formatLocalDate(day);
               const hasSessions = sessionsByDate.has(dateKey);
               const daySessions = sessionsByDate.get(dateKey) || [];
               const hasCardioSession = daySessions.some(s => s.sessionType === "workout" && s.workoutType === "cardio");
@@ -179,7 +180,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                   key={index}
                   onClick={() => hasSessions && setSelectedDate(day)}
                   disabled={!hasSessions}
-                  data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
+                  data-testid={`calendar-day-${formatLocalDate(day)}`}
                   className={cn(
                     "relative aspect-square rounded-md border transition-colors",
                     "flex items-center justify-center text-sm",
@@ -197,7 +198,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                   {hasCardioSession && (
                     <Heart 
                       className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 text-red-500 fill-red-500" 
-                      data-testid={`cardio-indicator-${format(day, 'yyyy-MM-dd')}`}
+                      data-testid={`cardio-indicator-${formatLocalDate(day)}`}
                     />
                   )}
                 </button>

@@ -33,11 +33,8 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
       const scheduledDate = new Date(today);
       scheduledDate.setDate(today.getDate() + dayOffset);
       
-      // Convert Date to YYYY-MM-DD string using local timezone components (not UTC)
-      const year = scheduledDate.getFullYear();
-      const month = String(scheduledDate.getMonth() + 1).padStart(2, '0');
-      const day = String(scheduledDate.getDate()).padStart(2, '0');
-      const scheduledDateString = `${year}-${month}-${day}`;
+      // Convert Date to YYYY-MM-DD string using shared utility
+      const scheduledDateString = formatLocalDate(scheduledDate);
       
       // Get calendar day-of-week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
       const calendarDay = scheduledDate.getDay();
@@ -1407,12 +1404,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create a new cardio session with the same scheduled date
       const duration = suggestedDuration || 30; // Default 30 minutes
-      const year = sessionScheduledDate.getFullYear();
-      const month = String(sessionScheduledDate.getMonth() + 1).padStart(2, '0');
-      const day = String(sessionScheduledDate.getDate()).padStart(2, '0');
       const newCardioSession = await storage.createWorkoutSession({
         userId,
-        scheduledDate: `${year}-${month}-${day}`,
+        scheduledDate: formatLocalDate(sessionScheduledDate),
         sessionType: "workout",
         workoutType: "cardio",
         workoutName: "Zone 2 Cardio",
