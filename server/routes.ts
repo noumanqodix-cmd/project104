@@ -1452,6 +1452,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/workout-sessions/archive-old", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get today's date at midnight
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get all sessions for this user
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Archive any completed or skipped sessions from previous dates
+      const sessionsToArchive = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false; // Already archived
+        
+        const sessionDate = new Date(session.scheduledDate);
+        sessionDate.setHours(0, 0, 0, 0);
+        
+        // Archive if:
+        // 1. Session is from a previous date AND
+        // 2. Session is completed (completed=1) OR skipped (status='skipped')
+        if (sessionDate.getTime() < today.getTime()) {
+          return session.completed === 1 || session.status === 'skipped';
+        }
+        return false;
+      });
+
+      // Archive each session
+      const archivedCount = await Promise.all(
+        sessionsToArchive.map((session: any) =>
+          storage.updateWorkoutSession(session.id, { status: 'archived' })
+        )
+      );
+
+      console.log(`[ARCHIVE] Archived ${archivedCount.length} old sessions for user ${userId}`);
+      
+      res.json({ 
+        archivedCount: archivedCount.length,
+        message: `Archived ${archivedCount.length} old sessions`
+      });
+    } catch (error) {
+      console.error("Archive old sessions error:", error);
+      res.status(500).json({ error: "Failed to archive old sessions" });
+    }
+  });
+
   app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
@@ -1465,15 +1512,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
 
-      // Auto-archive sessions when completed (if status not explicitly provided) or when skipped
-      if (validatedData.completed === 1) {
-        if (!validatedData.status) {
-          validatedData.status = "archived";
-        } else if (validatedData.status === "skipped") {
-          // Keep skipped status for UI display, but will be archived after showing status
-          // The "archived" sessions are filtered out from future workout queue
-        }
-      }
+      // Do NOT auto-archive - sessions stay visible with their status until date changes
+      // Archival happens automatically when viewing home page on a new day
 
       // Calculate calories burned if workout is being completed
       if (validatedData.completed === 1 && validatedData.durationMinutes && !validatedData.caloriesBurned) {

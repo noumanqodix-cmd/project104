@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
+import { useEffect } from "react";
 
 export default function Home() {
   const { toast } = useToast();
@@ -91,6 +92,16 @@ export default function Home() {
     },
   });
 
+  const archiveOldSessionsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/workout-sessions/archive-old", {});
+    },
+    onSuccess: () => {
+      // Silently refresh sessions after archival
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+    },
+  });
+
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/generate", {});
@@ -112,6 +123,13 @@ export default function Home() {
       });
     },
   });
+
+  // Archive old completed/skipped sessions when page loads
+  useEffect(() => {
+    if (user) {
+      archiveOldSessionsMutation.mutate();
+    }
+  }, [user?.id]); // Only run when user changes
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const totalCompletedSessions = completedSessions.length;
