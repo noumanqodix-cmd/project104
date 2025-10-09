@@ -1372,10 +1372,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const scheduledDate = req.params.date;
-      const { suggestedDuration } = req.body;
+      const suggestedDuration = req.body?.suggestedDuration;
 
       if (!scheduledDate) {
-        return res.status(400).json({ error: "scheduledDate is required" });
+        return res.status(400).json({ error: "date parameter is required" });
       }
 
       // Get user's active program
