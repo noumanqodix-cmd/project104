@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Flame, Dumbbell } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Flame, Dumbbell, Plus, Heart } from "lucide-react";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { WorkoutSession } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +15,7 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ sessions }: CalendarViewProps) {
+  const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -22,6 +26,33 @@ export function CalendarView({ sessions }: CalendarViewProps) {
         return isSameDay(sessionDisplayDate, selectedDate);
       })
     : [];
+
+  // Check if selected date is a rest day
+  const isRestDay = selectedDateSessions.some(s => s.workoutName === "Rest Day");
+  const hasCardio = selectedDateSessions.some(s => s.sessionType === "cardio");
+
+  // Mutation to add cardio session to a rest day
+  const addCardioMutation = useMutation({
+    mutationFn: async (date: Date) => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      setSelectedDate(null);
+      toast({
+        title: "Cardio Session Added!",
+        description: "Zone 2 cardio workout has been added to this rest day.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add cardio session. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Create a map of dates to sessions for quick lookup
   const sessionsByDate = new Map<string, WorkoutSession[]>();
@@ -180,47 +211,72 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                 No workouts scheduled for this day
               </p>
             ) : (
-              selectedDateSessions.map((session) => (
-                <Card key={session.id} data-testid={`session-detail-${session.id}`}>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold">{session.workoutName}</h3>
-                      <span className={cn(
-                        "text-xs px-2 py-1 rounded-full",
-                        session.completed && session.status !== 'skipped' && "bg-green-500/20 text-green-700 dark:text-green-300",
-                        session.status === 'skipped' && "bg-red-500/20 text-red-700 dark:text-red-300",
-                        session.workoutName === "Rest Day" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                        !session.completed && session.status !== 'skipped' && session.workoutName !== "Rest Day" && "bg-muted text-muted-foreground"
-                      )}>
-                        {session.completed && session.status !== 'skipped' ? 'Completed' :
-                         session.status === 'skipped' ? 'Skipped' :
-                         session.workoutName === "Rest Day" ? 'Rest' : 'Scheduled'}
-                      </span>
-                    </div>
-                    
-                    {session.completed && (
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        {session.durationMinutes && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {session.durationMinutes} min
-                          </div>
-                        )}
-                        {session.caloriesBurned && (
-                          <div className="flex items-center gap-1">
-                            <Flame className="h-3 w-3" />
-                            {session.caloriesBurned} cal
-                          </div>
-                        )}
+              <>
+                {selectedDateSessions.map((session) => (
+                  <Card key={session.id} data-testid={`session-detail-${session.id}`}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold">
+                          {session.sessionType === 'cardio' ? (
+                            <span className="flex items-center gap-2">
+                              <Heart className="h-4 w-4 text-red-500" />
+                              Zone 2 Cardio
+                            </span>
+                          ) : (
+                            session.workoutName
+                          )}
+                        </h3>
+                        <span className={cn(
+                          "text-xs px-2 py-1 rounded-full",
+                          session.completed && session.status !== 'skipped' && "bg-green-500/20 text-green-700 dark:text-green-300",
+                          session.status === 'skipped' && "bg-red-500/20 text-red-700 dark:text-red-300",
+                          session.workoutName === "Rest Day" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                          !session.completed && session.status !== 'skipped' && session.workoutName !== "Rest Day" && "bg-muted text-muted-foreground"
+                        )}>
+                          {session.completed && session.status !== 'skipped' ? 'Completed' :
+                           session.status === 'skipped' ? 'Skipped' :
+                           session.workoutName === "Rest Day" ? 'Rest' : 'Scheduled'}
+                        </span>
                       </div>
-                    )}
+                      
+                      {session.completed && (
+                        <div className="flex gap-4 text-sm text-muted-foreground">
+                          {session.durationMinutes && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {session.durationMinutes} min
+                            </div>
+                          )}
+                          {session.caloriesBurned && (
+                            <div className="flex items-center gap-1">
+                              <Flame className="h-3 w-3" />
+                              {session.caloriesBurned} cal
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                    {session.notes && (
-                      <p className="text-sm text-muted-foreground">{session.notes}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                      {session.notes && (
+                        <p className="text-sm text-muted-foreground">{session.notes}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Add Cardio Button for Rest Days */}
+                {isRestDay && !hasCardio && selectedDate && (
+                  <Button
+                    onClick={() => addCardioMutation.mutate(selectedDate)}
+                    disabled={addCardioMutation.isPending}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-add-cardio"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Cardio Session
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </DialogContent>
