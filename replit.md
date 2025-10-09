@@ -14,7 +14,10 @@ The frontend uses React 18 with TypeScript, Vite, and Wouter for routing, with R
 ### Technical Implementations
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support. It integrates with Vite for HMR and serves static files in production. Replit Auth (OpenID Connect) is used for authentication, integrating with Passport.js for session management. PostgreSQL is the primary database, accessed via Drizzle ORM.
 
-**Timezone-Safe Date Handling**: The application uses a timezone-agnostic approach for workout scheduling. The `scheduledDate` column stores pure calendar dates (YYYY-MM-DD) as PostgreSQL DATE type. All date parsing and formatting is centralized in `shared/dateUtils.ts`, which provides timezone-safe helpers (`parseLocalDate()`, `formatLocalDate()`, comparison utilities) used consistently across frontend and backend. The `parseLocalDate()` helper interprets YYYY-MM-DD strings in the user's local timezone, avoiding UTC conversion bugs. Date formatting always uses local Date components instead of ISO string conversion. This centralized approach ensures workouts display correctly regardless of timezone and prevents duplicate helper implementations.
+**Timezone-Safe Date Handling**: The application uses a dual approach for date/time handling:
+- **Calendar Dates (scheduledDate)**: Stored as YYYY-MM-DD strings using PostgreSQL DATE type. All parsing and formatting is centralized in `shared/dateUtils.ts`, which provides timezone-safe helpers (`parseLocalDate()`, `formatLocalDate()`, comparison utilities). These interpret dates in the user's local timezone, avoiding UTC conversion bugs.
+- **Completion Timestamps (sessionDate)**: Stored in UTC as full timestamps for consistency across timezones. The backend and logs display UTC time, which is standard practice for server-side timestamps.
+- **Workout Completion Status**: The `completed` field uses numeric values (0 or 1) consistently across all session types to ensure proper status detection on the home page.
 
 ### Feature Specifications
 - **Data Model**: The database schema includes Users, Fitness Assessments, an Exercise Database, Workout Programs (with history tracking), and Performance Tracking. Workout sessions are pre-generated with `scheduledDate` values, and session types (`workoutType`, `sessionType`) are clearly defined for data integrity. A date-based archival system archives completed or skipped sessions when the date changes, maintaining a clean workout queue while keeping status visible for the current day.
@@ -33,7 +36,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
       - **Today's Display**: Shows completion states (Complete with green checkmark, Skipped with orange icon, or Pending with action buttons)
       - **Rest Day Actions**: "Add Cardio Session" (archives rest, creates cardio) or "Complete Rest Day" (marks completed)
       - **Workout Actions**: "Start Workout" or "Skip" (marks skipped with `completed=0`, `status='skipped'`)
-      - **Next Workout Preview**: View-only preview of next upcoming session (excludes skipped/archived/completed)
+      - **Next Workout Preview**: Always displays tomorrow's session (next calendar day), regardless of completion status or session type. Only excludes archived sessions. Shows rest days, completed workouts, or pending workouts scheduled for the next day.
       - **Date-Based Archival**: Sessions stay visible with their completion/skipped status all day. When date changes and Home page loads, previous day's completed/skipped sessions are automatically archived via POST `/api/workout-sessions/archive-old`. Archival happens on page load, not on completion/skip action. **Important:** Archived sessions can ONLY exist for past dates, never for today's date.
       - **Status Persistence**: Completed/skipped status remains visible for current day, only gets archived when viewing tomorrow's workout
       - **Home Page Session Logic**: Explicitly excludes archived sessions when finding today's workout to ensure current session is always displayed
