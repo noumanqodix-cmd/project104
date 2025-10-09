@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dumbbell, Loader2, AlertTriangle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function OIDCCallbackPage() {
   const [, setLocation] = useLocation();
@@ -36,6 +36,8 @@ export default function OIDCCallbackPage() {
           // If user has an active program, they're already set up - skip onboarding
           if (activeProgram) {
             console.log("User has existing program, redirecting to home");
+            // Force refresh all data before navigating to ensure fresh state
+            await queryClient.invalidateQueries();
             setLocation("/home");
             return;
           }
@@ -56,8 +58,9 @@ export default function OIDCCallbackPage() {
           // Call the comprehensive assessment endpoint
           await apiRequest('POST', '/api/onboarding-assessment/complete', assessmentData);
           
-          // Clear localStorage and redirect
+          // Clear localStorage and force refresh before redirect
           localStorage.removeItem('fitforge_onboarding_data');
+          await queryClient.invalidateQueries();
           setLocation("/home");
           return;
         }
@@ -85,6 +88,7 @@ export default function OIDCCallbackPage() {
 
         // No existing data - complete onboarding normally
         localStorage.removeItem('fitforge_onboarding_data');
+        await queryClient.invalidateQueries();
         setLocation("/home");
       } catch (error) {
         console.error("Error completing onboarding:", error);
@@ -95,11 +99,12 @@ export default function OIDCCallbackPage() {
     completeOnboarding();
   }, [setLocation]);
 
-  const handleKeepExisting = () => {
+  const handleKeepExisting = async () => {
     // User wants to keep their existing data
     console.log("User chose to keep existing data");
     localStorage.removeItem('fitforge_onboarding_data');
     setShowConfirmDialog(false);
+    await queryClient.invalidateQueries();
     setLocation("/home");
   };
 
@@ -113,9 +118,10 @@ export default function OIDCCallbackPage() {
         generatedProgram: storedOnboardingData.generatedProgram,
       });
 
-      // Clear localStorage and redirect
+      // Clear localStorage, force refresh, and redirect
       localStorage.removeItem('fitforge_onboarding_data');
       setShowConfirmDialog(false);
+      await queryClient.invalidateQueries();
       setLocation("/home");
     } catch (error) {
       console.error("Error forcing onboarding completion:", error);
