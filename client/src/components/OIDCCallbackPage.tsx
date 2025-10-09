@@ -30,18 +30,18 @@ export default function OIDCCallbackPage() {
           console.log("No onboarding data found, checking if user is already set up");
           
           // Smart detection: Check if user has an active program (existing users)
-          const programsResponse = await apiRequest('GET', '/api/workout-programs');
-          const programs = await programsResponse.json();
+          const programResponse = await apiRequest('GET', '/api/programs/active');
+          const activeProgram = await programResponse.json();
           
-          // If user has any programs, they're already set up - skip onboarding
-          if (programs && programs.length > 0) {
-            console.log("User has existing programs, redirecting to home");
+          // If user has an active program, they're already set up - skip onboarding
+          if (activeProgram) {
+            console.log("User has existing program, redirecting to home");
             setLocation("/home");
             return;
           }
           
-          // New user with no programs - send to onboarding
-          console.log("New user without programs, redirecting to assessment");
+          // New user with no program - send to onboarding
+          console.log("New user without program, redirecting to assessment");
           setLocation("/onboarding-assessment");
           return;
         }

@@ -14,6 +14,8 @@ The frontend uses React 18 with TypeScript, Vite, and Wouter for routing, with R
 ### Technical Implementations
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support. It integrates with Vite for HMR and serves static files in production. Replit Auth (OpenID Connect) is used for authentication, integrating with Passport.js for session management. PostgreSQL is the primary database, accessed via Drizzle ORM.
 
+**Login Flow**: After OAuth callback, the system checks `/api/programs/active` to determine user status. If an active program exists, user redirects to home. If no active program, user redirects to onboarding assessment. This prevents existing users from being forced through onboarding again.
+
 **Timezone-Safe Date Handling**: The application uses a dual approach for date/time handling:
 - **Calendar Dates (scheduledDate)**: Stored as YYYY-MM-DD strings using PostgreSQL DATE type. All parsing and formatting is centralized in `shared/dateUtils.ts`, which provides timezone-safe helpers (`parseLocalDate()`, `formatLocalDate()`, comparison utilities). These interpret dates in the user's local timezone, avoiding UTC conversion bugs.
 - **Completion Timestamps (sessionDate)**: Stored in UTC as full timestamps for consistency across timezones. The backend and logs display UTC time, which is standard practice for server-side timestamps.
