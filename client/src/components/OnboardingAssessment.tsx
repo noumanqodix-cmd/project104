@@ -17,7 +17,7 @@ export default function OnboardingAssessment() {
   const [currentStep, setCurrentStep] = useState<AssessmentStep>("questionnaire");
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData | null>(null);
   const [nutritionData, setNutritionData] = useState<NutritionData | null>(null);
-  const [testType, setTestType] = useState<"bodyweight" | "weights" | null>(null);
+  const [testType, setTestType] = useState<"bodyweight" | "weights" | "skip" | null>(null);
 
   const completeAssessmentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -137,6 +137,31 @@ export default function OnboardingAssessment() {
     completeAssessmentMutation.mutate(completeData);
   };
 
+  const handleSkipTest = () => {
+    // Submit without fitness test data - program will use conservative defaults
+    const completeData = {
+      // Questionnaire data
+      experienceLevel: questionnaireData?.experienceLevel,
+      unitPreference: questionnaireData?.unitPreference,
+      equipment: questionnaireData?.equipment || [],
+      workoutDuration: questionnaireData?.availability?.minutesPerSession,
+      daysPerWeek: questionnaireData?.availability?.daysPerWeek,
+      
+      // Nutrition data
+      height: nutritionData?.height,
+      weight: nutritionData?.weight,
+      dateOfBirth: nutritionData?.dateOfBirth,
+      nutritionGoal: nutritionData?.goal,
+      bmr: nutritionData?.bmr,
+      tdee: nutritionData?.calories,
+      heartRateZones: nutritionData?.heartRateZones,
+      
+      // No fitness test data - AI will use experience level for conservative defaults
+    };
+
+    completeAssessmentMutation.mutate(completeData);
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case "questionnaire":
@@ -171,8 +196,11 @@ export default function OnboardingAssessment() {
               setTestType(type);
               if (type === "bodyweight") {
                 setCurrentStep("fitnessTest");
-              } else {
+              } else if (type === "weights") {
                 setCurrentStep("weightsTest");
+              } else if (type === "skip") {
+                // Skip test and submit with conservative defaults
+                handleSkipTest();
               }
             }}
             onBack={() => setCurrentStep("nutrition")}

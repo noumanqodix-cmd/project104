@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, Dumbbell } from "lucide-react";
+import { ArrowLeft, User, Dumbbell, SkipForward } from "lucide-react";
 
 interface TestTypeSelectorProps {
-  onSelect: (testType: "bodyweight" | "weights") => void;
+  onSelect: (testType: "bodyweight" | "weights" | "skip") => void;
   onBack: () => void;
 }
 
@@ -29,7 +29,7 @@ export default function TestTypeSelector({ onSelect, onBack }: TestTypeSelectorP
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <Card 
             className="p-6"
             data-testid="card-bodyweight-test"
@@ -89,6 +89,37 @@ export default function TestTypeSelector({ onSelect, onBack }: TestTypeSelectorP
                 data-testid="button-select-weights"
               >
                 Select Weights Test
+              </Button>
+            </div>
+          </Card>
+
+          <Card 
+            className="p-6"
+            data-testid="card-skip-test"
+          >
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                <SkipForward className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Skip Test</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Start with conservative recommendations
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Based on experience level</li>
+                  <li>• Conservative starting weights</li>
+                  <li>• Can test later</li>
+                </ul>
+              </div>
+              <Button 
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => onSelect("skip")}
+                data-testid="button-skip-test"
+              >
+                Skip Fitness Test
               </Button>
             </div>
           </Card>
