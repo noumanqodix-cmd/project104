@@ -14,6 +14,8 @@ The frontend uses React 18 with TypeScript, Vite, and Wouter for routing, with R
 ### Technical Implementations
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support. It integrates with Vite for HMR and serves static files in production. Replit Auth (OpenID Connect) is used for authentication, integrating with Passport.js for session management. PostgreSQL is the primary database, accessed via Drizzle ORM.
 
+**Timezone-Safe Date Handling**: The application uses a timezone-agnostic approach for workout scheduling. The `scheduledDate` column stores pure calendar dates (YYYY-MM-DD) as PostgreSQL DATE type. All date parsing uses `parseLocalDate()` helper that interprets YYYY-MM-DD strings in the user's local timezone, avoiding UTC conversion bugs. Date formatting always uses local Date components (year/month/day) instead of ISO string conversion. This ensures workouts display correctly regardless of the user's timezone.
+
 ### Feature Specifications
 - **Data Model**: The database schema includes Users, Fitness Assessments, an Exercise Database, Workout Programs (with history tracking), and Performance Tracking. Workout sessions are pre-generated with `scheduledDate` values, and session types (`workoutType`, `sessionType`) are clearly defined for data integrity. A date-based archival system archives completed or skipped sessions when the date changes, maintaining a clean workout queue while keeping status visible for the current day.
 - **AI-Powered Adaptive Training System**: Utilizes OpenAI GPT-4/GPT-4-mini for personalized program generation and adaptation.
