@@ -161,7 +161,7 @@ export default function Home() {
     })[0];
 
   const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
-  const isRestDay = nextWorkout?.workoutType === "rest" || false;
+  const isRestDay = nextSession?.sessionType === "rest" || false;
   
   // Check if the rest day already has a cardio session
   const hasCardioOnRestDay = isRestDay && nextSession?.scheduledDate ? 
