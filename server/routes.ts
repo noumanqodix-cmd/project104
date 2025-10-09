@@ -1433,21 +1433,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
-    try {
-      const userId = req.user.claims.sub;
-
-      const session = await storage.updateWorkoutSession(req.params.sessionId, req.body);
-      if (!session) {
-        return res.status(404).json({ error: "Session not found" });
-      }
-
-      res.json(session);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update session" });
-    }
-  });
-
   app.post("/api/workout-sessions/archive-old", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
