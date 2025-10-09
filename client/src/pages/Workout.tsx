@@ -17,37 +17,17 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
     queryKey: ["/api/workout-sessions"],
   });
 
-  // Find the next actionable session (prioritize today, then upcoming, then past due)
+  // Find TODAY's session only
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const nextSession = sessions
-    ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
-    .sort((a: any, b: any) => {
-      const dateA = new Date(a.scheduledDate).getTime();
-      const dateB = new Date(b.scheduledDate).getTime();
-      
-      const aDate = new Date(a.scheduledDate);
-      aDate.setHours(0, 0, 0, 0);
-      const bDate = new Date(b.scheduledDate);
-      bDate.setHours(0, 0, 0, 0);
-      
-      const aIsToday = aDate.getTime() === today.getTime();
-      const bIsToday = bDate.getTime() === today.getTime();
-      const aIsFuture = aDate.getTime() > today.getTime();
-      const bIsFuture = bDate.getTime() > today.getTime();
-      
-      // Today's workout comes first
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-      
-      // Future workouts come before past due
-      if (aIsFuture && !bIsFuture) return -1;
-      if (!aIsFuture && bIsFuture) return 1;
-      
-      // Within same category, sort by date
-      return dateA - dateB;
-    })[0];
+  const todaySession = sessions?.find((s: any) => {
+    if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
+    if (s.completed === 1) return false;
+    const sessionDate = new Date(s.scheduledDate);
+    sessionDate.setHours(0, 0, 0, 0);
+    return sessionDate.getTime() === today.getTime();
+  });
 
   if (loadingSessions || !user) {
     return (
@@ -61,12 +41,23 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
   }
 
   // Check if this is a cardio session
-  const isCardioSession = nextSession?.workoutType === "cardio";
+  const isCardioSession = todaySession?.workoutType === "cardio";
 
-  if (isCardioSession && nextSession) {
+  if (!todaySession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">No Workout Scheduled</h2>
+          <p className="text-muted-foreground">There's no workout scheduled for today.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isCardioSession) {
     return (
       <CardioWorkoutSession
-        sessionId={nextSession.id}
+        sessionId={todaySession.id}
         onComplete={onComplete as (summary: CardioSummary) => void}
         user={user}
       />

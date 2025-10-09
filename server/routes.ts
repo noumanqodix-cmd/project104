@@ -1368,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert rest day session to Zone 2 cardio session
+  // Convert rest day session to Zone 2 cardio session (archive old, create new)
   app.post("/api/programs/sessions/cardio/:date", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
@@ -1388,10 +1388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse the scheduled date
       const sessionScheduledDate = new Date(scheduledDate);
 
-      // Find the existing session on this date (exclude archived sessions)
+      // Find the existing session on this date (exclude archived and skipped sessions)
       const existingSessions = await storage.getUserSessions(userId);
       const sessionOnDate = existingSessions.find((s: any) => {
-        if (!s.scheduledDate || s.status === 'archived') return false;
+        if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
         const existingDate = new Date(s.scheduledDate);
         return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
       });
@@ -1407,20 +1407,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "This is a workout day, not a rest day. You can only add cardio to rest days." });
       }
 
-      // Update the existing rest day session to become a cardio workout session
+      // Archive the existing rest session
+      await storage.updateWorkoutSession(sessionOnDate.id, {
+        status: "archived"
+      });
+
+      // Create a new cardio session with the same scheduled date
       const duration = suggestedDuration || 30; // Default 30 minutes
-      const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
+      const newCardioSession = await storage.createWorkoutSession({
+        userId,
+        scheduledDate: sessionScheduledDate,
         sessionType: "workout",
         workoutType: "cardio",
         workoutName: "Zone 2 Cardio",
         notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
+        completed: 0,
+        status: "scheduled"
       });
 
-      if (!updatedSession) {
-        return res.status(500).json({ error: "Failed to update session" });
+      if (!newCardioSession) {
+        return res.status(500).json({ error: "Failed to create cardio session" });
       }
 
-      res.json(updatedSession);
+      console.log('[CARDIO] Successfully replaced rest session with cardio:', newCardioSession.id);
+      res.json(newCardioSession);
     } catch (error) {
       console.error("Convert to cardio session error:", error);
       res.status(500).json({ error: "Failed to convert to cardio session" });
@@ -1455,9 +1465,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
 
-      // Auto-archive sessions when completed
-      if (validatedData.completed === 1 && !validatedData.status) {
-        validatedData.status = "archived";
+      // Auto-archive sessions when completed (if status not explicitly provided) or when skipped
+      if (validatedData.completed === 1) {
+        if (!validatedData.status) {
+          validatedData.status = "archived";
+        } else if (validatedData.status === "skipped") {
+          // Keep skipped status for UI display, but will be archived after showing status
+          // The "archived" sessions are filtered out from future workout queue
+        }
       }
 
       // Calculate calories burned if workout is being completed

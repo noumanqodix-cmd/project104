@@ -33,8 +33,8 @@ export default function Home() {
   const skipDayMutation = useMutation({
     mutationFn: async ({ sessionId }: { sessionId: string }) => {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
-        completed: 1,
-        status: "archived",
+        completed: 0,
+        status: "skipped",
       });
     },
     onSuccess: () => {
@@ -45,6 +45,26 @@ export default function Home() {
       toast({
         title: "Failed to Skip",
         description: error.message || "Failed to skip day",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const completeRestDayMutation = useMutation({
+    mutationFn: async ({ sessionId }: { sessionId: string }) => {
+      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
+        completed: 1,
+        sessionDate: new Date(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Complete Rest Day",
+        description: error.message || "Failed to complete rest day",
         variant: "destructive",
       });
     },
@@ -126,62 +146,38 @@ export default function Home() {
     return scheduledDate >= getStartOfWeek();
   }) || [];
 
-  // Find the next actionable session (prioritize today, then upcoming, then past due)
+  // TODAY'S SESSION: Find session scheduled for today's exact date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  // Find calendar-based sessions (with scheduledDate)
-  const nextSession = sessions
-    ?.filter((s: any) => s.completed === 0 && s.scheduledDate && s.status !== 'archived')
+  const todaySession = sessions?.find((s: any) => {
+    if (!s.scheduledDate) return false;
+    const sessionDate = new Date(s.scheduledDate);
+    sessionDate.setHours(0, 0, 0, 0);
+    return sessionDate.getTime() === today.getTime();
+  });
+
+  const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
+  const isTodayRestDay = todaySession?.sessionType === "rest" || false;
+  const isTodayComplete = todaySession?.completed === 1;
+  const isTodaySkipped = todaySession?.status === "skipped";
+  
+  // NEXT WORKOUT PREVIEW: Find the next upcoming session (future only, for preview, exclude completed/skipped)
+  const nextUpcomingSession = sessions
+    ?.filter((s: any) => {
+      if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
+      if (s.completed === 1) return false;
+      const sessionDate = new Date(s.scheduledDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() > today.getTime();
+    })
     .sort((a: any, b: any) => {
       const dateA = new Date(a.scheduledDate).getTime();
       const dateB = new Date(b.scheduledDate).getTime();
-      
-      // Prioritize today's session, then upcoming, then past due
-      const aDate = new Date(a.scheduledDate);
-      aDate.setHours(0, 0, 0, 0);
-      const bDate = new Date(b.scheduledDate);
-      bDate.setHours(0, 0, 0, 0);
-      
-      const aIsToday = aDate.getTime() === today.getTime();
-      const bIsToday = bDate.getTime() === today.getTime();
-      const aIsFuture = aDate.getTime() > today.getTime();
-      const bIsFuture = bDate.getTime() > today.getTime();
-      
-      // Today's workout comes first
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-      
-      // Future workouts come before past due
-      if (aIsFuture && !bIsFuture) return -1;
-      if (!aIsFuture && bIsFuture) return 1;
-      
-      // Within same category, sort by date
       return dateA - dateB;
     })[0];
 
-  const nextWorkout = nextSession ? programWorkouts?.find(w => w.id === nextSession.programWorkoutId) : null;
-  const isRestDay = nextSession?.sessionType === "rest" || false;
-  
-  // Check if the rest day already has a cardio session
-  const hasCardioOnRestDay = isRestDay && nextSession?.scheduledDate ? 
-    sessions?.some(s => {
-      if (!s.scheduledDate || !nextSession.scheduledDate) return false;
-      return new Date(s.scheduledDate).toDateString() === new Date(nextSession.scheduledDate).toDateString() &&
-        s.sessionType === "workout" && s.workoutType === "cardio";
-    }) : false;
-  
-  const isToday = nextSession && nextSession.scheduledDate ? 
-    new Date(nextSession.scheduledDate).toDateString() === today.toDateString() : 
-    false;
-  
-  const isPastDue = nextSession && nextSession.scheduledDate && !isToday ? 
-    (() => {
-      const sessionDate = new Date(nextSession.scheduledDate);
-      sessionDate.setHours(0, 0, 0, 0);
-      return sessionDate < today;
-    })() : 
-    false;
+  const nextUpcomingWorkout = nextUpcomingSession ? programWorkouts?.find(w => w.id === nextUpcomingSession.programWorkoutId) : null;
   
   const isProgramComplete = () => {
     if (!sessions || sessions.length === 0) return false;
@@ -307,62 +303,132 @@ export default function Home() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>
-                  {isToday
-                    ? "Today's Workout"
-                    : isPastDue
-                    ? "Missed Workout"
-                    : "Upcoming Workout"}
-                </CardTitle>
+                <CardTitle>Today's Workout</CardTitle>
                 <CardDescription>
-                  {nextSession?.scheduledDate ? formatDate(nextSession.scheduledDate) : "No scheduled workout"}
+                  {todaySession?.scheduledDate ? formatDate(todaySession.scheduledDate) : formatDate(new Date())}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {nextSession && nextWorkout ? (
-                  isRestDay ? (
-                    <>
-                      <div className="text-center py-2">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
-                          <Calendar className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Recovery is part of the program
-                        </p>
+                {!todaySession ? (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground">No workout scheduled for today</p>
+                  </div>
+                ) : isTodaySkipped ? (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/10 mb-3">
+                      <SkipForward className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-skipped">
+                      Skipped
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isTodayRestDay 
+                        ? "Rest day skipped"
+                        : todaySession.workoutType === "cardio"
+                          ? "Cardio session skipped"
+                          : todayWorkout?.workoutName || "Workout skipped"}
+                    </p>
+                  </div>
+                ) : isTodayComplete ? (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 mb-3">
+                      <Target className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-complete">
+                      Complete
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isTodayRestDay 
+                        ? "Rest day completed"
+                        : todaySession.workoutType === "cardio"
+                          ? "Cardio session completed"
+                          : todayWorkout?.workoutName || "Workout completed"}
+                    </p>
+                  </div>
+                ) : isTodayRestDay ? (
+                  <>
+                    <div className="text-center py-2">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
+                        <Calendar className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      
-                      {/* Add Cardio Button for Rest Days */}
-                      {!hasCardioOnRestDay && nextSession?.scheduledDate && (
-                        <Button
-                          variant="default"
-                          size="lg"
-                          className="w-full"
-                          onClick={() => {
-                            if (!nextSession?.scheduledDate) {
-                              toast({
-                                title: "Error",
-                                description: "Session date not loaded. Please refresh.",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-                            addCardioMutation.mutate(new Date(nextSession.scheduledDate));
-                          }}
-                          disabled={addCardioMutation.isPending}
-                          data-testid="button-add-cardio-home"
-                        >
-                          <Plus className="h-5 w-5 mr-2" />
-                          {addCardioMutation.isPending ? "Adding..." : "Add Cardio Session"}
-                        </Button>
-                      )}
+                      <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Recovery is part of the program
+                      </p>
+                    </div>
+                    
+                    <Button
+                      variant="default"
+                      size="lg"
+                      className="w-full"
+                      onClick={() => {
+                        if (!todaySession?.scheduledDate) {
+                          toast({
+                            title: "Error",
+                            description: "Session date not loaded. Please refresh.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        addCardioMutation.mutate(new Date(todaySession.scheduledDate));
+                      }}
+                      disabled={addCardioMutation.isPending}
+                      data-testid="button-add-cardio-home"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
+                      {addCardioMutation.isPending ? "Adding..." : "Add Cardio Session"}
+                    </Button>
 
+                    <Button 
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      onClick={() => {
+                        if (!todaySession?.id) {
+                          toast({
+                            title: "Error",
+                            description: "Session data not loaded. Please refresh.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        completeRestDayMutation.mutate({ sessionId: todaySession.id });
+                      }}
+                      disabled={completeRestDayMutation.isPending}
+                      data-testid="button-complete-rest"
+                    >
+                      <Target className="h-5 w-5 mr-2" />
+                      {completeRestDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">
+                        {todaySession.workoutType === "cardio" ? "Zone 2 Cardio" : todayWorkout?.workoutName}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {todaySession.workoutType === "cardio" 
+                          ? "Low-intensity steady-state cardio" 
+                          : `Focus: ${todayWorkout?.movementFocus.join(", ")}`}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        size="lg"
+                        onClick={() => setLocation('/workout')}
+                        data-testid="button-start-workout"
+                      >
+                        <PlayCircle className="h-5 w-5 mr-2" />
+                        Start Workout
+                      </Button>
                       <Button 
                         variant="outline"
                         size="lg"
-                        className="w-full"
                         onClick={() => {
-                          if (!nextSession?.id) {
+                          if (!todaySession?.id) {
                             toast({
                               title: "Error",
                               description: "Session data not loaded. Please refresh.",
@@ -370,57 +436,61 @@ export default function Home() {
                             });
                             return;
                           }
-                          skipDayMutation.mutate({ sessionId: nextSession.id });
+                          skipDayMutation.mutate({ sessionId: todaySession.id });
                         }}
-                        disabled={skipDayMutation.isPending}
-                        data-testid="button-skip-rest"
+                        disabled={skipDayMutation.isPending || !todaySession?.id}
+                        data-testid="button-skip-workout"
                       >
-                        <SkipForward className="h-5 w-5 mr-2" />
-                        {skipDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
+                        <SkipForward className="h-5 w-5" />
                       </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">{nextWorkout?.workoutName}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Focus: {nextWorkout?.movementFocus.join(", ")}
-                        </p>
-                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
-                      <div className="flex gap-2">
-                        <Button 
-                          className="flex-1" 
-                          size="lg"
-                          onClick={() => setLocation('/workout')}
-                          data-testid="button-start-workout"
-                        >
-                          <PlayCircle className="h-5 w-5 mr-2" />
-                          Start Workout
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          size="lg"
-                          onClick={() => {
-                            if (!nextSession?.id) {
-                              toast({
-                                title: "Error",
-                                description: "Session data not loaded. Please refresh.",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-                            skipDayMutation.mutate({ sessionId: nextSession.id });
-                          }}
-                          disabled={skipDayMutation.isPending || !nextSession?.id}
-                          data-testid="button-skip-workout"
-                        >
-                          <SkipForward className="h-5 w-5" />
-                        </Button>
+            {/* Next Workout Preview */}
+            {nextUpcomingSession && nextUpcomingWorkout && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Next Workout</CardTitle>
+                  <CardDescription>
+                    {nextUpcomingSession.scheduledDate ? formatDate(nextUpcomingSession.scheduledDate) : "Upcoming"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {nextUpcomingSession.sessionType === "rest" ? (
+                      <div className="flex items-center gap-3">
+                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                          <Calendar className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Rest Day</p>
+                          <p className="text-sm text-muted-foreground">Recovery</p>
+                        </div>
                       </div>
-                    </>
-                  )
-                ) : isProgramComplete() ? (
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                          <Dumbbell className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{nextUpcomingWorkout.workoutName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Focus: {nextUpcomingWorkout.movementFocus.join(", ")}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {isProgramComplete() && (
+              <Card>
+                <CardContent className="pt-6">
                   <div className="text-center py-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
                       <Target className="h-6 w-6 text-primary" />
@@ -431,9 +501,9 @@ export default function Home() {
                       Generate a new program to continue your fitness journey
                     </p>
                   </div>
-                ) : null}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {lastSession && (
               <Card>
