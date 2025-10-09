@@ -1,19 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User } from "@shared/schema";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [showGenerationModal, setShowGenerationModal] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -108,22 +117,19 @@ export default function Home() {
       return await apiRequest("POST", "/api/programs/generate", {});
     },
     onSuccess: () => {
-      toast({
-        title: "AI Program Generated!",
-        description: "Your personalized workout program is ready.",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
+      setGenerationStatus('success');
     },
     onError: (error: any) => {
-      toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to generate workout program",
-        variant: "destructive",
-      });
+      setGenerationStatus('error');
     },
   });
+
+  const handleCloseGenerationModal = () => {
+    setShowGenerationModal(false);
+  };
 
   // Archive old completed/skipped sessions when page loads
   useEffect(() => {
@@ -308,7 +314,11 @@ export default function Home() {
               <Button 
                 className="w-full" 
                 size="lg"
-                onClick={() => generateProgramMutation.mutate()}
+                onClick={() => {
+                  setShowGenerationModal(true);
+                  setGenerationStatus('generating');
+                  generateProgramMutation.mutate();
+                }}
                 disabled={generateProgramMutation.isPending}
                 data-testid="button-generate-program"
               >
@@ -636,6 +646,55 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showGenerationModal} onOpenChange={setShowGenerationModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {generationStatus === 'generating' && (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Generating Your Program
+                </>
+              )}
+              {generationStatus === 'success' && (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Program Generated!
+                </>
+              )}
+              {generationStatus === 'error' && (
+                <>
+                  <XCircle className="h-5 w-5 text-destructive" />
+                  Generation Failed
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {generationStatus === 'generating' && (
+                <>
+                  Our AI is creating your personalized workout program...
+                  <br />
+                  This may take a few moments. Please wait.
+                </>
+              )}
+              {generationStatus === 'success' && (
+                "Your personalized workout program has been created and is ready to use!"
+              )}
+              {generationStatus === 'error' && (
+                "Failed to generate workout program. Please try again."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {(generationStatus === 'success' || generationStatus === 'error') && (
+            <div className="flex justify-end">
+              <Button onClick={handleCloseGenerationModal}>
+                Close
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
