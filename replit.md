@@ -18,6 +18,11 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 
 ### Feature Specifications
 - **Data Model**: The database schema includes Users, Fitness Assessments, an Exercise Database, Workout Programs (with history tracking), and Performance Tracking. Workout sessions are pre-generated with `scheduledDate` values, and session types (`workoutType`, `sessionType`) are clearly defined for data integrity. A date-based archival system archives completed or skipped sessions when the date changes, maintaining a clean workout queue while keeping status visible for the current day.
+- **Comprehensive Fitness Assessment System**: The onboarding flow supports three assessment pathways:
+    - **Bodyweight Test** (7 exercises): Push-ups, pull-ups, bodyweight squats, walking lunges, single-leg RDL, plank hold, and 1-mile run time
+    - **Weights Test** (9 exercises): Squat 1RM, deadlift 1RM, bench press 1RM, overhead press 1RM, barbell row 1RM, dumbbell lunge 1RM, plank hold, farmer's carry 1RM, and 1-mile run time
+    - **Skip Test Option**: Users can skip fitness testing entirely and receive conservative programs based solely on experience level (beginner/intermediate/advanced)
+    - **Assessment Data Usage**: All test data maps to 8 independent movement patterns (push, pull, squat, lunge, hinge, core, carry, cardio) for precise difficulty filtering. The assessment supports upsert logic to prevent duplicate records on submission retries.
 - **AI-Powered Adaptive Training System**: Utilizes OpenAI GPT-4/GPT-4-mini for personalized program generation and adaptation.
     - **Program Generation**: AI selects from prebuilt templates (Strength, Cardio, Hybrid Balance) and creates custom 8-week programs based on user input, including corrective exercises. It recommends starting weights based on 1RM data or bodyweight tests. Programs are automatically generated and saved upon signup.
     - **Exercise Database**: A streamlined database of 95 exercises, categorized by equipment and movement pattern, supports multi-equipment variations and includes both functional compound movements and isolation exercises. The AI explicitly generates both compound and isolation exercises, ensuring essential compound lifts are included when applicable.
