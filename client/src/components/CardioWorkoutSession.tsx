@@ -7,6 +7,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { poundsToKg } from "@/lib/calorie-calculator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CardioWorkoutSessionProps {
   sessionId: string;
@@ -26,6 +36,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const unitPreference = user?.unitPreference || 'imperial';
@@ -106,26 +117,20 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
   };
 
   const handleComplete = () => {
-    if (elapsedTime < 60) {
-      toast({
-        title: "Too Short",
-        description: "Please complete at least 1 minute of cardio.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     completeSessionMutation.mutate();
   };
 
   const handleCancel = () => {
-    if (confirm("Are you sure you want to cancel this cardio session?")) {
-      onComplete({
-        duration: 0,
-        caloriesBurned: 0,
-        sessionId,
-      });
-    }
+    setShowCancelDialog(true);
+  };
+
+  const handleConfirmCancel = () => {
+    setShowCancelDialog(false);
+    onComplete({
+      duration: 0,
+      caloriesBurned: 0,
+      sessionId,
+    });
   };
 
   const progress = Math.min((elapsedTime / (30 * 60)) * 100, 100); // 30 min target
@@ -206,7 +211,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
               size="lg"
               className="flex-1"
               onClick={handleComplete}
-              disabled={completeSessionMutation.isPending || elapsedTime < 60}
+              disabled={completeSessionMutation.isPending || elapsedTime === 0}
               data-testid="button-complete"
             >
               <Check className="h-5 w-5 mr-2" />
@@ -226,6 +231,24 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
           </div>
         </CardContent>
       </Card>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent data-testid="dialog-cancel-cardio">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Cardio Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this cardio session? Your progress will not be saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-no">No, Continue</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel} data-testid="button-cancel-yes">
+              Yes, Cancel Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

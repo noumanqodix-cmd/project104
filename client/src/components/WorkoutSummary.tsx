@@ -7,8 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 
 interface WorkoutSummaryProps {
   duration: number;
-  exercises: number;
-  totalVolume: number;
+  exercises?: number;
+  totalVolume?: number;
   caloriesBurned?: number;
   onFinish: (difficulty: number) => void;
   incomplete?: boolean;
@@ -17,7 +17,7 @@ interface WorkoutSummaryProps {
 
 export default function WorkoutSummary({
   duration,
-  exercises,
+  exercises = 0,
   totalVolume,
   caloriesBurned,
   onFinish,
@@ -64,7 +64,7 @@ export default function WorkoutSummary({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className={`grid ${totalVolume !== undefined ? 'grid-cols-2' : 'grid-cols-2'} gap-4 mb-8`}>
           <div className="text-center p-4 border rounded-lg">
             <Clock className="h-8 w-8 text-primary mx-auto mb-2" />
             <p className="text-2xl font-bold">{formatDuration(duration)}</p>
@@ -77,16 +77,20 @@ export default function WorkoutSummary({
             </p>
             <p className="text-sm text-muted-foreground">Calories Burned</p>
           </div>
-          <div className="text-center p-4 border rounded-lg">
-            <Dumbbell className="h-8 w-8 text-primary mx-auto mb-2" />
-            <p className="text-2xl font-bold">{exercises}</p>
-            <p className="text-sm text-muted-foreground">Exercises</p>
-          </div>
-          <div className="text-center p-4 border rounded-lg">
-            <TrendingUp className="h-8 w-8 text-primary mx-auto mb-2" />
-            <p className="text-2xl font-bold">{totalVolume.toLocaleString()}</p>
-            <p className="text-sm text-muted-foreground">Total Volume</p>
-          </div>
+          {totalVolume !== undefined && (
+            <>
+              <div className="text-center p-4 border rounded-lg">
+                <Dumbbell className="h-8 w-8 text-primary mx-auto mb-2" />
+                <p className="text-2xl font-bold">{exercises}</p>
+                <p className="text-sm text-muted-foreground">Exercises</p>
+              </div>
+              <div className="text-center p-4 border rounded-lg">
+                <TrendingUp className="h-8 w-8 text-primary mx-auto mb-2" />
+                <p className="text-2xl font-bold">{totalVolume.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Total Volume</p>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="space-y-4">
