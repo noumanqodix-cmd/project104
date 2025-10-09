@@ -820,9 +820,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      let latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      
+      // If no assessment exists (user skipped test), create conservative defaults based on experience level
       if (!latestAssessment) {
-        return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
+        console.log("[PROGRAM] No fitness assessment found. Using conservative defaults based on experience level:", user.fitnessLevel || "beginner");
+        
+        // Create a conservative default assessment based on user's experience level
+        const experienceLevel = user.fitnessLevel || "beginner";
+        const conservativeDefaults: any = {
+          userId,
+          experienceLevel,
+          testDate: new Date(),
+        };
+        
+        // Set conservative bodyweight test defaults based on experience level
+        if (experienceLevel === "advanced") {
+          conservativeDefaults.pushups = 15;
+          conservativeDefaults.pullups = 5;
+          conservativeDefaults.squats = 30;
+          conservativeDefaults.mileTime = 9;
+        } else if (experienceLevel === "intermediate") {
+          conservativeDefaults.pushups = 10;
+          conservativeDefaults.pullups = 3;
+          conservativeDefaults.squats = 20;
+          conservativeDefaults.mileTime = 11;
+        } else {
+          conservativeDefaults.pushups = 5;
+          conservativeDefaults.pullups = 0;
+          conservativeDefaults.squats = 10;
+          conservativeDefaults.mileTime = 15;
+        }
+        
+        latestAssessment = conservativeDefaults;
       }
 
       const availableExercises = await storage.getAllExercises();
@@ -958,9 +988,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      let latestAssessment = await storage.getCompleteFitnessProfile(userId);
+      
+      // If no assessment exists (user skipped test), create conservative defaults based on experience level
       if (!latestAssessment) {
-        return res.status(400).json({ error: "No fitness assessment found. Please complete assessment first." });
+        console.log("[PROGRAM] No fitness assessment found. Using conservative defaults based on experience level:", user.fitnessLevel || "beginner");
+        
+        // Create a conservative default assessment based on user's experience level
+        const experienceLevel = user.fitnessLevel || "beginner";
+        const conservativeDefaults: any = {
+          userId,
+          experienceLevel,
+          testDate: new Date(),
+        };
+        
+        // Set conservative bodyweight test defaults based on experience level
+        if (experienceLevel === "advanced") {
+          conservativeDefaults.pushups = 15;
+          conservativeDefaults.pullups = 5;
+          conservativeDefaults.squats = 30;
+          conservativeDefaults.mileTime = 9;
+        } else if (experienceLevel === "intermediate") {
+          conservativeDefaults.pushups = 10;
+          conservativeDefaults.pullups = 3;
+          conservativeDefaults.squats = 20;
+          conservativeDefaults.mileTime = 11;
+        } else {
+          conservativeDefaults.pushups = 5;
+          conservativeDefaults.pullups = 0;
+          conservativeDefaults.squats = 10;
+          conservativeDefaults.mileTime = 15;
+        }
+        
+        latestAssessment = conservativeDefaults;
       }
 
       const availableExercises = await storage.getAllExercises();
