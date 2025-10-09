@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { QueryClientProvider, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "./lib/queryClient";
@@ -439,6 +439,13 @@ function AppRoutes() {
 }
 
 function App() {
+  // Initialize theme on app mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
+    const initialTheme = savedTheme || "dark"; // Default to dark mode
+    document.documentElement.classList.toggle("dark", initialTheme === "dark");
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
