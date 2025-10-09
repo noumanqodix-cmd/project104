@@ -246,7 +246,7 @@ export default function Settings() {
 
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/programs/generate", {});
+      return await apiRequest("POST", "/api/programs/regenerate", {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
@@ -258,10 +258,15 @@ export default function Settings() {
         description: "Your new workout program has been created!",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to generate new program. Please try again.";
+      const needsAssessment = errorMessage.includes("fitness assessment");
+      
       toast({
-        title: "Error",
-        description: "Failed to generate new program. Please try again.",
+        title: needsAssessment ? "Fitness Assessment Required" : "Error",
+        description: needsAssessment 
+          ? "Please complete a fitness assessment before generating a program." 
+          : errorMessage,
         variant: "destructive",
       });
     },

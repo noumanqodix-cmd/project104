@@ -48,7 +48,7 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
           workoutName: programWorkout.workoutName,
           scheduledDate,
           sessionDayOfWeek: schemaDayOfWeek,
-          sessionType: programWorkout.workoutType === 'rest' ? 'cardio' : 'strength',
+          sessionType: (programWorkout.workoutType === 'rest' ? 'cardio' : 'strength') as 'cardio' | 'strength',
           completed: 0,
           status: "scheduled" as const,
         });
