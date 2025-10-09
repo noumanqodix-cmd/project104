@@ -34,7 +34,7 @@ export default function Home() {
     mutationFn: async ({ sessionId }: { sessionId: string }) => {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
         completed: 1,
-        status: "skipped",
+        status: "archived",
       });
     },
     onSuccess: () => {
@@ -132,7 +132,7 @@ export default function Home() {
   
   // Find calendar-based sessions (with scheduledDate)
   const nextSession = sessions
-    ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+    ?.filter((s: any) => s.completed === 0 && s.scheduledDate && s.status !== 'archived')
     .sort((a: any, b: any) => {
       const dateA = new Date(a.scheduledDate).getTime();
       const dateB = new Date(b.scheduledDate).getTime();

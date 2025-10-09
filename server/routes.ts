@@ -1388,10 +1388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse the scheduled date
       const sessionScheduledDate = new Date(scheduledDate);
 
-      // Find the existing session on this date
+      // Find the existing session on this date (exclude archived sessions)
       const existingSessions = await storage.getUserSessions(userId);
       const sessionOnDate = existingSessions.find((s: any) => {
-        if (!s.scheduledDate) return false;
+        if (!s.scheduledDate || s.status === 'archived') return false;
         const existingDate = new Date(s.scheduledDate);
         return existingDate.toISOString().split('T')[0] === sessionScheduledDate.toISOString().split('T')[0];
       });
@@ -1454,6 +1454,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
+
+      // Auto-archive sessions when completed
+      if (validatedData.completed === 1 && !validatedData.status) {
+        validatedData.status = "archived";
+      }
 
       // Calculate calories burned if workout is being completed
       if (validatedData.completed === 1 && validatedData.durationMinutes && !validatedData.caloriesBurned) {
