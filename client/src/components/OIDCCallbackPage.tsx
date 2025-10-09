@@ -27,28 +27,22 @@ export default function OIDCCallbackPage() {
         const storedData = localStorage.getItem('fitforge_onboarding_data');
         
         if (!storedData) {
-          console.log("No onboarding data found, checking if user needs assessment");
+          console.log("No onboarding data found, checking if user is already set up");
           
-          // Smart detection: Check if user has complete profile data
-          const userResponse = await apiRequest('GET', '/api/auth/user');
-          const user = await userResponse.json();
+          // Smart detection: Check if user has an active program (existing users)
+          const programsResponse = await apiRequest('GET', '/api/workout-programs');
+          const programs = await programsResponse.json();
           
-          // Check if essential profile fields are missing
-          const missingProfileData = !user.equipment || 
-                                      !user.workoutDuration || 
-                                      !user.daysPerWeek || 
-                                      !user.nutritionGoal ||
-                                      user.height === null ||
-                                      user.weight === null;
-          
-          if (missingProfileData) {
-            console.log("User missing profile data, redirecting to assessment");
-            setLocation("/onboarding-assessment");
+          // If user has any programs, they're already set up - skip onboarding
+          if (programs && programs.length > 0) {
+            console.log("User has existing programs, redirecting to home");
+            setLocation("/home");
             return;
           }
           
-          // User has profile data, redirect to home
-          setLocation("/home");
+          // New user with no programs - send to onboarding
+          console.log("New user without programs, redirecting to assessment");
+          setLocation("/onboarding-assessment");
           return;
         }
 

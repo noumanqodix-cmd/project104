@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { fitnessAssessments } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
@@ -169,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to retrieve user after profile update" });
       }
       
-      // Save or update fitness assessment (prevent duplicates on retry/double-submit)
+      // Save fitness assessment (delete any same-day assessments first for idempotency)
       if (fitnessTest || weightsTest) {
         const assessmentData = {
           userId,
@@ -178,21 +181,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...weightsTest,
         };
         
-        // Check if assessment exists for today
+        // Delete any existing same-day assessments to prevent duplicates on retry
         const existingAssessments = await storage.getUserFitnessAssessments(userId);
         const today = new Date();
-        const todayAssessment = existingAssessments.find(a => {
+        const todayAssessments = existingAssessments.filter(a => {
           const testDate = new Date(a.testDate);
           return testDate.toDateString() === today.toDateString();
         });
         
-        if (todayAssessment) {
-          // Update existing assessment instead of creating duplicate
-          console.log("[ONBOARDING] Updating existing assessment for today");
-          await storage.updateFitnessAssessment(todayAssessment.id, assessmentData);
-        } else {
-          await storage.createFitnessAssessment(assessmentData);
+        // Delete same-day assessments via SQL to ensure idempotency
+        if (todayAssessments.length > 0) {
+          console.log(`[ONBOARDING] Removing ${todayAssessments.length} existing same-day assessment(s) to prevent duplicates`);
+          for (const assessment of todayAssessments) {
+            await db.delete(fitnessAssessments).where(eq(fitnessAssessments.id, assessment.id));
+          }
         }
+        
+        await storage.createFitnessAssessment(assessmentData);
       }
       
       // Automatically generate workout program after onboarding
