@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, SkipForward, Plus, Heart, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, Plus, Heart, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -60,25 +60,6 @@ export default function Home() {
     enabled: !!activeProgram?.id,
   });
 
-  const skipDayMutation = useMutation({
-    mutationFn: async ({ sessionId }: { sessionId: string }) => {
-      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
-        completed: 0,
-        status: "skipped",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Skip",
-        description: error.message || "Failed to skip day",
-        variant: "destructive",
-      });
-    },
-  });
 
   const completeRestDayMutation = useMutation({
     mutationFn: async ({ sessionId }: { sessionId: string }) => {
@@ -171,29 +152,6 @@ export default function Home() {
     },
   });
 
-  const skipMissedWorkoutsMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/workout-sessions/skip-missed", {
-        currentDate: formatLocalDate(getTodayEDT()),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
-      setShowMissedWorkoutDialog(false);
-      toast({
-        title: "Missed Workouts Skipped",
-        description: "All missed workouts have been marked as skipped.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Skip",
-        description: error.message || "Failed to skip missed workouts",
-        variant: "destructive",
-      });
-    },
-  });
 
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
@@ -315,14 +273,12 @@ export default function Home() {
       return isSameCalendarDay(sessionDate, today);
     }) || [];
   
-  // First try to find an incomplete session
-  const todaySession = todaySessions.find((s: any) => s.completed !== 1 && s.status !== 'skipped') 
-    || todaySessions[0]; // Fall back to first session if all are complete
+  // Always show today's session - whether incomplete or complete
+  const todaySession = todaySessions[0] || null;
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
   const isTodayComplete = todaySession?.completed === 1;
-  const isTodaySkipped = todaySession?.status === "skipped";
   
   // NEXT WORKOUT PREVIEW: Always show tomorrow's session (next calendar day), regardless of status
   const tomorrow = new Date(today);
@@ -472,22 +428,6 @@ export default function Home() {
                   <div className="text-center py-4">
                     <p className="text-muted-foreground">No workout scheduled for today</p>
                   </div>
-                ) : isTodaySkipped ? (
-                  <div className="text-center py-4">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/10 mb-3">
-                      <SkipForward className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                    </div>
-                    <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-skipped">
-                      Skipped
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {isTodayRestDay 
-                        ? "Rest day skipped"
-                        : todaySession.workoutType === "cardio"
-                          ? "Cardio session skipped"
-                          : todayWorkout?.workoutName || "Workout skipped"}
-                    </p>
-                  </div>
                 ) : isTodayComplete ? (
                   <div className="text-center py-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 mb-3">
@@ -573,36 +513,15 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1" 
-                        size="lg"
-                        onClick={() => setLocation('/workout')}
-                        data-testid="button-start-workout"
-                      >
-                        <PlayCircle className="h-5 w-5 mr-2" />
-                        Start Workout
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        size="lg"
-                        onClick={() => {
-                          if (!todaySession?.id) {
-                            toast({
-                              title: "Error",
-                              description: "Session data not loaded. Please refresh.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          skipDayMutation.mutate({ sessionId: todaySession.id });
-                        }}
-                        disabled={skipDayMutation.isPending || !todaySession?.id}
-                        data-testid="button-skip-workout"
-                      >
-                        <SkipForward className="h-5 w-5" />
-                      </Button>
-                    </div>
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={() => setLocation('/workout')}
+                      data-testid="button-start-workout"
+                    >
+                      <PlayCircle className="h-5 w-5 mr-2" />
+                      Start Workout
+                    </Button>
                   </>
                 )}
               </CardContent>
@@ -673,20 +592,16 @@ export default function Home() {
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastSession.session.status === "skipped" && lastSession.session.sessionType === "rest"
-                        ? "Rest Day (Skipped)"
-                        : lastSession.session.status === "skipped"
-                          ? `${lastSession.workout?.workoutName || "Workout"} (Skipped)`
-                          : lastSession.session.sessionType === "rest" 
-                            ? "Rest Day" 
-                            : lastSession.session.workoutType === "cardio"
-                              ? "Zone 2 Cardio"
-                              : lastSession.workout?.workoutName || "Session"}
+                      {lastSession.session.sessionType === "rest" 
+                        ? "Rest Day" 
+                        : lastSession.session.workoutType === "cardio"
+                          ? "Zone 2 Cardio"
+                          : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
                       {formatDate(lastSession.session.scheduledDate || lastSession.session.sessionDate)}
                     </p>
-                    {lastSession.session.durationMinutes && lastSession.session.status !== "skipped" && (
+                    {lastSession.session.durationMinutes && (
                       <p className="text-sm text-muted-foreground">
                         Duration: {lastSession.session.durationMinutes} minutes
                       </p>
@@ -844,8 +759,7 @@ export default function Home() {
         missedCount={missedWorkoutData.count}
         dateRange={missedWorkoutData.dateRange}
         onReset={() => resetProgramMutation.mutate()}
-        onSkip={() => skipMissedWorkoutsMutation.mutate()}
-        isProcessing={resetProgramMutation.isPending || skipMissedWorkoutsMutation.isPending}
+        isProcessing={resetProgramMutation.isPending}
       />
 
       {/* 4-Week Program Completion Dialog */}

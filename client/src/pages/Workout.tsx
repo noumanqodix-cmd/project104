@@ -2,33 +2,40 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import WorkoutSession, { WorkoutSummary } from "@/components/WorkoutSession";
 import CardioWorkoutSession, { CardioSummary } from "@/components/CardioWorkoutSession";
-import type { WorkoutSession as WorkoutSessionType, User } from "@shared/schema";
+import type { WorkoutSession as WorkoutSessionType, User, WorkoutProgram, FitnessAssessment } from "@shared/schema";
 import { parseLocalDate, isSameCalendarDay } from "@shared/dateUtils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2 } from "lucide-react";
 
 interface WorkoutPageProps {
   onComplete: (summary: WorkoutSummary | CardioSummary) => void;
 }
 
 export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+  const { data: homeData, isLoading: loadingHomeData } = useQuery<{
+    user: User | null;
+    activeProgram: WorkoutProgram | null;
+    sessions: WorkoutSessionType[];
+    fitnessAssessments: FitnessAssessment[];
+  }>({
+    queryKey: ["/api/home-data"],
   });
 
-  const { data: sessions, isLoading: loadingSessions } = useQuery<WorkoutSessionType[]>({
-    queryKey: ["/api/workout-sessions"],
-  });
+  const user = homeData?.user;
+  const sessions = homeData?.sessions;
 
-  // Find TODAY's session only
+  // Find TODAY's session - show it whether completed or not
   const today = new Date();
   
   const todaySession = sessions?.find((s: any) => {
-    if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
-    if (s.completed === 1) return false;
+    if (!s.scheduledDate || s.status === 'archived') return false;
     const sessionDate = parseLocalDate(s.scheduledDate);
     return isSameCalendarDay(sessionDate, today);
   });
 
-  if (loadingSessions || !user) {
+  const isCompleted = todaySession?.completed === 1;
+
+  if (loadingHomeData || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="w-full max-w-2xl space-y-4">
@@ -38,9 +45,6 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
       </div>
     );
   }
-
-  // Check if this is a cardio session
-  const isCardioSession = todaySession?.workoutType === "cardio";
 
   if (!todaySession) {
     return (
@@ -52,6 +56,35 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
       </div>
     );
   }
+
+  // If workout is completed, show completion message
+  if (isCompleted) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Today's Workout</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center py-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 mb-4">
+              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="font-semibold text-xl mb-2" data-testid="text-workout-completed">
+              Workout Completed!
+            </h3>
+            <p className="text-muted-foreground">
+              {todaySession.workoutType === "cardio" 
+                ? "Cardio session completed for today"
+                : "Strength workout completed for today"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check if this is a cardio session
+  const isCardioSession = todaySession?.workoutType === "cardio";
 
   if (isCardioSession) {
     return (
