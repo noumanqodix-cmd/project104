@@ -418,7 +418,6 @@ export async function generateWorkoutProgram(
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
-  const usedExerciseIds = new Set<string>();
   
   // Generate workouts for each day of the week (1-7 = Monday-Sunday)
   for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
@@ -427,6 +426,9 @@ export async function generateWorkoutProgram(
     
     if (isScheduledDay) {
       // WORKOUT DAY: Generate actual workout with exercises
+      // Reset usedExerciseIds for each workout to allow exercise reuse across different days
+      // This prevents running out of exercises for users with limited equipment
+      const usedExerciseIds = new Set<string>();
       const exercises: GeneratedExercise[] = [];
       const movementFocus: string[] = [];
       
