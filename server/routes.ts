@@ -1129,9 +1129,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Generate workout schedule for entire program duration
-      // Use client-provided startDate (user's local timezone) with fallback to server date
-      const startDateString = startDate || formatLocalDate(new Date());
+      // Clean up sessions from TODAY onwards only (never touch historical sessions)
+      // Always use server's current date for cleanup, regardless of requested program start date
+      const todayString = formatLocalDate(new Date());
+      const { archived, deleted } = await storage.cleanupSessionsForRegeneration(userId, todayString);
+      console.log(`[GENERATE] Archived ${archived} completed sessions, deleted ${deleted} incomplete sessions from ${todayString} onwards`);
+
+      // Generate workout schedule starting from client-requested date
+      const startDateString = startDate || todayString;
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
       res.json({ program, generatedProgram });
@@ -1297,14 +1302,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Two-phase cleanup: Archive completed sessions, delete incomplete sessions
-      // Use client-provided startDate (user's local timezone) with fallback to server date
-      const todayString = startDate || formatLocalDate(new Date());
+      // Clean up sessions from TODAY onwards only (never touch historical sessions)
+      // Always use server's current date for cleanup, regardless of requested program start date
+      const todayString = formatLocalDate(new Date());
       const { archived, deleted } = await storage.cleanupSessionsForRegeneration(userId, todayString);
       console.log(`[REGENERATE] Archived ${archived} completed sessions, deleted ${deleted} incomplete sessions from ${todayString} onwards`);
 
-      // Generate workout schedule for entire program duration starting from user's today
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, todayString);
+      // Generate workout schedule starting from client-requested date
+      const startDateString = startDate || todayString;
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
       res.json({ program, generatedProgram });
     } catch (error) {
