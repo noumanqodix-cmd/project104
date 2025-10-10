@@ -56,6 +56,7 @@ export interface IStorage {
   createWorkoutSessionsBatch(sessions: InsertWorkoutSession[]): Promise<WorkoutSession[]>;
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
+  getUserSessionsPaginated(userId: string, limit: number, offset: number, startDate?: string, endDate?: string): Promise<{ sessions: WorkoutSession[], total: number }>;
   getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
   deleteIncompleteProgramSessions(programId: string): Promise<void>;
@@ -288,6 +289,45 @@ export class DbStorage implements IStorage {
     return db.select().from(workoutSessions)
       .where(eq(workoutSessions.userId, userId))
       .orderBy(desc(workoutSessions.sessionDate));
+  }
+
+  async getUserSessionsPaginated(
+    userId: string, 
+    limit: number, 
+    offset: number, 
+    startDate?: string, 
+    endDate?: string
+  ): Promise<{ sessions: WorkoutSession[], total: number }> {
+    // Build where conditions
+    const conditions = [eq(workoutSessions.userId, userId)];
+    
+    if (startDate) {
+      conditions.push(gte(workoutSessions.scheduledDate, startDate));
+    }
+    
+    if (endDate) {
+      const { lte } = await import("drizzle-orm");
+      conditions.push(lte(workoutSessions.scheduledDate, endDate));
+    }
+    
+    // Get paginated sessions
+    const sessions = await db.select()
+      .from(workoutSessions)
+      .where(and(...conditions))
+      .orderBy(desc(workoutSessions.sessionDate))
+      .limit(limit)
+      .offset(offset);
+    
+    // Get total count for pagination
+    const { count } = await import("drizzle-orm");
+    const totalResult = await db.select({ count: count() })
+      .from(workoutSessions)
+      .where(and(...conditions));
+    
+    return {
+      sessions,
+      total: totalResult[0]?.count || 0
+    };
   }
 
   async getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number> {

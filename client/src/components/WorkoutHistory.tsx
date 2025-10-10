@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, Clock, CheckCircle2, FileText, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import type { WorkoutSession } from "@shared/schema";
 
 interface WorkoutHistoryProps {
@@ -10,11 +11,33 @@ interface WorkoutHistoryProps {
 }
 
 export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
-  const { data: sessions, isLoading } = useQuery<WorkoutSession[]>({
-    queryKey: ["/api/workout-sessions"],
+  const [limit] = useState(30);
+  const [offset, setOffset] = useState(0);
+  const [allSessions, setAllSessions] = useState<WorkoutSession[]>([]);
+
+  const { data: paginatedData, isLoading } = useQuery<{ sessions: WorkoutSession[], total: number }>({
+    queryKey: ["/api/workout-sessions/paginated", { limit, offset }],
   });
 
-  const completedSessions = sessions?.filter(s => s.completed) || [];
+  // Accumulate sessions as we load more pages with deduplication
+  useEffect(() => {
+    if (paginatedData?.sessions) {
+      if (offset === 0) {
+        // First page - replace all
+        setAllSessions(paginatedData.sessions);
+      } else {
+        // Subsequent pages - append with deduplication
+        setAllSessions(prev => {
+          const existingIds = new Set(prev.map(s => s.id));
+          const newSessions = paginatedData.sessions.filter(s => !existingIds.has(s.id));
+          return [...prev, ...newSessions];
+        });
+      }
+    }
+  }, [paginatedData, offset]);
+
+  const completedSessions = allSessions.filter(s => s.completed) || [];
+  const hasMore = paginatedData ? (offset + limit) < paginatedData.total : false;
 
   if (isLoading) {
     return (
@@ -124,6 +147,18 @@ export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
             </div>
           </Card>
         ))}
+        
+        {hasMore && (
+          <div className="flex justify-center pt-4">
+            <Button 
+              onClick={() => setOffset(offset + limit)}
+              variant="outline"
+              data-testid="button-load-more"
+            >
+              Load More
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );

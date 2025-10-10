@@ -29,22 +29,19 @@ export default function Home() {
   const [missedWorkoutData, setMissedWorkoutData] = useState<{ count: number; dateRange: string }>({ count: 0, dateRange: '' });
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+  const { data: homeData, isLoading: homeDataLoading } = useQuery<{
+    user: User | null;
+    activeProgram: WorkoutProgram | null;
+    sessions: WorkoutSession[];
+    fitnessAssessments: FitnessAssessment[];
+  }>({
+    queryKey: ["/api/home-data"],
   });
 
-  const { data: activeProgram, isLoading: programLoading } = useQuery<WorkoutProgram>({
-    queryKey: ["/api/programs/active"],
-  });
-
-  const { data: sessions } = useQuery<WorkoutSession[]>({
-    queryKey: ["/api/workout-sessions"],
-  });
-
-  const { data: fitnessAssessments, isLoading: assessmentsLoading } = useQuery<FitnessAssessment[]>({
-    queryKey: ["/api/fitness-assessments"],
-    enabled: !!user,
-  });
+  const user = homeData?.user;
+  const activeProgram = homeData?.activeProgram;
+  const sessions = homeData?.sessions;
+  const fitnessAssessments = homeData?.fitnessAssessments;
 
   const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<ProgramWorkout[]>({
     queryKey: ["/api/program-workouts", activeProgram?.id],
@@ -71,7 +68,7 @@ export default function Home() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
     },
     onError: (error: any) => {
@@ -91,7 +88,7 @@ export default function Home() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
     },
     onError: (error: any) => {
@@ -109,7 +106,7 @@ export default function Home() {
       return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       toast({
         title: "Cardio Session Added!",
         description: "Zone 2 cardio workout has been added to this rest day.",
@@ -133,7 +130,7 @@ export default function Home() {
     },
     onSuccess: () => {
       // Silently refresh sessions after archival
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
     },
   });
 
@@ -157,7 +154,7 @@ export default function Home() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
       setShowMissedWorkoutDialog(false);
       toast({
@@ -181,7 +178,7 @@ export default function Home() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
       setShowMissedWorkoutDialog(false);
       toast({
@@ -203,8 +200,7 @@ export default function Home() {
       return await apiRequest("POST", "/api/programs/generate", {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
       setGenerationStatus('success');
     },
@@ -218,8 +214,8 @@ export default function Home() {
   };
 
   const handleGenerateProgram = () => {
-    // Don't proceed if assessments are still loading
-    if (assessmentsLoading) {
+    // Don't proceed if home data is still loading
+    if (homeDataLoading) {
       return;
     }
 
@@ -413,7 +409,7 @@ export default function Home() {
     { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
   ];
 
-  if (programLoading || workoutsLoading) {
+  if (homeDataLoading || workoutsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
@@ -454,7 +450,7 @@ export default function Home() {
                 className="w-full" 
                 size="lg"
                 onClick={handleGenerateProgram}
-                disabled={generateProgramMutation.isPending || assessmentsLoading}
+                disabled={generateProgramMutation.isPending || homeDataLoading}
                 data-testid="button-generate-program"
               >
                 <Sparkles className="h-5 w-5 mr-2" />

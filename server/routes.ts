@@ -1416,6 +1416,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/home-data", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Fetch all home page data in parallel for optimal performance
+      const [user, activeProgram, sessions, fitnessAssessments] = await Promise.all([
+        storage.getUser(userId),
+        storage.getUserActiveProgram(userId),
+        storage.getUserSessions(userId),
+        storage.getUserFitnessAssessments(userId),
+      ]);
+
+      res.json({
+        user: user || null,
+        activeProgram: activeProgram || null,
+        sessions: sessions || [],
+        fitnessAssessments: fitnessAssessments || [],
+      });
+    } catch (error) {
+      console.error("Home data fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch home page data" });
+    }
+  });
+
   app.get("/api/programs/active", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
@@ -2051,6 +2075,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Patch session error:", error);
       res.status(500).json({ error: "Failed to update session" });
+    }
+  });
+
+  app.get("/api/workout-sessions/paginated", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const limit = parseInt(req.query.limit as string) || 30;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      const result = await storage.getUserSessionsPaginated(userId, limit, offset, startDate, endDate);
+      res.json(result);
+    } catch (error) {
+      console.error("Paginated sessions error:", error);
+      res.status(500).json({ error: "Failed to fetch paginated sessions" });
     }
   });
 
