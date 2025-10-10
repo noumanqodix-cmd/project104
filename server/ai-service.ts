@@ -244,7 +244,8 @@ function assignTrainingParameters(
   user: User,
   exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio',
   supersetGroup?: string,
-  supersetOrder?: number
+  supersetOrder?: number,
+  cardioConfig?: { duration: number; minSecondaries: number; types: string[] }
 ): {
   sets: number;
   repsMin?: number;
@@ -269,15 +270,22 @@ function assignTrainingParameters(
     };
   }
   
-  // HIIT/Cardio exercises
+  // HIIT/Cardio exercises - use goal-specific duration
   if (exerciseRole === 'cardio' || exercise.workoutType === "hiit" || exercise.workoutType === "cardio") {
     if (exercise.trackingType === "duration") {
       // HIIT intervals - work/rest based on fitness level
       const workSeconds = fitnessLevel === "beginner" ? 20 : fitnessLevel === "intermediate" ? 30 : 40;
       const restSeconds = fitnessLevel === "beginner" ? 40 : fitnessLevel === "intermediate" ? 30 : 20;
       
+      // Calculate sets based on goal-specific cardio duration
+      // Formula: duration (min) = (workSeconds × sets + restSeconds × (sets-1)) / 60
+      // Solving for sets: sets ≈ (duration × 60) / (workSeconds + restSeconds)
+      const targetDurationSeconds = (cardioConfig?.duration || 8) * 60;
+      const intervalDuration = workSeconds + restSeconds;
+      const calculatedSets = Math.round(targetDurationSeconds / intervalDuration);
+      
       return {
-        sets: 8,
+        sets: Math.max(6, Math.min(12, calculatedSets)), // Clamp between 6-12 sets
         workSeconds,
         restSeconds,
       };
@@ -855,12 +863,58 @@ export async function generateWorkoutProgram(
       
       console.log(`[WARMUP] Selected warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
       
-      // Add cardio exercises based on calculated time requirements
+      // Add cardio exercises based on calculated time requirements and goal-specific type rotation
       // Use calculated cardioCount from above (based on workout duration)
       if (cardioCount > 0 && cardioExercises.length > 0) {
-        const selectedCardio: Exercise[] = [];
+        // Determine cardio type based on nutrition goal and workout rotation
+        // For MAINTAIN and LOSE goals, rotate through available types to prevent adaptation
+        const availableTypes = cardioConfig.types;
+        const workoutIndex = scheduledDays.indexOf(dayOfWeek);
         
-        for (const cardioEx of cardioExercises) {
+        let selectedCardioType: string;
+        if (availableTypes.length === 1) {
+          // GAIN: HIIT only
+          selectedCardioType = "hiit";
+        } else if (availableTypes.includes("hiit") && availableTypes.includes("steady-state") && availableTypes.length === 2) {
+          // MAINTAIN: Rotate between HIIT (70%) and Steady-State (30%)
+          selectedCardioType = workoutIndex % 3 === 0 ? "steady-state" : "hiit";
+        } else {
+          // LOSE: Rotate through all 4 types (HIIT 40%, Steady 25%, Tempo 20%, Circuit 15%)
+          const rotation = workoutIndex % 20; // Use modulo 20 for percentage-based rotation
+          if (rotation < 8) selectedCardioType = "hiit";          // 40%
+          else if (rotation < 13) selectedCardioType = "steady-state"; // 25%
+          else if (rotation < 17) selectedCardioType = "tempo";         // 20%
+          else selectedCardioType = "circuit";                          // 15%
+        }
+        
+        console.log(`[CARDIO-TYPE] ${nutritionGoal} goal - Selected ${selectedCardioType} cardio for workout ${workoutIndex + 1}`);
+        
+        // Filter cardio exercises by selected type
+        // Map cardio types to exercise names/categories
+        const cardioTypeFilters: Record<string, (ex: Exercise) => boolean> = {
+          hiit: (ex) => ex.name.toLowerCase().includes("hiit") || 
+                        ex.name.toLowerCase().includes("sprint") ||
+                        ex.name.toLowerCase().includes("intervals") ||
+                        ex.trackingType === "duration",
+          "steady-state": (ex) => ex.name.toLowerCase().includes("steady") ||
+                                   ex.name.toLowerCase().includes("rowing") ||
+                                   ex.name.toLowerCase().includes("cycling") ||
+                                   ex.name.toLowerCase().includes("jogging"),
+          tempo: (ex) => ex.name.toLowerCase().includes("tempo") ||
+                         ex.name.toLowerCase().includes("threshold"),
+          circuit: (ex) => ex.name.toLowerCase().includes("circuit") ||
+                           ex.name.toLowerCase().includes("burpee") ||
+                           ex.name.toLowerCase().includes("mountain climber")
+        };
+        
+        const typeFilter = cardioTypeFilters[selectedCardioType] || (() => true);
+        const filteredCardio = cardioExercises.filter(typeFilter);
+        
+        // Fallback to any cardio if no exercises match the filter
+        const cardioPool = filteredCardio.length > 0 ? filteredCardio : cardioExercises;
+        
+        const selectedCardio: Exercise[] = [];
+        for (const cardioEx of cardioPool) {
           if (selectedCardio.length >= cardioCount) break;
           if (!usedExerciseIds.has(cardioEx.id)) {
             selectedCardio.push(cardioEx);
@@ -869,7 +923,7 @@ export async function generateWorkoutProgram(
         }
         
         for (const cardioEx of selectedCardio) {
-          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio');
+          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioConfig);
           exercises.push({
             exerciseName: cardioEx.name,
             equipment: cardioEx.equipment?.[0] || "bodyweight",
