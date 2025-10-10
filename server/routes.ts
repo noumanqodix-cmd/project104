@@ -33,8 +33,9 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
     const totalDays = durationWeeks * 7;
     
     for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
-      const scheduledDate = new Date(today);
-      scheduledDate.setDate(today.getDate() + dayOffset);
+      // Use a fresh Date object for each iteration to avoid mutation issues
+      const scheduledDate = new Date(today.getTime());
+      scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
       
       // Convert Date to YYYY-MM-DD string using shared utility
       const scheduledDateString = formatLocalDate(scheduledDate);
@@ -43,6 +44,8 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
       const calendarDay = scheduledDate.getDay();
       
       // Convert to our schema format: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
+      // JavaScript: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+      // Schema: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
       const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
       
       // Find the programWorkout for this day
