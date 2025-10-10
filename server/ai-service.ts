@@ -196,13 +196,53 @@ function findIsolationExercise(
   return isolationExercises.length > 0 ? isolationExercises[0] : null;
 }
 
-// Helper function to assign training parameters based on fitness level
+// Helper function to calculate precise exercise time in minutes
+function calculateExerciseTime(params: {
+  sets: number;
+  repsMin?: number;
+  repsMax?: number;
+  durationSeconds?: number;
+  workSeconds?: number;
+  restSeconds: number;
+}): number {
+  const TRANSITION_TIME = 0.5; // 30 seconds in minutes
+  const SECONDS_PER_REP = 2.5; // Average time per rep
+  
+  // Calculate work time per set
+  let workTimePerSet: number;
+  
+  if (params.durationSeconds) {
+    // Duration-based exercises (planks, holds)
+    workTimePerSet = params.durationSeconds / 60; // Convert to minutes
+  } else if (params.workSeconds) {
+    // HIIT intervals: work × sets + rest × (sets - 1)
+    const totalWorkTime = (params.workSeconds * params.sets) / 60; // Convert to minutes
+    const totalRestTime = (params.restSeconds * (params.sets - 1)) / 60; // Rest between intervals only
+    return totalWorkTime + totalRestTime + TRANSITION_TIME;
+  } else if (params.repsMin && params.repsMax) {
+    // Rep-based exercises - use average reps
+    const avgReps = (params.repsMin + params.repsMax) / 2;
+    workTimePerSet = (avgReps * SECONDS_PER_REP) / 60; // Convert to minutes
+  } else {
+    // Fallback - estimate 45 seconds per set
+    workTimePerSet = 0.75;
+  }
+  
+  // Calculate total time: (work × sets) + (rest × (sets - 1)) + transition
+  const totalWorkTime = workTimePerSet * params.sets;
+  const totalRestTime = (params.restSeconds / 60) * (params.sets - 1);
+  
+  return totalWorkTime + totalRestTime + TRANSITION_TIME;
+}
+
+// Helper function to assign training parameters based on exercise type and training goal
 function assignTrainingParameters(
   exercise: Exercise,
   fitnessLevel: string,
   template: ProgramTemplate,
   assessment: FitnessAssessment,
   user: User,
+  exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio',
   supersetGroup?: string,
   supersetOrder?: number
 ): {
@@ -218,11 +258,9 @@ function assignTrainingParameters(
   supersetGroup?: string;
   supersetOrder?: number;
 } {
-  // Base parameters by fitness level
-  const baseSets = fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 4;
   
   // Warmup exercises
-  if (exercise.exerciseType === "warmup") {
+  if (exerciseRole === 'warmup' || exercise.exerciseType === "warmup") {
     return {
       sets: 2,
       repsMin: 10,
@@ -232,9 +270,9 @@ function assignTrainingParameters(
   }
   
   // HIIT/Cardio exercises
-  if (exercise.workoutType === "hiit" || exercise.workoutType === "cardio") {
+  if (exerciseRole === 'cardio' || exercise.workoutType === "hiit" || exercise.workoutType === "cardio") {
     if (exercise.trackingType === "duration") {
-      // HIIT intervals
+      // HIIT intervals - work/rest based on fitness level
       const workSeconds = fitnessLevel === "beginner" ? 20 : fitnessLevel === "intermediate" ? 30 : 40;
       const restSeconds = fitnessLevel === "beginner" ? 40 : fitnessLevel === "intermediate" ? 30 : 20;
       
@@ -254,30 +292,61 @@ function assignTrainingParameters(
     }
   }
   
-  // Duration-based exercises (planks, holds, etc.)
+  // Duration-based exercises (planks, holds, etc.) - treat as core/accessory
   if (exercise.trackingType === "duration" || exercise.name.toLowerCase().includes("plank") || exercise.name.toLowerCase().includes("hold")) {
     const duration = fitnessLevel === "beginner" ? 30 : fitnessLevel === "intermediate" ? 45 : 60;
+    const sets = fitnessLevel === "beginner" ? 2 : 3;
     return {
-      sets: baseSets,
+      sets,
       durationSeconds: duration,
-      restSeconds: 60,
+      restSeconds: 60, // Core work gets 60s rest
       targetRPE: template.intensityGuidelines.strengthRPE[0],
       targetRIR: template.intensityGuidelines.strengthRIR[1],
     };
   }
   
-  // Strength exercises - assign reps based on fitness level
-  let repsMin: number, repsMax: number;
+  // Goal-based programming: Sets, reps, and rest based on exercise role (not experience level)
+  let sets: number, repsMin: number, repsMax: number, restSeconds: number;
   
-  if (fitnessLevel === "beginner") {
-    repsMin = 10;
-    repsMax = 12;
-  } else if (fitnessLevel === "intermediate") {
-    repsMin = 8;
-    repsMax = 12;
-  } else {
-    repsMin = 6;
-    repsMax = 10;
+  switch (exerciseRole) {
+    case 'primary-compound':
+      // Strength focus: Lower reps, more sets, longer rest
+      sets = fitnessLevel === "beginner" ? 4 : 5;
+      repsMin = 4;
+      repsMax = 6;
+      restSeconds = 180; // 3 minutes for primary compounds
+      break;
+      
+    case 'secondary-compound':
+      // Hypertrophy focus: Moderate reps, moderate sets
+      sets = fitnessLevel === "beginner" ? 3 : 4;
+      repsMin = 8;
+      repsMax = 12;
+      restSeconds = 90; // 90s for hypertrophy work
+      break;
+      
+    case 'isolation':
+      // Hypertrophy focus: Higher reps, moderate sets, shorter rest
+      sets = 3;
+      repsMin = 10;
+      repsMax = 15;
+      restSeconds = 60; // 60s for isolation work
+      break;
+      
+    case 'core-accessory':
+      // Endurance focus: Higher reps, fewer sets
+      sets = fitnessLevel === "beginner" ? 2 : 3;
+      repsMin = 12;
+      repsMax = 20;
+      restSeconds = 60; // 45-60s for accessory work
+      break;
+      
+    default:
+      // Fallback to hypertrophy
+      sets = fitnessLevel === "beginner" ? 3 : 4;
+      repsMin = 8;
+      repsMax = 12;
+      restSeconds = 90;
   }
   
   // Calculate recommended weight based on assessment data
@@ -316,10 +385,10 @@ function assignTrainingParameters(
   }
   
   return {
-    sets: baseSets,
+    sets,
     repsMin,
     repsMax,
-    restSeconds: exercise.liftType === "compound" ? 90 : 60,
+    restSeconds,
     targetRPE: template.intensityGuidelines.strengthRPE[fitnessLevel === "beginner" ? 0 : 1],
     targetRIR: template.intensityGuidelines.strengthRIR[fitnessLevel === "beginner" ? 1 : 0],
     recommendedWeight,
@@ -473,12 +542,12 @@ export async function generateWorkoutProgram(
       const exercises: GeneratedExercise[] = [];
       const movementFocus: string[] = [];
       
-      // Add main strength exercises based on calculated time requirements
+      // Add main strength exercises using precise time calculations
       const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
-      // Use calculated counts based on workout duration instead of template defaults
-      
-      // Track compound exercises for potential superset pairing
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
+      
+      // Use calculated mainCount from earlier (based on workout duration)
+      // This is more precise than template defaults
       
       // Pre-calculate superset allocation to reserve capacity
       const shouldAddSupersets = 
@@ -498,6 +567,7 @@ export async function generateWorkoutProgram(
       
       // Distribute exercises across movement patterns
       const exercisesPerPattern = Math.ceil(compoundSlotsToFill / strengthPatterns.length);
+      let strengthExercisesAdded = 0; // Track position for primary vs secondary classification
       
       for (const pattern of strengthPatterns) {
         // Use pre-filtered exercises from pattern map (optimization)
@@ -505,13 +575,23 @@ export async function generateWorkoutProgram(
         const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
         
         for (const ex of selected) {
-          const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
+          // Determine exercise role: first 2 compounds are primary (strength focus), rest are secondary (hypertrophy)
+          const exerciseRole = strengthExercisesAdded < 2 && ex.liftType === 'compound' 
+            ? 'primary-compound' 
+            : ex.liftType === 'compound' 
+            ? 'secondary-compound'
+            : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
+            ? 'core-accessory'
+            : 'isolation';
+          
+          const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
           exercises.push({
             exerciseName: ex.name,
             equipment: ex.equipment?.[0] || "bodyweight",
             ...params,
           });
           movementFocus.push(pattern);
+          strengthExercisesAdded++;
           
           // Track compound exercises for superset logic
           if (ex.liftType === 'compound') {
@@ -562,6 +642,7 @@ export async function generateWorkoutProgram(
                 selectedTemplate,
                 latestAssessment,
                 user,
+                'isolation', // Superset isolation exercises
                 supersetGroup,
                 2
               );
@@ -598,7 +679,13 @@ export async function generateWorkoutProgram(
           for (const ex of available) {
             if (exercises.length >= mainCount) break;
             
-            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
+            // Backfill exercises are treated as secondary/accessory work
+            const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
+              : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
+              ? 'core-accessory'
+              : 'isolation';
+            
+            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
             exercises.push({
               exerciseName: ex.name,
               equipment: ex.equipment?.[0] || "bodyweight",
@@ -660,7 +747,7 @@ export async function generateWorkoutProgram(
       // Insert warmups at the beginning of exercises array
       const warmupExercises_toAdd: GeneratedExercise[] = [];
       for (const warmupEx of selectedWarmups) {
-        const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+        const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'warmup');
         warmupExercises_toAdd.push({
           exerciseName: warmupEx.name,
           equipment: warmupEx.equipment?.[0] || "bodyweight",
@@ -688,7 +775,7 @@ export async function generateWorkoutProgram(
         }
         
         for (const cardioEx of selectedCardio) {
-          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio');
           exercises.push({
             exerciseName: cardioEx.name,
             equipment: cardioEx.equipment?.[0] || "bodyweight",
