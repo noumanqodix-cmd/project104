@@ -6,7 +6,22 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { ArrowLeft, Dumbbell, Bike, Check } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Dumbbell, 
+  Bike, 
+  Check,
+  Box,
+  Anchor,
+  Cable,
+  Grid3x3,
+  Link,
+  Repeat,
+  User,
+  CircleDot,
+  Activity,
+  Wind
+} from "lucide-react";
 
 interface QuestionnaireFlowProps {
   onComplete: (data: QuestionnaireData) => void;
@@ -46,14 +61,34 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
   const [minutesPerSession, setMinutesPerSession] = useState<number>(45);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
-  const equipmentOptions = [
-    { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
-    { id: "barbell", label: "Barbell", icon: Dumbbell },
-    { id: "kettlebell", label: "Kettlebell", icon: Dumbbell },
-    { id: "resistance_bands", label: "Resistance Bands", icon: Dumbbell },
-    { id: "pull_up_bar", label: "Pull-up Bar", icon: Dumbbell },
-    { id: "cardio_equipment", label: "Cardio Equipment (Treadmill/Bike/Rower)", icon: Bike },
-    { id: "bodyweight", label: "Bodyweight Only", icon: Check },
+  const equipmentCategories = [
+    {
+      category: "Strength Equipment",
+      items: [
+        { id: "bodyweight", label: "Bodyweight Only", icon: User },
+        { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
+        { id: "kettlebell", label: "Kettlebell", icon: CircleDot },
+        { id: "barbell", label: "Barbell", icon: Anchor },
+        { id: "resistance bands", label: "Resistance Bands", icon: Cable },
+        { id: "cable machine", label: "Cable Machine", icon: Cable },
+        { id: "pull-up bar", label: "Pull-up Bar", icon: Grid3x3 },
+        { id: "trx", label: "TRX/Suspension Trainer", icon: Link },
+        { id: "medicine ball", label: "Medicine Ball", icon: Box },
+        { id: "box", label: "Box/Bench", icon: Box },
+        { id: "jump rope", label: "Jump Rope", icon: Repeat },
+      ]
+    },
+    {
+      category: "Cardio Equipment",
+      items: [
+        { id: "rower", label: "Rower", icon: Activity },
+        { id: "bike", label: "Bike", icon: Bike },
+        { id: "treadmill", label: "Treadmill", icon: Activity },
+        { id: "elliptical", label: "Elliptical", icon: Activity },
+        { id: "assault bike", label: "Assault Bike", icon: Wind },
+        { id: "stair climber", label: "Stair Climber", icon: Activity },
+      ]
+    }
   ];
 
   const handleEquipmentToggle = (equipmentId: string) => {
@@ -72,6 +107,8 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
       }
     });
   };
+
+  const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
 
   const handleDayToggle = (dayValue: number) => {
     if (selectedDays.includes(dayValue)) {
@@ -247,31 +284,45 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
         {currentStep === 3 && (
           <Card className="p-8">
             <h2 className="text-3xl font-bold mb-3">What equipment do you have?</h2>
-            <p className="text-muted-foreground mb-8">Select all that apply</p>
+            <p className="text-muted-foreground mb-8">Select all that apply. Don't worry if you have none!</p>
             
-            <div className="space-y-4">
-              {equipmentOptions.map((option) => {
-                const Icon = option.icon;
-                const isChecked = equipment.includes(option.id);
-                
-                return (
-                  <Label
-                    key={option.id}
-                    htmlFor={option.id}
-                    className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover-elevate"
-                    data-testid={`option-equipment-${option.id}`}
-                  >
-                    <Checkbox
-                      id={option.id}
-                      checked={isChecked}
-                      onCheckedChange={() => handleEquipmentToggle(option.id)}
-                      data-testid={`checkbox-equipment-${option.id}`}
-                    />
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                    <div className="font-semibold">{option.label}</div>
-                  </Label>
-                );
-              })}
+            <div className="space-y-8">
+              {equipmentCategories.map((category) => (
+                <div key={category.category}>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+                    {category.category}
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {category.items.map((item) => {
+                      const Icon = item.icon;
+                      const isChecked = equipment.includes(item.id);
+                      const domId = sanitizeId(item.id);
+                      
+                      return (
+                        <Label
+                          key={item.id}
+                          htmlFor={domId}
+                          className={`flex flex-col items-center gap-2 border rounded-lg p-4 cursor-pointer hover-elevate ${
+                            isChecked ? "border-primary bg-primary/10" : ""
+                          }`}
+                          data-testid={`option-${domId}`}
+                        >
+                          <Checkbox
+                            id={domId}
+                            checked={isChecked}
+                            onCheckedChange={() => handleEquipmentToggle(item.id)}
+                            className="sr-only"
+                          />
+                          <Icon className={`h-6 w-6 ${isChecked ? "text-primary" : "text-muted-foreground"}`} />
+                          <span className={`text-xs font-medium text-center ${isChecked ? "text-primary" : ""}`}>
+                            {item.label}
+                          </span>
+                        </Label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         )}
