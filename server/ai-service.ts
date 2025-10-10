@@ -1,15 +1,10 @@
-import OpenAI from "openai";
 import type { User, FitnessAssessment, Exercise } from "@shared/schema";
-import { selectProgramTemplate, getTemplateInstructions } from "./programTemplates";
+import { selectProgramTemplate, type ProgramTemplate } from "./programTemplates";
 import { 
   calculateMovementPatternLevels, 
   getMovementDifficultiesMap, 
   isExerciseAllowed 
 } from "@shared/utils";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export interface ProgramGenerationInput {
   user: User;
@@ -50,13 +45,171 @@ export interface GeneratedExercise {
   supersetOrder?: number;  // 1 or 2 to indicate order in superset
 }
 
+// Helper function to select exercises based on movement pattern
+function selectExercisesByPattern(
+  exercises: Exercise[],
+  pattern: string,
+  count: number,
+  usedExerciseIds: Set<string> = new Set()
+): Exercise[] {
+  const available = exercises.filter(
+    ex => ex.movementPattern === pattern && !usedExerciseIds.has(ex.id)
+  );
+  
+  // Prioritize compound exercises
+  const compound = available.filter(ex => ex.liftType === "compound");
+  const isolation = available.filter(ex => ex.liftType === "isolation");
+  
+  const selected: Exercise[] = [];
+  
+  // First, add compound exercises
+  for (const ex of compound) {
+    if (selected.length >= count) break;
+    selected.push(ex);
+    usedExerciseIds.add(ex.id);
+  }
+  
+  // Then add isolation if needed
+  for (const ex of isolation) {
+    if (selected.length >= count) break;
+    selected.push(ex);
+    usedExerciseIds.add(ex.id);
+  }
+  
+  return selected;
+}
+
+// Helper function to assign training parameters based on fitness level
+function assignTrainingParameters(
+  exercise: Exercise,
+  fitnessLevel: string,
+  template: ProgramTemplate,
+  assessment: FitnessAssessment,
+  user: User
+): {
+  sets: number;
+  repsMin?: number;
+  repsMax?: number;
+  restSeconds: number;
+  targetRPE?: number;
+  targetRIR?: number;
+  recommendedWeight?: number;
+  durationSeconds?: number;
+  workSeconds?: number;
+} {
+  // Base parameters by fitness level
+  const baseSets = fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 4;
+  
+  // Warmup exercises
+  if (exercise.exerciseType === "warmup") {
+    return {
+      sets: 2,
+      repsMin: 10,
+      repsMax: 15,
+      restSeconds: 30,
+    };
+  }
+  
+  // HIIT/Cardio exercises
+  if (exercise.workoutType === "hiit" || exercise.workoutType === "cardio") {
+    if (exercise.trackingType === "duration") {
+      // HIIT intervals
+      const workSeconds = fitnessLevel === "beginner" ? 20 : fitnessLevel === "intermediate" ? 30 : 40;
+      const restSeconds = fitnessLevel === "beginner" ? 40 : fitnessLevel === "intermediate" ? 30 : 20;
+      
+      return {
+        sets: 8,
+        workSeconds,
+        restSeconds,
+      };
+    } else {
+      // Rep-based cardio
+      return {
+        sets: 3,
+        repsMin: 15,
+        repsMax: 20,
+        restSeconds: 60,
+      };
+    }
+  }
+  
+  // Duration-based exercises (planks, holds, etc.)
+  if (exercise.trackingType === "duration" || exercise.name.toLowerCase().includes("plank") || exercise.name.toLowerCase().includes("hold")) {
+    const duration = fitnessLevel === "beginner" ? 30 : fitnessLevel === "intermediate" ? 45 : 60;
+    return {
+      sets: baseSets,
+      durationSeconds: duration,
+      restSeconds: 60,
+      targetRPE: template.intensityGuidelines.strengthRPE[0],
+      targetRIR: template.intensityGuidelines.strengthRIR[1],
+    };
+  }
+  
+  // Strength exercises - assign reps based on fitness level
+  let repsMin: number, repsMax: number;
+  
+  if (fitnessLevel === "beginner") {
+    repsMin = 10;
+    repsMax = 12;
+  } else if (fitnessLevel === "intermediate") {
+    repsMin = 8;
+    repsMax = 12;
+  } else {
+    repsMin = 6;
+    repsMax = 10;
+  }
+  
+  // Calculate recommended weight based on assessment data
+  let recommendedWeight: number | undefined;
+  
+  // For compound movements, use 1RM data if available
+  if (exercise.liftType === "compound" && assessment) {
+    const percentage = repsMax > 12 ? 0.65 : repsMax > 8 ? 0.75 : 0.80;
+    
+    if (exercise.movementPattern === "push" && assessment.benchPress1rm) {
+      recommendedWeight = Math.round(assessment.benchPress1rm * percentage);
+    } else if (exercise.movementPattern === "squat" && assessment.squat1rm) {
+      recommendedWeight = Math.round(assessment.squat1rm * percentage);
+    } else if (exercise.movementPattern === "hinge" && assessment.deadlift1rm) {
+      recommendedWeight = Math.round(assessment.deadlift1rm * percentage);
+    } else if (exercise.movementPattern === "pull" && assessment.barbellRow1rm) {
+      recommendedWeight = Math.round(assessment.barbellRow1rm * percentage);
+    }
+  }
+  
+  // Fallback: estimate weights from bodyweight test data
+  if (!recommendedWeight && exercise.equipment?.some(eq => eq !== "bodyweight")) {
+    if (exercise.movementPattern === "push" && assessment.pushups) {
+      if (assessment.pushups < 15) recommendedWeight = user.unitPreference === "imperial" ? 50 : 22;
+      else if (assessment.pushups < 30) recommendedWeight = user.unitPreference === "imperial" ? 75 : 34;
+      else recommendedWeight = user.unitPreference === "imperial" ? 95 : 43;
+    } else if (exercise.movementPattern === "pull" && assessment.pullups !== undefined && assessment.pullups !== null) {
+      if (assessment.pullups < 5) recommendedWeight = user.unitPreference === "imperial" ? 40 : 18;
+      else if (assessment.pullups < 10) recommendedWeight = user.unitPreference === "imperial" ? 60 : 27;
+      else recommendedWeight = user.unitPreference === "imperial" ? 80 : 36;
+    } else if ((exercise.movementPattern === "squat" || exercise.movementPattern === "lunge" || exercise.movementPattern === "hinge") && assessment.squats) {
+      if (assessment.squats < 25) recommendedWeight = user.unitPreference === "imperial" ? 65 : 29;
+      else if (assessment.squats < 50) recommendedWeight = user.unitPreference === "imperial" ? 95 : 43;
+      else recommendedWeight = user.unitPreference === "imperial" ? 135 : 61;
+    }
+  }
+  
+  return {
+    sets: baseSets,
+    repsMin,
+    repsMax,
+    restSeconds: exercise.liftType === "compound" ? 90 : 60,
+    targetRPE: template.intensityGuidelines.strengthRPE[fitnessLevel === "beginner" ? 0 : 1],
+    targetRIR: template.intensityGuidelines.strengthRIR[fitnessLevel === "beginner" ? 1 : 0],
+    recommendedWeight,
+  };
+}
+
 export async function generateWorkoutProgram(
   input: ProgramGenerationInput
 ): Promise<GeneratedProgram> {
   const { user, latestAssessment, availableExercises } = input;
 
-  const equipmentList = user.equipment?.join(", ") || "bodyweight only";
-  const workoutDuration = user.workoutDuration || 60;
   const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
 
@@ -66,62 +219,7 @@ export async function generateWorkoutProgram(
   // Get movement difficulties map using centralized utility
   const movementDifficulties = getMovementDifficultiesMap(movementPatternLevels, fitnessLevel);
   
-  // Build logging information about restrictions and overrides
-  const overrideReasons: string[] = [];
-  
-  // Log manual overrides
-  if (latestAssessment.pushOverride) {
-    overrideReasons.push(`Push exercises: ${movementPatternLevels.push} (manual override to ${latestAssessment.pushOverride})`);
-  } else if (movementPatternLevels.push !== fitnessLevel as any) {
-    overrideReasons.push(`Push exercises: ${movementPatternLevels.push} (based on test performance)`);
-  }
-  
-  if (latestAssessment.pullOverride) {
-    overrideReasons.push(`Pull exercises: ${movementPatternLevels.pull} (manual override to ${latestAssessment.pullOverride})`);
-  } else if (movementPatternLevels.pull !== fitnessLevel as any) {
-    overrideReasons.push(`Pull exercises: ${movementPatternLevels.pull} (based on test performance)`);
-  }
-  
-  if (latestAssessment.lowerBodyOverride) {
-    overrideReasons.push(`Squat exercises: ${movementPatternLevels.squat} (manual override to ${latestAssessment.lowerBodyOverride})`);
-    overrideReasons.push(`Lunge exercises: ${movementPatternLevels.lunge} (manual override to ${latestAssessment.lowerBodyOverride})`);
-  } else {
-    if (movementPatternLevels.squat !== fitnessLevel as any) {
-      overrideReasons.push(`Squat exercises: ${movementPatternLevels.squat} (based on test performance)`);
-    }
-    if (movementPatternLevels.lunge !== fitnessLevel as any) {
-      overrideReasons.push(`Lunge exercises: ${movementPatternLevels.lunge} (based on test performance)`);
-    }
-  }
-  
-  if (latestAssessment.hingeOverride) {
-    overrideReasons.push(`Hinge exercises: ${movementPatternLevels.hinge} (manual override to ${latestAssessment.hingeOverride})`);
-  } else if (movementPatternLevels.hinge !== fitnessLevel as any) {
-    overrideReasons.push(`Hinge exercises: ${movementPatternLevels.hinge} (based on test performance)`);
-  }
-  
-  if (latestAssessment.cardioOverride) {
-    overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (manual override to ${latestAssessment.cardioOverride})`);
-  } else if (movementPatternLevels.cardio !== fitnessLevel as any) {
-    overrideReasons.push(`Cardio exercises: ${movementPatternLevels.cardio} (based on test performance)`);
-  }
-  
-  // Log core and carry patterns if different from fitness level
-  if (movementPatternLevels.core !== fitnessLevel as any) {
-    overrideReasons.push(`Core exercises: ${movementPatternLevels.core} (based on test performance)`);
-  }
-  
-  if (movementPatternLevels.carry !== fitnessLevel as any) {
-    overrideReasons.push(`Carry exercises: ${movementPatternLevels.carry} (based on test performance)`);
-  }
-  
-  if (overrideReasons.length > 0) {
-    console.log(`[DIFFICULTY] Movement pattern levels calculated:`);
-    overrideReasons.forEach(reason => console.log(`  - ${reason}`));
-  } else {
-    console.log(`[DIFFICULTY] All movement patterns using self-reported level (${fitnessLevel})`);
-  }
-  
+  console.log(`[TEMPLATE-BASED] Generating program for ${fitnessLevel} level user with ${daysPerWeek} days/week`);
   console.log(`[DIFFICULTY] Movement pattern difficulties:`, {
     push: movementDifficulties.push,
     pull: movementDifficulties.pull,
@@ -133,18 +231,7 @@ export async function generateWorkoutProgram(
     cardio: movementDifficulties.cardio,
   });
 
-  const assessmentSummary = `
-Fitness Test Results:
-- Pushups: ${latestAssessment.pushups || "N/A"}
-- Pullups: ${latestAssessment.pullups || "N/A"}
-- Air Squats: ${latestAssessment.squats || "N/A"}
-- Mile Run Time: ${latestAssessment.mileTime ? `${latestAssessment.mileTime} min` : "N/A"}
-${latestAssessment.squat1rm ? `- Squat 1RM: ${latestAssessment.squat1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
-${latestAssessment.deadlift1rm ? `- Deadlift 1RM: ${latestAssessment.deadlift1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
-${latestAssessment.benchPress1rm ? `- Bench Press 1RM: ${latestAssessment.benchPress1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
-${latestAssessment.overheadPress1rm ? `- Overhead Press 1RM: ${latestAssessment.overheadPress1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
-${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbellRow1rm} ${user.unitPreference === "imperial" ? "lbs" : "kg"}` : ""}
-  `.trim();
+  // Filter exercises by equipment and difficulty
 
   // Include main exercises (functional AND isolation) plus warmup exercises, filtered by movement-specific difficulty
   const mainExercises = availableExercises
@@ -173,34 +260,7 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     )
     .slice(0, 30);
 
-  const exerciseList = mainExercises
-    .map((ex) => {
-      const primary = ex.primaryMuscles?.join(", ") || "unknown";
-      const secondary = ex.secondaryMuscles?.join(", ") || "none";
-      const equipment = ex.equipment?.join("/") || "bodyweight";
-      const type = ex.liftType || "compound";
-      return `- ${ex.name} (${ex.movementPattern}, ${equipment}, ${type}) [Primary: ${primary} | Secondary: ${secondary}]`;
-    })
-    .join("\n");
-
-  const warmupList = warmupExercises
-    .map((ex) => {
-      const primary = ex.primaryMuscles?.join(", ") || "unknown";
-      const secondary = ex.secondaryMuscles?.join(", ") || "none";
-      const equipment = ex.equipment?.join("/") || "bodyweight";
-      return `- ${ex.name} (${ex.movementPattern}, ${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
-    })
-    .join("\n");
-
-  const cardioList = cardioExercises
-    .map((ex) => {
-      const primary = ex.primaryMuscles?.join(", ") || "unknown";
-      const secondary = ex.secondaryMuscles?.join(", ") || "none";
-      const equipment = ex.equipment?.join("/") || "bodyweight";
-      return `- ${ex.name} (${equipment}) [Primary: ${primary} | Secondary: ${secondary}]`;
-    })
-    .join("\n");
-
+  //  Determine scheduled days for the week
   const daySchedules: { [key: number]: number[] } = {
     1: [1],             // Monday only
     2: [1, 4],          // Monday, Thursday
@@ -215,471 +275,128 @@ ${latestAssessment.barbellRow1rm ? `- Barbell Row 1RM: ${latestAssessment.barbel
     ? user.selectedDays 
     : daySchedules[daysPerWeek] || daySchedules[3];
   const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const dayScheduleText = scheduledDays.map(d => `Day ${d} (${dayNames[d]})`).join(', ');
 
   // Select the appropriate program template based on user's nutrition goal
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
   console.log(`[TEMPLATE] Selected template: ${selectedTemplate.name} for nutrition goal: ${user.nutritionGoal}`);
   
-  const templateInstructions = getTemplateInstructions(selectedTemplate);
-
-  // Build difficulty summary for prompt
-  const hasRestrictions = overrideReasons.length > 0;
-  const difficultyNote = hasRestrictions 
-    ? `\nNOTE: Some movement patterns have difficulty restrictions based on test results:\n${overrideReasons.map(r => `  - ${r}`).join('\n')}`
-    : '';
-
-  const prompt = `You are an expert strength and conditioning coach specializing in functional fitness and corrective exercises. Create a personalized workout program based on the following user profile:
-
-**User Profile:**
-- Fitness Level: ${fitnessLevel}
-- Available Equipment: ${equipmentList}
-- Workout Frequency: ${daysPerWeek} days per week
-- Workout Duration: ${workoutDuration} minutes per session
-- Nutrition Goal: ${user.nutritionGoal || "maintain"}
-- Unit Preference: ${user.unitPreference}
-- Scheduled Training Days: ${dayScheduleText}
-
-${assessmentSummary}${difficultyNote}
-
-**IMPORTANT - Movement Pattern-Specific Exercise Filtering:**
-Exercises have been PRE-FILTERED based on the user's performance in each specific movement category:
-- Push exercises: ${movementDifficulties.push.join(', ')} difficulty
-- Pull exercises: ${movementDifficulties.pull.join(', ')} difficulty
-- Squat exercises: ${movementDifficulties.squat.join(', ')} difficulty
-- Lunge exercises: ${movementDifficulties.lunge.join(', ')} difficulty
-- Hinge exercises: ${movementDifficulties.hinge.join(', ')} difficulty
-- Cardio exercises: ${movementDifficulties.cardio.join(', ')} difficulty
-- Core/Rotation/Carry: ${movementDifficulties.core.join(', ')} difficulty
-
-This allows users to progress independently in different areas. DO NOT assign exercises beyond the provided difficulty for each pattern. Use ONLY exercises from the lists below.
-
-**Main Exercise Database (prioritize functional movements):**
-${exerciseList}
-
-**Warmup Exercise Database:**
-${warmupList}
-
-**Cardio/HIIT Exercise Database:**
-${cardioList}
-
-${templateInstructions}
-
-**Program Requirements:**
-1. Create exactly ${daysPerWeek} workouts per week - this is CRITICAL
-2. IMPORTANT: Use ONLY these specific dayOfWeek values: ${JSON.stringify(scheduledDays)}
-   - dayOfWeek uses ISO 8601 format: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
-   - For ${daysPerWeek} days per week, schedule workouts on: ${dayScheduleText}
-   - These days have been carefully selected to provide optimal recovery between sessions
-3. STRICTLY follow the template's workout structure and exercise distribution
-4. Focus heavily on FUNCTIONAL STRENGTH - exercises that mimic real-life movements
-5. Include CORRECTIVE EXERCISES to address movement imbalances and prevent injury
-6. Emphasize movement patterns from the template's distribution lists
-7. Progressive overload strategy built-in
-8. Appropriate for ${workoutDuration}-minute sessions
-9. Match exercises to movement-pattern-specific difficulty levels - already filtered for safety per category
-10. Use available equipment: ${equipmentList}
-
-**WARMUP REQUIREMENTS (CRITICAL):**
-- Each workout MUST include 2-3 dynamic warmup exercises at the beginning that specifically prepare for that day's movement patterns
-- Different workouts need different warmups (lower body vs upper body vs full body)
-- Warmup exercises should prime the nervous system and mobilize the joints used in the main workout
-- Set isWarmup: true for all warmup exercises
-- Warmup exercises typically use 2 sets with higher reps (10-15) and shorter rest (30 seconds)
-
-**MUSCLE BALANCE AND FULL-BODY COVERAGE (CRITICAL):**
-Each exercise now includes Primary and Secondary muscle groups to help you create balanced programs:
-- **Primary Muscles**: Broad muscle groups (chest, shoulders, back, core, legs, arms, grip, cardio, full body)
-- **Secondary Muscles**: Specific anatomical muscles (pectorals, deltoids, latissimus dorsi, rectus abdominis, quadriceps, hamstrings, etc.)
-
-REQUIREMENTS FOR BALANCED PROGRAMMING:
-1. **Ensure Full-Body Coverage Across the Week**: Every major primary muscle group should be worked at least once during the weekly program:
-   - Upper Body Push: chest, shoulders (pushing movements)
-   - Upper Body Pull: back (pulling movements)
-   - Lower Body: legs (squats, lunges, hinges)
-   - Core: core (stability and anti-rotation)
-   - Arms: arms (if available in exercise database)
-   
-2. **Avoid Muscle Group Neglect**: Review your program to ensure no major muscle groups are completely missing
-   - If training 3+ days/week: All major groups should appear
-   - If training 1-2 days/week: Prioritize full-body compound movements
-
-3. **Use Movement Patterns AND Muscle Groups Together**:
-   - Movement patterns (push, pull, squat, lunge, hinge, core, cardio) ensure functional movement quality
-   - Muscle groups ensure comprehensive muscle development
-   - Example: A "push" exercise might target chest OR shoulders OR both - check the Primary muscles to ensure variety
-
-4. **Balance Push/Pull Ratios**: Across the weekly program, aim for roughly equal volume between:
-   - Push movements (chest, shoulders primary) and Pull movements (back primary)
-   - This prevents muscle imbalances and injury
-
-5. **Track Muscle Coverage**: When designing each workout, mentally note which primary muscles you're hitting and ensure the weekly program covers all major groups
-
-**INTENSITY CONTROL:**
-- For each main exercise (not warmups), specify targetRPE (1-10, where 10 is maximal effort) and targetRIR (0-5, reps left in reserve)
-- RPE/RIR targets help users understand intended intensity
-- Use the template's intensity guidelines as your baseline and adjust based on fitness level
-- Template intensity targets: RPE ${selectedTemplate.intensityGuidelines.strengthRPE[0]}-${selectedTemplate.intensityGuidelines.strengthRPE[1]}, RIR ${selectedTemplate.intensityGuidelines.strengthRIR[0]}-${selectedTemplate.intensityGuidelines.strengthRIR[1]}
-- Fine-tune based on experience:
-  - Beginners: Lower end of template range
-  - Intermediate: Middle of template range
-  - Advanced: Upper end of template range
-
-**SUPERSET GUIDELINES (OPTIONAL BUT ENCOURAGED):**
-Supersets are an excellent way to increase workout efficiency and intensity. When appropriate, pair exercises together as supersets:
-
-WHEN TO USE SUPERSETS:
-- Intermediate/Advanced users (beginners should focus on form with single exercises)
-- When workout duration is 45+ minutes (enough time for quality volume)
-- For time efficiency and increased calorie burn
-
-SMART SUPERSET PAIRINGS:
-1. ANTAGONIST SUPERSETS (most common - allows one muscle to recover while training the other):
-   - Push + Pull: Bench Press + Bent-Over Row, Shoulder Press + Lat Pulldown
-   - Upper + Lower: Bench Press + Squats, Pull-ups + Lunges
-   - Quad + Hamstring: Leg Extension + Leg Curl, Squat + Romanian Deadlift
-
-2. AGONIST SUPERSETS (same muscle group - for advanced muscle fatigue):
-   - Chest: Bench Press + Dumbbell Flyes
-   - Back: Pull-ups + Cable Rows
-   - Legs: Squats + Lunges
-
-3. UPPER/LOWER SUPERSETS:
-   - Upper body exercise + Lower body exercise allows full recovery between sets
-
-SUPERSET IMPLEMENTATION:
-- Label paired exercises with same supersetGroup: "A", "B", "C", etc.
-- Use supersetOrder: 1 for first exercise, 2 for second exercise in the pair
-- Both exercises in a superset should have the SAME number of sets
-- Both exercises should have the SAME restSeconds value (rest applies AFTER completing both exercises)
-- Never superset warmup exercises
-- Typical superset rest: 90-120 seconds (after completing both exercises)
-- Consider 2-3 supersets per workout for intermediate/advanced users
-
-**ISOLATION EXERCISE STRATEGY (INTELLIGENT USE ONLY):**
-The exercise database includes both compound movements (liftType: "compound") AND isolation exercises (liftType: "isolation"). Use isolation exercises STRATEGICALLY and SPARINGLY based on these principles:
-
-WHEN TO USE ISOLATION EXERCISES:
-✅ User is INTERMEDIATE or ADVANCED level (never for beginners)
-✅ Clear weakness detected in fitness assessment (e.g., weak pullups → add bicep work, weak pushups → add tricep extensions)
-✅ Muscle group underrepresented in the program (e.g., rear delts, calves, forearms)
-✅ As targeted accessory work to address specific imbalances
-✅ When paired in AGONIST SUPERSETS with compound movements (see examples below)
-
-WHEN TO SKIP ISOLATION EXERCISES:
-❌ User is a BEGINNER (beginners should master compound movement patterns first)
-❌ No clear gaps or weaknesses identified in assessment
-❌ Program is already well-balanced with compound movements
-❌ User has limited workout time (<30 minutes)
-❌ User has minimal equipment
-
-SMART ISOLATION SUPERSET PAIRINGS (for intermediate/advanced users with identified gaps):
-- Chest Development: Bench Press + Chest Flyes (compound + isolation targeting same muscle)
-- Back Development: Bent-Over Row + Face Pulls (compound + rear delt isolation)
-- Pull Strength: Lat Pulldown + Bicep Curls (compound pull + bicep isolation)
-- Shoulder Development: Overhead Press + Lateral Raises (compound + isolation)
-- Lower Body: Squat + Leg Extensions (compound + quad isolation) OR Deadlift + Leg Curls (compound + hamstring isolation)
-- Tricep Strength: Bench Press + Tricep Extensions (push compound + isolation)
-
-KEY PRINCIPLE: Not every workout needs isolation exercises. Use them intelligently based on the user's specific fitness assessment data and identified gaps. For balanced intermediate/advanced users with no clear weaknesses, compound movements may be sufficient. Quality compound movements often provide better overall results than adding isolation work.
-
-**WEIGHT AND REP RECOMMENDATIONS BASED ON FITNESS TEST:**
-Use the fitness test results to provide specific weight/rep recommendations in the notes field:
-
-For WEIGHT-BASED exercises (when 1RM data is available):
-- HIGH REP exercises (12-15+ reps): Use 60-70% of 1RM
-  Example: If Squat 1RM is 200 lbs, recommend 120-140 lbs for 12-15 rep sets
-- MODERATE REP exercises (8-12 reps): Use 70-80% of 1RM
-  Example: If Bench Press 1RM is 150 lbs, recommend 105-120 lbs for 8-12 rep sets
-- LOW REP exercises (3-6 reps): Use 85-90% of 1RM
-  Example: If Deadlift 1RM is 300 lbs, recommend 255-270 lbs for 3-6 rep sets
-
-For WEIGHT-BASED exercises (when 1RM data is NOT available - using bodyweight test as proxy):
-Based on pushup/pullup performance, estimate appropriate starting weights:
-
-UPPER BODY PRESSING (Bench Press, Dumbbell Press, Overhead Press):
-- Pushups < 15: Start light - 15-20 lbs dumbbells per hand (or 50-60 lbs barbell)
-- Pushups 15-30: Start moderate - 20-30 lbs dumbbells per hand (or 75-95 lbs barbell)
-- Pushups 30+: Start heavier - 30-40 lbs dumbbells per hand (or 95-135 lbs barbell)
-
-UPPER BODY PULLING (Rows, Lat Pulldowns):
-- Pullups < 5: Start light - 15-20 lbs dumbbells per hand (or 40-60 lbs)
-- Pullups 5-10: Start moderate - 20-30 lbs dumbbells per hand (or 60-80 lbs)
-- Pullups 10+: Start heavier - 30-40 lbs dumbbells per hand (or 80-100 lbs)
-
-LOWER BODY (Squats, Deadlifts, Lunges):
-- Air Squats < 25: Start light - 15-20 lbs dumbbells per hand (or 65-95 lbs barbell)
-- Air Squats 25-50: Start moderate - 25-35 lbs dumbbells per hand (or 95-135 lbs barbell)
-- Air Squats 50+: Start heavier - 35-50 lbs dumbbells per hand (or 135-185 lbs barbell)
-
-For BODYWEIGHT exercises (when max rep data is available):
-- HIGH REP exercises (12-15+ reps target): Aim for 50-60% of max reps
-  Example: If max pushups is 40, recommend working sets of 20-24 reps
-- MODERATE REP exercises (8-12 reps target): Aim for 60-75% of max reps
-  Example: If max pushups is 15, recommend working sets of 9-11 reps
-- LOW REP exercises (3-6 reps target): Aim for 75-85% of max reps
-  Example: If max pullups is 8, recommend working sets of 6 reps, or use harder variations
-
-**DURATION-BASED EXERCISES (ISOMETRIC/STATIC HOLDS):**
-For exercises that are held for time (not reps), you MUST use durationSeconds instead of reps:
-- ISOMETRIC HOLDS that require duration: Planks (all variants), Side Planks, Dead Hangs, L-Sits, Wall Sits, Hollow Body Holds, Glute Bridge Holds, Handstand Holds
-- For these exercises:
-  * Set "durationSeconds" to the recommended hold time
-  * DO NOT include "repsMin" or "repsMax" fields (omit them entirely or set to null)
-  * recommendedWeight should be null for bodyweight holds
-- Duration recommendations based on fitness level:
-  * Beginners: 20-30 seconds per set
-  * Intermediate: 30-45 seconds per set  
-  * Advanced: 45-60+ seconds per set
-- Example: Plank → "durationSeconds": 30, no repsMin/repsMax fields
-
-**REP-BASED EXERCISES (ALL OTHERS):**
-For all other exercises (push-ups, squats, presses, rows, etc.):
-- Set "repsMin" and "repsMax" for the target rep range
-- DO NOT include "durationSeconds" field (omit entirely or set to null)
-- Include recommendedWeight for weighted exercises
-- Example: Push-ups → "repsMin": 12, "repsMax": 15, no durationSeconds field
-
-**HIIT/CARDIO INTERVAL EXERCISES:**
-For High-Intensity Interval Training (HIIT) exercises from the Cardio/HIIT Exercise Database:
-- Set "workSeconds" for the work interval duration (e.g., 20, 30, 40 seconds)
-- Set "restSeconds" for the rest interval duration (e.g., 10, 30, 60 seconds)
-- DO NOT include "repsMin", "repsMax", "durationSeconds", or "recommendedWeight" fields
-- Each "set" represents one complete work/rest cycle
-- HIIT exercises should NOT be in supersets (they have their own timing structure)
-- Common HIIT protocols:
-  * Tabata: workSeconds: 20, restSeconds: 10, sets: 8 (4 minutes total)
-  * Standard HIIT: workSeconds: 30, restSeconds: 30, sets: 10-12 (10-12 minutes total)
-  * Sprint Intervals: workSeconds: 40, restSeconds: 20, sets: 8-10 (8-10 minutes total)
-  * Longer Work: workSeconds: 60, restSeconds: 30, sets: 6-8 (9-12 minutes total)
-- Example: Assault Bike Sprints → "workSeconds": 30, "restSeconds": 30, "sets": 10, no reps/weight/duration fields
-- HIIT exercises can be used as:
-  * Workout finishers (1-2 HIIT exercises at the end of strength workouts)
-  * Standalone cardio days (multiple HIIT exercises for conditioning)
-  * Active recovery days (lower intensity, longer rest periods)
-
-IMPORTANT: 
-1. ALWAYS include the numeric weight recommendation in the "recommendedWeight" field for ALL exercises that use weight (dumbbells, barbell, kettlebell, etc.). This should be a NUMBER, not text.
-2. Even without 1RM data, use the bodyweight test proxy guidelines above to estimate appropriate starting weights.
-3. Set recommendedWeight to null or 0 ONLY for bodyweight-only exercises (push-ups, pull-ups, air squats, etc.).
-4. Still include helpful form cues and intensity notes in the "notes" field.
-5. Use the user's unit preference (${user.unitPreference}) for all weight recommendations.
-6. For dumbbell exercises, the recommendedWeight should be PER HAND (so if recommending 25 lbs dumbbells, the field should be 25, not 50).
-
-**CRITICAL - Exercise Names and Equipment Selection:**
-- Use the EXACT exercise names from the exercise lists above (do NOT add equipment prefixes)
-- For exercises that support multiple equipment types (shown as "Exercise (equip1/equip2/equip3)"), you MUST include an "equipment" field to specify which variant to use
-- Select equipment based on user's available equipment: ${equipmentList}
-- Examples:
-  * If list shows "Deadlift (bodyweight/barbell/dumbbells/kettlebell)" and user has barbell → use exerciseName: "Deadlift", equipment: "barbell"
-  * If list shows "Bent-Over Row (barbell/dumbbells/kettlebell)" and user has dumbbells → use exerciseName: "Bent-Over Row", equipment: "dumbbells"
-  * If list shows "Push-ups (bodyweight/box)" → use exerciseName: "Push-ups", equipment: "bodyweight" (or "box" if using elevated variant)
-
-**WORKOUT TYPE CLASSIFICATION (CRITICAL):**
-Every workout MUST be classified by type to enable proper tracking and UI display:
-- **"strength"**: Workouts focused on resistance training, lifting, bodyweight strength (squats, presses, rows, etc.)
-- **"cardio"**: Steady-state cardio workouts (jogging, cycling, rowing at moderate pace)
-- **"hiit"**: High-intensity interval training workouts (Tabata, sprint intervals, circuit training)
-- **"mobility"**: Mobility-focused sessions (stretching, dynamic warm-ups, recovery work)
-- **null**: Rest days ONLY (no exercises)
-
-CLASSIFICATION RULES:
-1. If the workout contains primarily strength/resistance exercises → workoutType: "strength"
-2. If the workout contains primarily steady-state cardio → workoutType: "cardio"
-3. If the workout contains primarily HIIT/interval work → workoutType: "hiit"
-4. If the workout contains primarily mobility/stretching → workoutType: "mobility"
-5. For mixed workouts (e.g., strength + cardio finisher), classify by the PRIMARY focus:
-   - Strength workout with cardio finisher → "strength"
-   - HIIT workout with strength exercises → "hiit"
-6. Every rest day should have workoutType: null and an empty exercises array
-
-**Response Format (JSON):**
-{
-  "programType": "functional strength program name",
-  "weeklyStructure": "brief description of weekly schedule",
-  "durationWeeks": 8,
-  "workouts": [
-    {
-      "dayOfWeek": ${scheduledDays[0]},
-      "workoutName": "Full Body Functional Day",
-      "workoutType": "strength",
-      "movementFocus": ["push", "pull", "hinge"],
-      "exercises": [
-        {
-          "exerciseName": "Arm Circles",
-          "equipment": "bodyweight",
-          "sets": 2,
-          "repsMin": 10,
-          "repsMax": 15,
-          "restSeconds": 30,
-          "isWarmup": true,
-          "notes": "Prepare shoulders for pressing"
-        },
-        {
-          "exerciseName": "Goblet Squat",
-          "equipment": "dumbbells",
-          "sets": 3,
-          "repsMin": 8,
-          "repsMax": 12,
-          "recommendedWeight": 140,
-          "restSeconds": 90,
-          "targetRPE": 7,
-          "targetRIR": 3,
-          "isWarmup": false,
-          "notes": "70% of 1RM. Control the descent"
-        },
-        {
-          "exerciseName": "Chest Press",
-          "equipment": "dumbbells",
-          "sets": 3,
-          "repsMin": 8,
-          "repsMax": 12,
-          "recommendedWeight": 25,
-          "restSeconds": 120,
-          "targetRPE": 8,
-          "targetRIR": 2,
-          "isWarmup": false,
-          "supersetGroup": "A",
-          "supersetOrder": 1,
-          "notes": "Based on pushup performance. Full range of motion"
-        },
-        {
-          "exerciseName": "Bent-Over Row",
-          "equipment": "barbell",
-          "sets": 3,
-          "repsMin": 8,
-          "repsMax": 12,
-          "recommendedWeight": 95,
-          "restSeconds": 120,
-          "targetRPE": 8,
-          "targetRIR": 2,
-          "isWarmup": false,
-          "supersetGroup": "A",
-          "supersetOrder": 2,
-          "notes": "Keep core tight, pull to lower chest. Rest 120 seconds after superset"
-        },
-        {
-          "exerciseName": "Push-ups",
-          "equipment": "bodyweight",
-          "sets": 3,
-          "repsMin": 12,
-          "repsMax": 15,
-          "restSeconds": 60,
-          "targetRPE": 7,
-          "targetRIR": 3,
-          "isWarmup": false,
-          "notes": "50% of max. Maintain plank position"
-        },
-        {
-          "exerciseName": "Plank",
-          "equipment": "bodyweight",
-          "sets": 3,
-          "durationSeconds": 30,
-          "restSeconds": 60,
-          "targetRPE": 7,
-          "targetRIR": 3,
-          "isWarmup": false,
-          "notes": "Hold stable plank position, focus on core engagement"
-        },
-        {
-          "exerciseName": "Assault Bike Sprints",
-          "equipment": "assault bike",
-          "sets": 8,
-          "workSeconds": 20,
-          "restSeconds": 10,
-          "targetRPE": 9,
-          "isWarmup": false,
-          "notes": "Tabata protocol finisher - max effort during work intervals"
-        }
-      ]
-    },
-    {
-      "dayOfWeek": ${scheduledDays[1] || 2},
-      "workoutName": "Rest Day",
-      "workoutType": null,
-      "movementFocus": [],
-      "exercises": []
+  // Template-based workout generation
+  const workouts: GeneratedWorkout[] = [];
+  const usedExerciseIds = new Set<string>();
+  
+  for (let i = 0; i < scheduledDays.length; i++) {
+    const dayOfWeek = scheduledDays[i];
+    const dayName = dayNames[dayOfWeek];
+    
+    const exercises: GeneratedExercise[] = [];
+    const movementFocus: string[] = [];
+    
+    // Add warmup exercises
+    const warmupCount = selectedTemplate.structure.workoutStructure.warmupExercises;
+    const selectedWarmups: Exercise[] = [];
+    
+    for (const warmupEx of warmupExercises) {
+      if (selectedWarmups.length >= warmupCount) break;
+      if (!usedExerciseIds.has(warmupEx.id)) {
+        selectedWarmups.push(warmupEx);
+        usedExerciseIds.add(warmupEx.id);
+      }
     }
-  ]
-}
-
-Create a complete program with exactly ${daysPerWeek} workouts for the week. Each workout MUST start with 2-3 warmup exercises. Ensure variety, balance, and functional movement emphasis across all ${daysPerWeek} training days.
-
-CRITICAL: Your response MUST include exactly ${daysPerWeek} workouts with dayOfWeek values matching this exact list: ${JSON.stringify(scheduledDays)}
-Example workout array structure:
-${scheduledDays.map((day, idx) => `  Workout ${idx + 1}: { "dayOfWeek": ${day}, "workoutName": "...", ... }`).join('\n')}
-
-Remember: 
-- dayOfWeek values MUST be ${JSON.stringify(scheduledDays)} - no other values are allowed
-- EVERY exercise MUST include the "equipment" field specifying which equipment variant to use (from user's available equipment: ${equipmentList})`;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: "You are an expert strength coach. Respond only with valid JSON matching the specified format.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-  });
-
-  const response = completion.choices[0].message.content;
-  if (!response) {
-    throw new Error("No response from OpenAI");
+    
+    for (const warmupEx of selectedWarmups) {
+      const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+      exercises.push({
+        exerciseName: warmupEx.name,
+        equipment: warmupEx.equipment?.[0] || "bodyweight",
+        ...params,
+        isWarmup: true,
+      });
+    }
+    
+    // Add main strength exercises based on template
+    const mainCount = selectedTemplate.structure.workoutStructure.mainStrengthExercises;
+    const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
+    
+    // Distribute exercises across movement patterns
+    const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
+    
+    for (const pattern of strengthPatterns) {
+      const selected = selectExercisesByPattern(mainExercises, pattern, exercisesPerPattern, usedExerciseIds);
+      
+      for (const ex of selected) {
+        const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
+        exercises.push({
+          exerciseName: ex.name,
+          equipment: ex.equipment?.[0] || "bodyweight",
+          ...params,
+        });
+        movementFocus.push(pattern);
+      }
+      
+      if (exercises.length >= mainCount + warmupCount) break;
+    }
+    
+    // Add cardio exercises based on template
+    const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises;
+    if (cardioCount > 0 && cardioExercises.length > 0) {
+      const selectedCardio: Exercise[] = [];
+      
+      for (const cardioEx of cardioExercises) {
+        if (selectedCardio.length >= cardioCount) break;
+        if (!usedExerciseIds.has(cardioEx.id)) {
+          selectedCardio.push(cardioEx);
+          usedExerciseIds.add(cardioEx.id);
+        }
+      }
+      
+      for (const cardioEx of selectedCardio) {
+        const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+        exercises.push({
+          exerciseName: cardioEx.name,
+          equipment: cardioEx.equipment?.[0] || "bodyweight",
+          ...params,
+        });
+        movementFocus.push("cardio");
+      }
+    }
+    
+    // Determine workout type based on primary focus
+    let workoutType: "strength" | "cardio" | "hiit" | "mobility" | null = "strength";
+    if (selectedTemplate.structure.cardioFocus > 50) {
+      workoutType = "cardio";
+    }
+    
+    workouts.push({
+      dayOfWeek,
+      workoutName: `${dayName} - ${selectedTemplate.name}`,
+      workoutType,
+      movementFocus: Array.from(new Set(movementFocus)),
+      exercises,
+    });
   }
-
-  const program: GeneratedProgram = JSON.parse(response);
+  
+  const program: GeneratedProgram = {
+    programType: selectedTemplate.name,
+    weeklyStructure: selectedTemplate.description,
+    durationWeeks: 8,
+    workouts,
+  };
+  
+  console.log(`[TEMPLATE-BASED] Generated ${workouts.length} workouts for ${daysPerWeek} days/week`);
+  
   return program;
 }
 
+// Stub functions for exercise swapping and progression - can be enhanced later with template-based logic
 export async function suggestExerciseSwap(
   currentExerciseName: string,
   targetMovementPattern: string,
   availableEquipment: string[],
   reason?: string
 ): Promise<string[]> {
-  const equipmentList = availableEquipment.join(", ");
-
-  const prompt = `As a strength coach, suggest 3 alternative exercises to replace "${currentExerciseName}".
-
-Requirements:
-- Movement pattern: ${targetMovementPattern}
-- Available equipment: ${equipmentList}
-- ${reason || "General swap for variety"}
-- Focus on functional movements
-- List exercises from most to least similar
-
-Respond with JSON object: { "suggestions": ["exercise1", "exercise2", "exercise3"] }`;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: "You are a strength coach. Respond only with a JSON object containing a 'suggestions' array of exercise names.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.6,
-  });
-
-  const response = completion.choices[0].message.content;
-  if (!response) {
-    throw new Error("No response from OpenAI");
-  }
-
-  const result = JSON.parse(response);
-  return result.suggestions || [];
+  // Simple template-based swap: return exercises from same movement pattern
+  // This is a placeholder - can be enhanced later
+  return [];
 }
 
 export async function generateProgressionRecommendation(
@@ -695,49 +412,28 @@ export async function generateProgressionRecommendation(
   suggestedReps?: number;
   reasoning: string;
 }> {
-  const performanceSummary = recentPerformance
-    .map((p, i) => `Set ${i + 1}: ${p.weight} x ${p.reps} @ RIR ${p.rir}`)
-    .join("\n");
-
-  const prompt = `As a strength coach, analyze this performance data and recommend progression:
-
-Exercise: ${exerciseName}
-Recent Performance:
-${performanceSummary}
-
-Provide progression recommendation considering:
-1. RIR values (RIR > 2 suggests readiness for increase)
-2. Progressive overload principles
-3. Safe, sustainable progression
-
-Respond with JSON:
-{
-  "recommendation": "increase weight/reps/both/deload/maintain",
-  "suggestedWeight": number or null,
-  "suggestedReps": number or null,
-  "reasoning": "brief explanation"
-}`;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: "You are a strength coach. Respond only with valid JSON.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.5,
-  });
-
-  const response = completion.choices[0].message.content;
-  if (!response) {
-    throw new Error("No response from OpenAI");
+  // Simple template-based progression logic
+  const avgRIR = recentPerformance.reduce((sum, p) => sum + p.rir, 0) / recentPerformance.length;
+  
+  if (avgRIR > 3) {
+    return {
+      recommendation: "increase weight",
+      suggestedWeight: recentPerformance[0].weight * 1.05, // 5% increase
+      reasoning: "High RIR indicates readiness for weight increase",
+    };
+  } else if (avgRIR < 1) {
+    return {
+      recommendation: "deload",
+      suggestedWeight: recentPerformance[0].weight * 0.9, // 10% decrease
+      reasoning: "Low RIR suggests fatigue - deload recommended",
+    };
+  } else {
+    return {
+      recommendation: "maintain",
+      reasoning: "Current load is appropriate",
+    };
   }
-
-  return JSON.parse(response);
 }
+
+// Remove all the old OpenAI functions below
+const oldCodeRemoved = true;

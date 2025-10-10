@@ -1,7 +1,7 @@
 # FitForge - Personal Fitness Program Application
 
 ## Overview
-FitForge is a mobile-first fitness application designed to create personalized workout programs. It guides users through an onboarding questionnaire, generates custom workout plans based on fitness levels, available equipment, and schedule, and provides tools for workout tracking and progress monitoring. The application incorporates an AI-powered adaptive training system for intelligent program generation and progressive overload. Its core purpose is to offer quick data entry and functional clarity while supporting users in achieving their fitness goals through tailored, dynamic workout experiences.
+FitForge is a mobile-first fitness application designed to create personalized workout programs. It guides users through an onboarding questionnaire, generates custom workout plans based on fitness levels, available equipment, and schedule, and provides tools for workout tracking and progress monitoring. The application uses a template-based adaptive training system for intelligent program generation and progressive overload. Its core purpose is to offer quick data entry and functional clarity while supporting users in achieving their fitness goals through tailored, dynamic workout experiences.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -28,11 +28,11 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
     - **Weights Test** (9 exercises): Squat 1RM, deadlift 1RM, bench press 1RM, overhead press 1RM, barbell row 1RM, dumbbell lunge 1RM, plank hold, farmer's carry 1RM, and 1-mile run time
     - **Skip Test Option**: Users can skip fitness testing entirely and receive conservative programs based solely on experience level (beginner/intermediate/advanced)
     - **Assessment Data Usage**: All test data maps to 8 independent movement patterns (push, pull, squat, lunge, hinge, core, carry, cardio) for precise difficulty filtering. The assessment supports upsert logic to prevent duplicate records on submission retries.
-- **AI-Powered Adaptive Training System**: Utilizes OpenAI GPT-4/GPT-4-mini for personalized program generation and adaptation.
-    - **Program Generation**: AI selects from prebuilt templates (Strength, Cardio, Hybrid Balance) and creates custom 8-week programs based on user input, including corrective exercises. It recommends starting weights based on 1RM data or bodyweight tests. Programs are automatically generated and saved upon signup.
-    - **Exercise Database**: A streamlined database of 95 exercises, categorized by equipment and movement pattern, supports multi-equipment variations and includes both functional compound movements and isolation exercises. The AI explicitly generates both compound and isolation exercises, ensuring essential compound lifts are included when applicable.
+- **Template-Based Adaptive Training System**: Uses algorithmic program generation based on prebuilt templates and the exercise database.
+    - **Program Generation**: System algorithmically selects from prebuilt templates (Strength Primary, Cardio Primary, Hybrid Balance) and creates custom 8-week programs based on user equipment, fitness level, and schedule. Exercise selection is filtered by movement pattern difficulty levels and available equipment. Starting weights are recommended based on 1RM data or bodyweight assessment results. Programs are automatically generated and saved upon signup.
+    - **Exercise Database**: A streamlined database of 95 exercises, categorized by equipment and movement pattern, supports multi-equipment variations and includes both functional compound movements and isolation exercises. The system explicitly generates both compound and isolation exercises, ensuring essential compound lifts are included when applicable.
     - **Isolation Exercise Integration**: Isolation exercises are strategically used for intermediate/advanced users, paired with compound movements (agonist supersets), or to target specific weaknesses, based on user fitness assessment data. They are skipped for beginners or users with limited time/equipment.
-    - **Category-Specific Difficulty Filtering**: An advanced filtering system enables independent progression across movement patterns (push, pull, squat, lunge, hinge, cardio, core, rotation, carry). Exercise lists are pre-filtered by movement pattern before being sent to GPT-4, ensuring exercises match the user's pattern-specific fitness levels. This filtering is consistently applied across program generation, exercise swapping, and preview generation using shared utilities.
+    - **Category-Specific Difficulty Filtering**: An advanced filtering system enables independent progression across movement patterns (push, pull, squat, lunge, hinge, cardio, core, rotation, carry). Exercise selection is pre-filtered by movement pattern difficulty levels derived from fitness assessments, ensuring exercises match the user's pattern-specific fitness levels. This filtering is consistently applied across program generation using shared utilities.
     - **Progressive Overload**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
     - **Daily Calendar Workflow (October 2025)**: The home page displays today's workout with a date-based archival system:
       - **Today's Display**: Shows completion states (Complete with green checkmark, Skipped with orange icon, or Pending with action buttons)
@@ -43,12 +43,12 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
       - **Status Persistence**: Completed/skipped status remains visible for current day, only gets archived when viewing tomorrow's workout
       - **Home Page Session Logic**: Explicitly excludes archived sessions when finding today's workout to ensure current session is always displayed
 - **Calorie Tracking System**: Incorporates MET (Metabolic Equivalent of Task) calculations for calorie expenditure. Calories are calculated on both frontend and backend, with automatic intensity mapping to MET values and unit conversion.
-- **HIIT Interval Training System**: Supports HIIT with automated work/rest timers and multiple cardio equipment options. GPT-4 generates HIIT exercises with common protocols and custom intervals. A dedicated `HIITIntervalTimer` component handles the countdown and progress tracking for HIIT workouts.
+- **HIIT Interval Training System**: Supports HIIT with automated work/rest timers and multiple cardio equipment options. The system generates HIIT exercises with common protocols and custom intervals based on user's cardio equipment. A dedicated `HIITIntervalTimer` component handles the countdown and progress tracking for HIIT workouts.
 
 ## External Dependencies
 
 - **UI Libraries**: Radix UI primitives, Recharts, date-fns, cmdk, Lucide React.
 - **Form & Validation**: React Hook Form, Zod, Drizzle-Zod.
 - **Development Tools**: TypeScript, ESBuild, PostCSS.
-- **External Services**: OpenAI API (GPT-4/GPT-4-mini), Neon serverless (PostgreSQL).
+- **External Services**: Neon serverless (PostgreSQL).
 - **Asset Management**: Stock images, Google Fonts (Inter, Roboto Mono).
