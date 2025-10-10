@@ -668,7 +668,7 @@ export default function Home() {
                               : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
-                      {formatDate(lastSession.session.sessionDate)}
+                      {formatDate(lastSession.session.scheduledDate)}
                     </p>
                     {lastSession.session.durationMinutes && lastSession.session.status !== "skipped" && (
                       <p className="text-sm text-muted-foreground">

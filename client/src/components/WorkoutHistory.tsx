@@ -82,7 +82,7 @@ export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <Calendar className="h-4 w-4" />
-                  {new Date(session.sessionDate).toLocaleDateString('en-US', { 
+                  {new Date(session.scheduledDate || session.sessionDate).toLocaleDateString('en-US', { 
                     month: 'long', 
                     day: 'numeric', 
                     year: 'numeric' 
