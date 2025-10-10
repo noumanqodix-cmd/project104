@@ -31,6 +31,7 @@ export interface QuestionnaireData {
   availability: {
     daysPerWeek: number;
     minutesPerSession: number;
+    selectedDays: number[];
   };
 }
 
@@ -43,6 +44,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
   const [equipment, setEquipment] = useState<string[]>([]);
   const [daysPerWeek, setDaysPerWeek] = useState<number>(3);
   const [minutesPerSession, setMinutesPerSession] = useState<number>(45);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   const equipmentOptions = [
     { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
@@ -71,6 +73,16 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
     });
   };
 
+  const handleDayToggle = (dayValue: number) => {
+    if (selectedDays.includes(dayValue)) {
+      setSelectedDays(selectedDays.filter(d => d !== dayValue));
+    } else {
+      if (selectedDays.length < daysPerWeek) {
+        setSelectedDays([...selectedDays, dayValue].sort((a, b) => a - b));
+      }
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < 4) {
       setCurrentStep((currentStep + 1) as Step);
@@ -83,6 +95,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
         availability: {
           daysPerWeek,
           minutesPerSession,
+          selectedDays,
         },
       });
     }
@@ -100,7 +113,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
     if (currentStep === 1) return !!experienceLevel;
     if (currentStep === 2) return !!unitPreference;
     if (currentStep === 3) return equipment.length > 0;
-    if (currentStep === 4) return true; // Always can proceed from schedule
+    if (currentStep === 4) return selectedDays.length === daysPerWeek;
     return false;
   };
 
@@ -271,26 +284,71 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
             
             <div className="space-y-8">
               <div>
-                <Label className="text-base font-semibold mb-4 block">
-                  Days per week: {daysPerWeek}
+                <Label className="text-base font-semibold mb-3 block">Days per week</Label>
+                <RadioGroup
+                  value={String(daysPerWeek)}
+                  onValueChange={(value) => {
+                    setDaysPerWeek(Number(value));
+                    setSelectedDays([]);
+                  }}
+                  className="grid grid-cols-3 gap-3"
+                >
+                  {[3, 4, 5, 6, 7].map((days) => (
+                    <Label
+                      key={days}
+                      htmlFor={`days-${days}`}
+                      className="flex items-center justify-center border rounded-lg p-3 cursor-pointer hover-elevate"
+                      data-testid={`option-days-${days}`}
+                    >
+                      <RadioGroupItem value={String(days)} id={`days-${days}`} className="sr-only" />
+                      <div className="font-semibold">{days} days</div>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              <div>
+                <Label className="text-base font-semibold mb-3 block">
+                  Which days of the week? ({selectedDays.length}/{daysPerWeek} selected)
                 </Label>
-                <Slider
-                  value={[daysPerWeek]}
-                  onValueChange={(value) => setDaysPerWeek(value[0])}
-                  min={1}
-                  max={7}
-                  step={1}
-                  className="mt-2"
-                  data-testid="slider-days-per-week"
-                />
-                <div className="flex justify-between text-sm text-muted-foreground mt-2">
-                  <span>1 day</span>
-                  <span>7 days</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 1, label: "Monday" },
+                    { value: 2, label: "Tuesday" },
+                    { value: 3, label: "Wednesday" },
+                    { value: 4, label: "Thursday" },
+                    { value: 5, label: "Friday" },
+                    { value: 6, label: "Saturday" },
+                    { value: 7, label: "Sunday" },
+                  ].map((day) => {
+                    const isSelected = selectedDays.includes(day.value);
+                    const isDisabled = !isSelected && selectedDays.length >= daysPerWeek;
+                    
+                    return (
+                      <Label
+                        key={day.value}
+                        htmlFor={`day-${day.value}`}
+                        className={`flex items-center space-x-3 border rounded-lg p-3 cursor-pointer ${
+                          isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover-elevate'
+                        }`}
+                        data-testid={`option-day-${day.label.toLowerCase()}`}
+                      >
+                        <Checkbox
+                          id={`day-${day.value}`}
+                          checked={isSelected}
+                          disabled={isDisabled}
+                          onCheckedChange={() => handleDayToggle(day.value)}
+                          data-testid={`checkbox-${day.label.toLowerCase()}`}
+                        />
+                        <div className="font-medium">{day.label}</div>
+                      </Label>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <Label className="text-base font-semibold mb-4 block">
+                <Label className="text-base font-semibold mb-3 block">
                   Session duration
                 </Label>
                 <RadioGroup

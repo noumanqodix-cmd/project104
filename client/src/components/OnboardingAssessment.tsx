@@ -100,6 +100,7 @@ export default function OnboardingAssessment() {
         equipment: questionnaireData?.equipment || [],
         workoutDuration: questionnaireData?.availability?.minutesPerSession,
         daysPerWeek: questionnaireData?.availability?.daysPerWeek,
+        selectedDays: questionnaireData?.availability?.selectedDays || [],
         
         // Nutrition data
         height: nutritionData?.height,
@@ -147,6 +148,7 @@ export default function OnboardingAssessment() {
         equipment: questionnaireData?.equipment || [],
         workoutDuration: questionnaireData?.availability?.minutesPerSession,
         daysPerWeek: questionnaireData?.availability?.daysPerWeek,
+        selectedDays: questionnaireData?.availability?.selectedDays || [],
         
         // Nutrition data
         height: nutritionData?.height,
@@ -196,6 +198,7 @@ export default function OnboardingAssessment() {
         equipment: questionnaireData?.equipment || [],
         workoutDuration: questionnaireData?.availability?.minutesPerSession,
         daysPerWeek: questionnaireData?.availability?.daysPerWeek,
+        selectedDays: questionnaireData?.availability?.selectedDays || [],
         
         // Nutrition data
         height: nutritionData?.height,
