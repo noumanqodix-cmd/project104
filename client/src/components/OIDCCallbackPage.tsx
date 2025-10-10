@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dumbbell, Loader2, AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatLocalDate } from "@shared/dateUtils";
 
 export default function OIDCCallbackPage() {
   const [, setLocation] = useLocation();
@@ -72,9 +73,11 @@ export default function OIDCCallbackPage() {
         setStoredOnboardingData({ questionnaireData, generatedProgram });
 
         // Send the onboarding data to complete-onboarding endpoint
+        // Include current local date so backend creates sessions starting from user's "today"
         const response = await apiRequest('POST', '/api/auth/complete-onboarding', {
           ...questionnaireData,
           generatedProgram,
+          startDate: formatLocalDate(new Date()),
         });
 
         // Check if user has existing data
@@ -116,6 +119,7 @@ export default function OIDCCallbackPage() {
       await apiRequest('POST', '/api/auth/complete-onboarding-force', {
         ...storedOnboardingData.questionnaireData,
         generatedProgram: storedOnboardingData.generatedProgram,
+        startDate: formatLocalDate(new Date()),
       });
 
       // Clear localStorage, force refresh, and redirect

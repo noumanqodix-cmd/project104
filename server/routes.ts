@@ -17,10 +17,10 @@ import { parseLocalDate, formatLocalDate, isSameCalendarDay, isBeforeCalendarDay
 let routesRegistered = false;
 
 // Helper function to generate workout schedule for entire program duration
-async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number) {
+async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number, startDateString: string) {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use the provided start date from the frontend (already in user's local timezone)
+    const today = parseLocalDate(startDateString);
     
     // Create a map of dayOfWeek to programWorkout for quick lookup
     const workoutsByDay = new Map<number, ProgramWorkout>();
@@ -342,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/complete-onboarding", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
+      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Check if user already has existing programs or assessments
       const existingPrograms = await storage.getUserPrograms(userId);
@@ -490,7 +490,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate workout schedule for entire program duration
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
+      // Use provided startDate from frontend, or fallback to server's current date
+      const startDateString = startDate || formatLocalDate(new Date());
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks, startDateString);
       
       console.log(`Successfully created program ${program.id} with ${createdProgramWorkouts.length} workouts for user ${userId}`);
       
@@ -505,7 +507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/complete-onboarding-force", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, ...profileData } = req.body;
+      const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Update user profile with onboarding data
       if (Object.keys(profileData).length > 0) {
@@ -639,7 +641,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate workout schedule for entire program duration
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks);
+      // Use provided startDate from frontend, or fallback to server's current date
+      const startDateString = startDate || formatLocalDate(new Date());
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, programData.durationWeeks, startDateString);
       
       console.log(`Successfully created program ${program.id} with ${createdProgramWorkouts.length} workouts for user ${userId} (force mode)`);
       
@@ -1121,7 +1125,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate workout schedule for entire program duration
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
+      // For this endpoint, use server's current date as there's no frontend-provided startDate
+      const startDateString = formatLocalDate(new Date());
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
       res.json({ program, generatedProgram });
     } catch (error) {
@@ -1289,13 +1295,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete all incomplete future sessions from today onwards to prevent duplicates
+      // Use server's current date for regeneration (no frontend-provided date)
       const today = new Date();
       const todayString = formatLocalDate(today);
       const deletedCount = await storage.deleteFutureSessions(userId, todayString);
       console.log(`[REGENERATE] Deleted ${deletedCount} incomplete future sessions from ${todayString} onwards`);
 
-      // Generate workout schedule for entire program duration
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks);
+      // Generate workout schedule for entire program duration starting from today
+      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, todayString);
 
       res.json({ program, generatedProgram });
     } catch (error) {
