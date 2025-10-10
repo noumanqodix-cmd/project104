@@ -1757,6 +1757,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get missed workouts - detects pending workouts from past dates
+  app.get("/api/workout-sessions/missed", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentDateString = req.query.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+
+      // Get all sessions for this user
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Find missed workouts: scheduled before today, still pending, not archived
+      const missedWorkouts = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false;
+        if (session.completed === 1 || session.status === 'skipped') return false;
+        
+        const sessionDate = parseLocalDate(session.scheduledDate);
+        return isBeforeCalendarDay(sessionDate, today);
+      });
+
+      console.log(`[MISSED] Found ${missedWorkouts.length} missed workouts for user ${userId}`);
+      res.json({ 
+        missedWorkouts,
+        count: missedWorkouts.length 
+      });
+    } catch (error) {
+      console.error("Get missed workouts error:", error);
+      res.status(500).json({ error: "Failed to get missed workouts" });
+    }
+  });
+
+  // Reset program from today - reschedule all pending workouts starting from today
+  app.post("/api/workout-sessions/reset-from-today", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentDateString = req.body.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+
+      // Get all sessions for this user
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Get all pending (not completed/skipped/archived) workouts sorted by scheduled date
+      const pendingWorkouts = allSessions
+        .filter((session: any) => {
+          if (session.status === 'archived') return false;
+          if (session.completed === 1 || session.status === 'skipped') return false;
+          return true;
+        })
+        .sort((a: any, b: any) => {
+          const dateA = parseLocalDate(a.scheduledDate);
+          const dateB = parseLocalDate(b.scheduledDate);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+      if (pendingWorkouts.length === 0) {
+        return res.json({ message: "No pending workouts to reschedule", rescheduledCount: 0 });
+      }
+
+      // Reschedule each pending workout starting from today
+      let dayOffset = 0;
+      const updates = [];
+      
+      for (const workout of pendingWorkouts) {
+        const newScheduledDate = new Date(today);
+        newScheduledDate.setDate(today.getDate() + dayOffset);
+        const newScheduledDateString = formatLocalDate(newScheduledDate);
+        
+        // Update the calendar day-of-week to match the new date
+        const calendarDay = newScheduledDate.getDay();
+        const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
+        
+        updates.push(
+          storage.updateWorkoutSession(workout.id, {
+            scheduledDate: newScheduledDateString,
+            sessionDayOfWeek: schemaDayOfWeek,
+            status: 'scheduled'
+          })
+        );
+        
+        dayOffset++;
+      }
+
+      await Promise.all(updates);
+
+      console.log(`[RESET] Rescheduled ${pendingWorkouts.length} workouts starting from ${currentDateString}`);
+      res.json({ 
+        message: `Rescheduled ${pendingWorkouts.length} workouts`,
+        rescheduledCount: pendingWorkouts.length 
+      });
+    } catch (error) {
+      console.error("Reset from today error:", error);
+      res.status(500).json({ error: "Failed to reset program" });
+    }
+  });
+
+  // Skip all missed workouts - marks all pending past workouts as skipped
+  app.post("/api/workout-sessions/skip-missed", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentDateString = req.body.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+
+      // Get all sessions for this user
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Find missed workouts: scheduled before today, still pending, not archived
+      const missedWorkouts = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false;
+        if (session.completed === 1 || session.status === 'skipped') return false;
+        
+        const sessionDate = parseLocalDate(session.scheduledDate);
+        return isBeforeCalendarDay(sessionDate, today);
+      });
+
+      // Mark all as skipped
+      const updates = missedWorkouts.map((session: any) =>
+        storage.updateWorkoutSession(session.id, {
+          completed: 0,
+          status: 'skipped'
+        })
+      );
+
+      await Promise.all(updates);
+
+      console.log(`[SKIP] Skipped ${missedWorkouts.length} missed workouts for user ${userId}`);
+      res.json({ 
+        message: `Skipped ${missedWorkouts.length} missed workouts`,
+        skippedCount: missedWorkouts.length 
+      });
+    } catch (error) {
+      console.error("Skip missed workouts error:", error);
+      res.status(500).json({ error: "Failed to skip missed workouts" });
+    }
+  });
+
   app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;

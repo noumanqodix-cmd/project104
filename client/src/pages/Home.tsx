@@ -9,7 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User, FitnessAssessment } from "@shared/schema";
 import { useEffect, useState } from "react";
-import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
+import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay, getTodayEDT } from "@shared/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import MissedWorkoutDialog from "@/components/MissedWorkoutDialog";
 
 export default function Home() {
   const { toast } = useToast();
@@ -24,6 +25,8 @@ export default function Home() {
   const [showGenerationModal, setShowGenerationModal] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
+  const [showMissedWorkoutDialog, setShowMissedWorkoutDialog] = useState(false);
+  const [missedWorkoutData, setMissedWorkoutData] = useState<{ count: number; dateRange: string }>({ count: 0, dateRange: '' });
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -112,12 +115,73 @@ export default function Home() {
     mutationFn: async () => {
       // Send current local date to ensure archive logic uses user's timezone
       return await apiRequest("POST", "/api/workout-sessions/archive-old", {
-        currentDate: formatLocalDate(new Date()),
+        currentDate: formatLocalDate(getTodayEDT()),
       });
     },
     onSuccess: () => {
       // Silently refresh sessions after archival
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+    },
+  });
+
+  // Check for missed workouts
+  const { data: missedWorkoutsResponse } = useQuery({
+    queryKey: ["/api/workout-sessions/missed", formatLocalDate(getTodayEDT())],
+    queryFn: async () => {
+      const response = await fetch(`/api/workout-sessions/missed?currentDate=${formatLocalDate(getTodayEDT())}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch missed workouts');
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const resetProgramMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/workout-sessions/reset-from-today", {
+        currentDate: formatLocalDate(getTodayEDT()),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
+      setShowMissedWorkoutDialog(false);
+      toast({
+        title: "Program Reset!",
+        description: "Your workouts have been rescheduled starting from today.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Reset",
+        description: error.message || "Failed to reset program",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const skipMissedWorkoutsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/workout-sessions/skip-missed", {
+        currentDate: formatLocalDate(getTodayEDT()),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
+      setShowMissedWorkoutDialog(false);
+      toast({
+        title: "Missed Workouts Skipped",
+        description: "All missed workouts have been marked as skipped.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Skip",
+        description: error.message || "Failed to skip missed workouts",
+        variant: "destructive",
+      });
     },
   });
 
@@ -164,6 +228,32 @@ export default function Home() {
       archiveOldSessionsMutation.mutate();
     }
   }, [user?.id]); // Only run when user changes
+
+  // Check for missed workouts and show dialog
+  useEffect(() => {
+    if (missedWorkoutsResponse && missedWorkoutsResponse.count > 0) {
+      const missedWorkouts = missedWorkoutsResponse.missedWorkouts;
+      if (missedWorkouts.length > 0) {
+        // Calculate date range
+        const sortedDates = missedWorkouts
+          .map((w: any) => parseLocalDate(w.scheduledDate))
+          .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+        
+        const firstDate = sortedDates[0];
+        const lastDate = sortedDates[sortedDates.length - 1];
+        
+        const dateRange = sortedDates.length === 1
+          ? format(firstDate, 'MMM d')
+          : `${format(firstDate, 'MMM d')} - ${format(lastDate, 'MMM d')}`;
+        
+        setMissedWorkoutData({
+          count: missedWorkoutsResponse.count,
+          dateRange,
+        });
+        setShowMissedWorkoutDialog(true);
+      }
+    }
+  }, [missedWorkoutsResponse]);
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const totalCompletedSessions = completedSessions.length;
@@ -752,6 +842,15 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <MissedWorkoutDialog
+        open={showMissedWorkoutDialog}
+        missedCount={missedWorkoutData.count}
+        dateRange={missedWorkoutData.dateRange}
+        onReset={() => resetProgramMutation.mutate()}
+        onSkip={() => skipMissedWorkoutsMutation.mutate()}
+        isProcessing={resetProgramMutation.isPending || skipMissedWorkoutsMutation.isPending}
+      />
     </div>
   );
 }
