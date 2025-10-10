@@ -57,11 +57,11 @@ export default function FitnessTest() {
   });
 
   const bodyweightTests = assessments?.filter(a => 
-    a.pushups || a.pullups || a.squats || a.mileTime
+    a.pushups || a.pullups || a.squats || a.walkingLunges || a.singleLegRdl || a.plankHold || a.mileTime
   ) || [];
   
   const weightsTests = assessments?.filter(a => 
-    a.squat1rm || a.deadlift1rm || a.benchPress1rm || a.overheadPress1rm || a.barbellRow1rm
+    a.squat1rm || a.deadlift1rm || a.benchPress1rm || a.overheadPress1rm || a.barbellRow1rm || a.dumbbellLunge1rm || a.farmersCarry1rm || a.plankHold
   ) || [];
 
   const getImprovement = (current: number, previous: number, lowerIsBetter = false) => {
@@ -80,6 +80,16 @@ export default function FitnessTest() {
     const latest = bodyweightTests[0];
     const previous = bodyweightTests[1];
 
+    const exercises = [
+      { key: "pushups" as const, label: "Push-ups", testId: "pushups", unit: "", targets: { int: 10, adv: 20 } },
+      { key: "pullups" as const, label: "Pull-ups", testId: "pullups", unit: "", targets: { int: 5, adv: 10 } },
+      { key: "squats" as const, label: "Air Squats", testId: "squats", unit: "", targets: { int: 25, adv: 40 } },
+      { key: "walkingLunges" as const, label: "Walking Lunges", testId: "walking-lunges", unit: "", targets: { int: 20, adv: 30 } },
+      { key: "singleLegRdl" as const, label: "Single-Leg RDL", testId: "single-leg-rdl", unit: "", targets: { int: 10, adv: 15 } },
+      { key: "plankHold" as const, label: "Plank Hold", testId: "plank-hold", unit: "sec", targets: { int: 60, adv: 90 } },
+      { key: "mileTime" as const, label: "Mile Time", testId: "mile-time", unit: "min", targets: { int: 9, adv: 7 }, lowerIsBetter: true },
+    ];
+
     return (
       <Card>
         <CardHeader>
@@ -91,65 +101,53 @@ export default function FitnessTest() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            {latest.pushups !== null && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Push-ups</p>
-                <p className="text-2xl font-bold" data-testid="stat-pushups">
-                  {latest.pushups}
-                </p>
-                {previous?.pushups && (
-                  <p className={`text-xs ${getImprovement(latest.pushups, previous.pushups).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                    {getImprovement(latest.pushups, previous.pushups).diff > 0 ? "+" : ""}
-                    {getImprovement(latest.pushups, previous.pushups).diff} ({getImprovement(latest.pushups, previous.pushups).percent}%)
-                  </p>
-                )}
-              </div>
-            )}
-
-            {latest.pullups !== null && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Pull-ups</p>
-                <p className="text-2xl font-bold" data-testid="stat-pullups">
-                  {latest.pullups}
-                </p>
-                {previous?.pullups && (
-                  <p className={`text-xs ${getImprovement(latest.pullups, previous.pullups).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                    {getImprovement(latest.pullups, previous.pullups).diff > 0 ? "+" : ""}
-                    {getImprovement(latest.pullups, previous.pullups).diff} ({getImprovement(latest.pullups, previous.pullups).percent}%)
-                  </p>
-                )}
-              </div>
-            )}
-
-            {latest.squats !== null && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Air Squats</p>
-                <p className="text-2xl font-bold" data-testid="stat-squats">
-                  {latest.squats}
-                </p>
-                {previous?.squats && (
-                  <p className={`text-xs ${getImprovement(latest.squats, previous.squats).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                    {getImprovement(latest.squats, previous.squats).diff > 0 ? "+" : ""}
-                    {getImprovement(latest.squats, previous.squats).diff} ({getImprovement(latest.squats, previous.squats).percent}%)
-                  </p>
-                )}
-              </div>
-            )}
-
-            {latest.mileTime !== null && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Mile Time</p>
-                <p className="text-2xl font-bold" data-testid="stat-mile-time">
-                  {latest.mileTime} min
-                </p>
-                {previous?.mileTime && (
-                  <p className={`text-xs ${getImprovement(latest.mileTime, previous.mileTime, true).isImprovement ? "text-green-500" : "text-red-500"}`}>
-                    {getImprovement(latest.mileTime, previous.mileTime, true).diff > 0 ? "+" : ""}
-                    {getImprovement(latest.mileTime, previous.mileTime, true).diff} min
-                  </p>
-                )}
-              </div>
-            )}
+            {exercises.map(exercise => {
+              const current = latest[exercise.key];
+              const prev = previous?.[exercise.key];
+              
+              if (current === null || current === undefined) return null;
+              
+              const metIntTarget = exercise.lowerIsBetter 
+                ? current <= exercise.targets.int
+                : current >= exercise.targets.int;
+              const metAdvTarget = exercise.lowerIsBetter
+                ? current <= exercise.targets.adv
+                : current >= exercise.targets.adv;
+              
+              return (
+                <div key={exercise.key} className="space-y-2">
+                  <p className="text-sm text-muted-foreground">{exercise.label}</p>
+                  <div className="flex items-end gap-2">
+                    <p className="text-2xl font-bold" data-testid={`stat-${exercise.testId}`}>
+                      {current}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-1">{exercise.unit}</p>
+                  </div>
+                  {prev !== null && prev !== undefined && (
+                    <p className={`text-xs ${getImprovement(current, prev, exercise.lowerIsBetter).isImprovement ? "text-green-500" : "text-red-500"}`}>
+                      {getImprovement(current, prev, exercise.lowerIsBetter).diff > 0 ? "+" : ""}
+                      {getImprovement(current, prev, exercise.lowerIsBetter).diff} ({getImprovement(current, prev, exercise.lowerIsBetter).percent}%)
+                    </p>
+                  )}
+                  <div className="text-xs space-y-1 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Int target:</span>
+                      <span className={metIntTarget ? "text-green-500 font-medium" : ""}>
+                        {exercise.lowerIsBetter ? "≤" : "≥"}{exercise.targets.int}{exercise.unit}
+                        {metIntTarget && " ✓"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Adv target:</span>
+                      <span className={metAdvTarget ? "text-green-500 font-medium" : ""}>
+                        {exercise.lowerIsBetter ? "≤" : "≥"}{exercise.targets.adv}{exercise.unit}
+                        {metAdvTarget && " ✓"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -161,12 +159,17 @@ export default function FitnessTest() {
     const latest = weightsTests[0];
     const previous = weightsTests[1];
 
+    const userWeight = user?.weight || 0;
+
     const lifts = [
-      { key: "squat1rm" as const, label: "Squat", testId: "squat" },
-      { key: "deadlift1rm" as const, label: "Deadlift", testId: "deadlift" },
-      { key: "benchPress1rm" as const, label: "Bench Press", testId: "benchPress" },
-      { key: "overheadPress1rm" as const, label: "Overhead Press", testId: "overheadPress" },
-      { key: "barbellRow1rm" as const, label: "Barbell Row", testId: "row" },
+      { key: "squat1rm" as const, label: "Squat 1RM", testId: "squat", intMultiplier: 1.5, advMultiplier: 2.0 },
+      { key: "deadlift1rm" as const, label: "Deadlift 1RM", testId: "deadlift", intMultiplier: 1.75, advMultiplier: 2.5 },
+      { key: "benchPress1rm" as const, label: "Bench Press 1RM", testId: "benchPress", intMultiplier: 1.0, advMultiplier: 1.5 },
+      { key: "overheadPress1rm" as const, label: "Overhead Press 1RM", testId: "overheadPress", intMultiplier: 0.6, advMultiplier: 0.9 },
+      { key: "barbellRow1rm" as const, label: "Barbell Row 1RM", testId: "row", intMultiplier: 1.0, advMultiplier: 1.5 },
+      { key: "dumbbellLunge1rm" as const, label: "Dumbbell Lunge 1RM", testId: "dumbbell-lunge", intMultiplier: 1.0, advMultiplier: 1.5 },
+      { key: "farmersCarry1rm" as const, label: "Farmer's Carry 1RM", testId: "farmers-carry", intMultiplier: 1.5, advMultiplier: 2.0 },
+      { key: "plankHold" as const, label: "Plank Hold", testId: "plank-hold-weights", intTarget: 60, advTarget: 90, isTime: true },
     ];
 
     return (
@@ -184,20 +187,49 @@ export default function FitnessTest() {
               const current = latest[lift.key];
               const prev = previous?.[lift.key];
               
-              if (!current) return null;
+              if (current === null || current === undefined) return null;
+
+              const isTimeBased = 'isTime' in lift && lift.isTime;
+              const intTarget = isTimeBased ? lift.intTarget! : (userWeight * lift.intMultiplier!);
+              const advTarget = isTimeBased ? lift.advTarget! : (userWeight * lift.advMultiplier!);
+              const metIntTarget = current >= intTarget;
+              const metAdvTarget = current >= advTarget;
               
               return (
                 <div key={lift.key} className="space-y-2">
                   <p className="text-sm text-muted-foreground">{lift.label}</p>
-                  <p className="text-2xl font-bold" data-testid={`stat-${lift.testId}`}>
-                    {current} {weightUnit}
-                  </p>
-                  {prev && (
+                  <div className="flex items-end gap-2">
+                    <p className="text-2xl font-bold" data-testid={`stat-${lift.testId}`}>
+                      {current}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {isTimeBased ? "sec" : weightUnit}
+                    </p>
+                  </div>
+                  {prev !== null && prev !== undefined && (
                     <p className={`text-xs ${getImprovement(current, prev).isImprovement ? "text-green-500" : "text-red-500"}`}>
                       {getImprovement(current, prev).diff > 0 ? "+" : ""}
-                      {getImprovement(current, prev).diff} {weightUnit} ({getImprovement(current, prev).percent}%)
+                      {getImprovement(current, prev).diff} {isTimeBased ? "sec" : weightUnit} ({getImprovement(current, prev).percent}%)
                     </p>
                   )}
+                  <div className="text-xs space-y-1 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Int target:</span>
+                      <span className={metIntTarget ? "text-green-500 font-medium" : ""}>
+                        ≥{isTimeBased ? intTarget : intTarget.toFixed(0)}{isTimeBased ? "sec" : weightUnit}
+                        {!isTimeBased && ` (${lift.intMultiplier!.toFixed(1)}×BW)`}
+                        {metIntTarget && " ✓"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Adv target:</span>
+                      <span className={metAdvTarget ? "text-green-500 font-medium" : ""}>
+                        ≥{isTimeBased ? advTarget : advTarget.toFixed(0)}{isTimeBased ? "sec" : weightUnit}
+                        {!isTimeBased && ` (${lift.advMultiplier!.toFixed(1)}×BW)`}
+                        {metAdvTarget && " ✓"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -228,33 +260,46 @@ export default function FitnessTest() {
     const previousLevels = previous ? calculateMovementPatternLevels(previous, user) : null;
     const progressionTargets = getProgressionTargets(user.weight, user.unitPreference);
     
-    const patterns = [
+    type ProgressionTargetKey = keyof typeof progressionTargets;
+    
+    const patterns: Array<{
+      levelKey: keyof MovementPatternLevels;
+      targetKey: ProgressionTargetKey;
+      label: string;
+      description: string;
+      testId: string;
+    }> = [
       { 
-        key: 'push' as keyof MovementPatternLevels, 
+        levelKey: 'push', 
+        targetKey: 'push',
         label: 'Push', 
         description: 'Push-ups, Bench Press, Overhead Press',
         testId: 'push'
       },
       { 
-        key: 'pull' as keyof MovementPatternLevels, 
+        levelKey: 'pull',
+        targetKey: 'pull',
         label: 'Pull', 
         description: 'Pull-ups, Barbell Row',
         testId: 'pull'
       },
       { 
-        key: 'lowerBody' as keyof MovementPatternLevels, 
+        levelKey: 'squat',
+        targetKey: 'lowerBody',
         label: 'Lower Body', 
         description: 'Squats, Squat 1RM',
         testId: 'lowerBody'
       },
       { 
-        key: 'hinge' as keyof MovementPatternLevels, 
+        levelKey: 'hinge',
+        targetKey: 'hinge',
         label: 'Hinge', 
         description: 'Deadlifts, Squat stability',
         testId: 'hinge'
       },
       { 
-        key: 'cardio' as keyof MovementPatternLevels, 
+        levelKey: 'cardio',
+        targetKey: 'cardio',
         label: 'Cardio', 
         description: 'Mile run time',
         testId: 'cardio'
@@ -283,8 +328,11 @@ export default function FitnessTest() {
       const fieldMap: Record<keyof MovementPatternLevels, string> = {
         push: 'pushOverride',
         pull: 'pullOverride',
-        lowerBody: 'lowerBodyOverride',
+        squat: 'lowerBodyOverride',
+        lunge: 'lowerBodyOverride',
         hinge: 'hingeOverride',
+        core: 'coreOverride',
+        carry: 'carryOverride',
         cardio: 'cardioOverride',
       };
       return fieldMap[pattern];
@@ -306,18 +354,18 @@ export default function FitnessTest() {
         </CardHeader>
         <CardContent className="space-y-4">
           {patterns.map(pattern => {
-            const currentLevel = currentLevels[pattern.key];
-            const previousLevel = previousLevels?.[pattern.key];
+            const currentLevel = currentLevels[pattern.levelKey];
+            const previousLevel = previousLevels?.[pattern.levelKey];
             const leveledUp = previousLevel && previousLevel !== currentLevel && 
               ((previousLevel === 'beginner' && currentLevel !== 'beginner') || 
                (previousLevel === 'intermediate' && currentLevel === 'advanced'));
-            const target = progressionTargets[pattern.key];
+            const target = progressionTargets[pattern.targetKey];
             const nextLevel = getNextLevel(currentLevel);
-            const override = isOverridden(pattern.key);
+            const override = isOverridden(pattern.levelKey);
 
             return (
               <div 
-                key={pattern.key} 
+                key={pattern.levelKey} 
                 className="p-4 rounded-lg border bg-card space-y-3"
                 data-testid={`pattern-level-${pattern.testId}`}
               >
@@ -360,7 +408,7 @@ export default function FitnessTest() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleOverrideClick(pattern.key, currentLevel)}
+                        onClick={() => handleOverrideClick(pattern.levelKey, currentLevel)}
                         data-testid={`override-button-${pattern.testId}`}
                       >
                         <ChevronUp className="h-4 w-4 mr-1" />
@@ -612,7 +660,12 @@ export default function FitnessTest() {
                   <p className="text-sm font-medium mb-2">Targets to reach {overrideDialog.nextLevel}:</p>
                   {(() => {
                     const targets = getProgressionTargets(user?.weight, user?.unitPreference);
-                    const target = targets[overrideDialog.pattern];
+                    const patternKey = overrideDialog.pattern;
+                    const targetKey: keyof typeof targets = 
+                      patternKey === 'squat' || patternKey === 'lunge' ? 'lowerBody' :
+                      patternKey === 'core' || patternKey === 'carry' ? 'push' :
+                      patternKey as keyof typeof targets;
+                    const target = targets[targetKey];
                     return (
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <p><strong>Bodyweight:</strong> {overrideDialog.nextLevel === 'intermediate' ? target.bodyweightIntermediate : target.bodyweightAdvanced}</p>
