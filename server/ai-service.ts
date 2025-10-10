@@ -430,81 +430,32 @@ export async function generateWorkoutProgram(
       const exercises: GeneratedExercise[] = [];
       const movementFocus: string[] = [];
       
-      // Analyze workout's main movement patterns to select targeted warmups
-      const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
-      const workoutMovementFocus = new Set<string>(strengthPatterns);
-      
-      // Define warmup mapping based on movement patterns
-      const warmupMapping: Record<string, string[]> = {
-        push: ['Band Pull-Aparts', 'Arm Circles', 'Shoulder Dislocations', 'Cat-Cow Stretch'],
-        pull: ['Band Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Thoracic Rotation'],
-        squat: ['Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
-        lunge: ['Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
-        hinge: ['Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
-        core: ['Cat-Cow Stretch', 'Torso Twists', 'Dead Bug', 'Bird Dog'],
-        rotation: ['Torso Twists', 'Thoracic Rotation', 'Cat-Cow Stretch'],
-        carry: ['Arm Circles', 'Shoulder Dislocations', 'Farmer Walk'],
-      };
-      
-      // Select warmups that match workout patterns
-      const warmupCount = selectedTemplate.structure.workoutStructure.warmupExercises;
-      const selectedWarmups: Exercise[] = [];
-      const warmupNames = new Set<string>();
-      
-      // Priority: Select warmups that match the workout's primary patterns
-      for (const pattern of strengthPatterns) {
-        if (selectedWarmups.length >= warmupCount) break;
-        
-        const recommendedWarmupNames = warmupMapping[pattern] || [];
-        for (const warmupName of recommendedWarmupNames) {
-          if (selectedWarmups.length >= warmupCount) break;
-          if (warmupNames.has(warmupName)) continue;
-          
-          const warmupEx = warmupExercises.find(ex => 
-            ex.name === warmupName && !usedExerciseIds.has(ex.id)
-          );
-          
-          if (warmupEx) {
-            selectedWarmups.push(warmupEx);
-            warmupNames.add(warmupName);
-            usedExerciseIds.add(warmupEx.id);
-          }
-        }
-      }
-      
-      // Fallback: If not enough pattern-specific warmups found, add general ones
-      if (selectedWarmups.length < warmupCount) {
-        for (const warmupEx of warmupExercises) {
-          if (selectedWarmups.length >= warmupCount) break;
-          if (!usedExerciseIds.has(warmupEx.id) && !warmupNames.has(warmupEx.name)) {
-            selectedWarmups.push(warmupEx);
-            warmupNames.add(warmupEx.name);
-            usedExerciseIds.add(warmupEx.id);
-          }
-        }
-      }
-      
-      // Add selected warmups to exercises list
-      for (const warmupEx of selectedWarmups) {
-        const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
-        exercises.push({
-          exerciseName: warmupEx.name,
-          equipment: warmupEx.equipment?.[0] || "bodyweight",
-          ...params,
-          isWarmup: true,
-        });
-      }
-      
-      console.log(`[WARMUP] Selected warmups for ${strengthPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
-      
       // Add main strength exercises based on template
+      const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
       const mainCount = selectedTemplate.structure.workoutStructure.mainStrengthExercises;
+      const warmupCount = selectedTemplate.structure.workoutStructure.warmupExercises;
       
       // Track compound exercises for potential superset pairing
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
       
+      // Pre-calculate superset allocation to reserve capacity
+      const shouldAddSupersets = 
+        fitnessLevel !== 'beginner' && 
+        daysPerWeek <= 4;
+      
+      let reservedSupersetSlots = 0;
+      if (shouldAddSupersets) {
+        const weakPatterns = identifyWeakMovementPatterns(latestAssessment, user);
+        // Reserve slots for supersets (max 2)
+        reservedSupersetSlots = Math.min(2, weakPatterns.length, Math.floor(mainCount / 2));
+        console.log(`[SUPERSET] Reserving ${reservedSupersetSlots} slots for weak patterns: ${weakPatterns.join(', ')}`);
+      }
+      
+      // Adjust compound selection to account for reserved isolation slots
+      const compoundSlotsToFill = mainCount - reservedSupersetSlots;
+      
       // Distribute exercises across movement patterns
-      const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
+      const exercisesPerPattern = Math.ceil(compoundSlotsToFill / strengthPatterns.length);
       
       for (const pattern of strengthPatterns) {
         // Use pre-filtered exercises from pattern map (optimization)
@@ -526,24 +477,19 @@ export async function generateWorkoutProgram(
           }
         }
         
-        if (exercises.length >= mainCount + warmupCount) break;
+        // Stop when we reach the compound slot count (isolation slots reserved for supersets)
+        if (exercises.length >= compoundSlotsToFill) break;
       }
       
       // Strategic superset logic: Add isolation exercises for weak patterns
-      // Only for intermediate/advanced users with ≤4 workout days
-      const shouldAddSupersets = 
-        fitnessLevel !== 'beginner' && 
-        daysPerWeek <= 4 && 
-        compoundExercises.length > 0;
-      
-      if (shouldAddSupersets) {
+      // Capacity was pre-reserved above, now fill those slots with isolation work
+      if (shouldAddSupersets && reservedSupersetSlots > 0 && compoundExercises.length > 0) {
         const weakPatterns = identifyWeakMovementPatterns(latestAssessment, user);
         let supersetsAdded = 0;
-        const maxSupersets = 2; // Limit to 2 supersets per workout
         const supersetGroups = ['A', 'B', 'C'];
         
         for (const weakPattern of weakPatterns) {
-          if (supersetsAdded >= maxSupersets) break;
+          if (supersetsAdded >= reservedSupersetSlots) break;
           
           // Find a compound exercise with this pattern
           const compoundIndex = compoundExercises.findIndex(ce => ce.pattern === weakPattern);
@@ -567,7 +513,7 @@ export async function generateWorkoutProgram(
               compoundExInList.supersetGroup = supersetGroup;
               compoundExInList.supersetOrder = 1;
               
-              // Add isolation exercise with same superset group
+              // Add isolation exercise with same superset group (only if within budget)
               const isolationParams = assignTrainingParameters(
                 isolationEx,
                 fitnessLevel,
@@ -591,7 +537,100 @@ export async function generateWorkoutProgram(
             }
           }
         }
+        
+        console.log(`[SUPERSET] Added ${supersetsAdded} supersets, total strength exercises: ${exercises.length}/${mainCount}`);
       }
+      
+      // Backfill unused reserved slots with additional exercises (compound or isolation)
+      // This runs regardless of whether compounds were found, ensuring we always reach mainCount
+      if (reservedSupersetSlots > 0 && exercises.length < mainCount) {
+        const exercisesNeeded = mainCount - exercises.length;
+        console.log(`[SUPERSET] Backfilling ${exercisesNeeded} slots to reach mainCount`);
+        
+        for (const pattern of strengthPatterns) {
+          if (exercises.length >= mainCount) break;
+          
+          const patternExercises = exercisesByPattern[pattern] || [];
+          const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
+          
+          for (const ex of available) {
+            if (exercises.length >= mainCount) break;
+            
+            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
+            exercises.push({
+              exerciseName: ex.name,
+              equipment: ex.equipment?.[0] || "bodyweight",
+              ...params,
+            });
+            movementFocus.push(pattern);
+            usedExerciseIds.add(ex.id);
+          }
+        }
+      }
+      
+      // Movement-specific warmup selection based on actual workout patterns
+      // Define warmup mapping based on movement patterns
+      const warmupMapping: Record<string, string[]> = {
+        push: ['Band Pull-Aparts', 'Arm Circles', 'Shoulder Dislocations', 'Cat-Cow Stretch'],
+        pull: ['Band Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Thoracic Rotation'],
+        squat: ['Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
+        lunge: ['Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
+        hinge: ['Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
+        core: ['Cat-Cow Stretch', 'Torso Twists', 'Dead Bug', 'Bird Dog'],
+        rotation: ['Torso Twists', 'Thoracic Rotation', 'Cat-Cow Stretch'],
+        carry: ['Arm Circles', 'Shoulder Dislocations', 'Farmer Walk'],
+      };
+      
+      // Analyze the actual patterns used in this workout (from movementFocus array)
+      const workoutPatterns = Array.from(new Set(movementFocus.filter(p => p !== 'cardio')));
+      const selectedWarmups: Exercise[] = [];
+      const warmupNames = new Set<string>();
+      
+      // Priority: Select warmups that match this workout's actual movement patterns
+      for (const pattern of workoutPatterns) {
+        if (selectedWarmups.length >= warmupCount) break;
+        
+        const recommendedWarmupNames = warmupMapping[pattern] || [];
+        for (const warmupName of recommendedWarmupNames) {
+          if (selectedWarmups.length >= warmupCount) break;
+          if (warmupNames.has(warmupName)) continue;
+          
+          const warmupEx = warmupExercises.find(ex => ex.name === warmupName);
+          
+          if (warmupEx) {
+            selectedWarmups.push(warmupEx);
+            warmupNames.add(warmupName);
+          }
+        }
+      }
+      
+      // Fallback: If not enough pattern-specific warmups found, add general ones
+      if (selectedWarmups.length < warmupCount) {
+        for (const warmupEx of warmupExercises) {
+          if (selectedWarmups.length >= warmupCount) break;
+          if (!warmupNames.has(warmupEx.name)) {
+            selectedWarmups.push(warmupEx);
+            warmupNames.add(warmupEx.name);
+          }
+        }
+      }
+      
+      // Insert warmups at the beginning of exercises array
+      const warmupExercises_toAdd: GeneratedExercise[] = [];
+      for (const warmupEx of selectedWarmups) {
+        const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+        warmupExercises_toAdd.push({
+          exerciseName: warmupEx.name,
+          equipment: warmupEx.equipment?.[0] || "bodyweight",
+          ...params,
+          isWarmup: true,
+        });
+      }
+      
+      // Insert warmups at the beginning
+      exercises.unshift(...warmupExercises_toAdd);
+      
+      console.log(`[WARMUP] Selected warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
       
       // Add cardio exercises based on template
       const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises;
@@ -704,6 +743,3 @@ export async function generateProgressionRecommendation(
     };
   }
 }
-
-// Remove all the old OpenAI functions below
-const oldCodeRemoved = true;
