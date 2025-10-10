@@ -61,6 +61,7 @@ export interface IStorage {
   deleteFutureSessions(userId: string, fromDate: string): Promise<number>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
+  getWorkoutSet(id: string): Promise<WorkoutSet | undefined>;
   getSessionSets(sessionId: string): Promise<WorkoutSet[]>;
   getUserRecentSets(userId: string, exerciseId: string, limit: number): Promise<WorkoutSet[]>;
   updateWorkoutSet(id: string, updates: Partial<WorkoutSet>): Promise<WorkoutSet | undefined>;
@@ -336,6 +337,11 @@ export class DbStorage implements IStorage {
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {
     const result = await db.insert(workoutSets).values(insertSet).returning();
+    return result[0];
+  }
+
+  async getWorkoutSet(id: string): Promise<WorkoutSet | undefined> {
+    const result = await db.select().from(workoutSets).where(eq(workoutSets.id, id)).limit(1);
     return result[0];
   }
 

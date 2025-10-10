@@ -1471,6 +1471,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Program not found" });
       }
 
+      if (program.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to access this program" });
+      }
+
       const workouts = await storage.getProgramWorkouts(program.id);
       const workoutsWithExercises = await Promise.all(
         workouts.map(async (workout) => {
@@ -1501,6 +1505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const exercise = await storage.getProgramExercise(req.params.exerciseId);
       if (!exercise) {
         return res.status(404).json({ error: "Exercise not found" });
+      }
+
+      // Verify ownership: exercise -> workout -> program -> userId
+      const workout = await storage.getProgramWorkout(exercise.workoutId);
+      if (!workout) {
+        return res.status(404).json({ error: "Workout not found" });
+      }
+
+      const program = await storage.getWorkoutProgram(workout.programId);
+      if (!program || program.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to update this exercise" });
       }
 
       const updates: Partial<any> = {};
@@ -1536,6 +1551,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const programExercise = await storage.getProgramExercise(req.params.exerciseId);
       if (!programExercise) {
         return res.status(404).json({ error: "Program exercise not found" });
+      }
+
+      // Verify ownership: exercise -> workout -> program -> userId
+      const workout = await storage.getProgramWorkout(programExercise.workoutId);
+      if (!workout) {
+        return res.status(404).json({ error: "Workout not found" });
+      }
+
+      const program = await storage.getWorkoutProgram(workout.programId);
+      if (!program || program.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to swap this exercise" });
       }
 
       const newExercise = await storage.getExercise(newExerciseId);
@@ -1903,6 +1929,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // Verify ownership
+      if (oldSession.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to update this session" });
+      }
+
       // Validate and transform the patch data (converts boolean completed to integer)
       const validatedData = patchWorkoutSessionSchema.parse(req.body);
 
@@ -2021,11 +2052,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      const set = await storage.updateWorkoutSet(req.params.setId, req.body);
-      if (!set) {
+      // First get the set to verify ownership
+      const existingSet = await storage.getWorkoutSet(req.params.setId);
+      if (!existingSet) {
         return res.status(404).json({ error: "Set not found" });
       }
 
+      // Verify ownership: set -> session -> userId
+      const session = await storage.getWorkoutSession(existingSet.sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to update this set" });
+      }
+
+      const set = await storage.updateWorkoutSet(req.params.setId, req.body);
       res.json(set);
     } catch (error) {
       res.status(500).json({ error: "Failed to update set" });
@@ -2035,6 +2074,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/workout-sessions/:sessionId/sets", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
+
+      // Verify ownership: session -> userId
+      const session = await storage.getWorkoutSession(req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to access this session's sets" });
+      }
 
       const sets = await storage.getSessionSets(req.params.sessionId);
       res.json(sets);
