@@ -976,6 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/programs/generate", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
+      const { startDate } = req.body;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1131,8 +1132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate workout schedule for entire program duration
-      // For this endpoint, use server's current date as there's no frontend-provided startDate
-      const startDateString = formatLocalDate(new Date());
+      // Use client-provided startDate (user's local timezone) with fallback to server date
+      const startDateString = startDate || formatLocalDate(new Date());
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
       res.json({ program, generatedProgram });
@@ -1146,6 +1147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/programs/regenerate", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
+      const { startDate } = req.body;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1301,13 +1303,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete all incomplete future sessions from today onwards to prevent duplicates
-      // Use server's current date for regeneration (no frontend-provided date)
-      const today = new Date();
-      const todayString = formatLocalDate(today);
+      // Use client-provided startDate (user's local timezone) with fallback to server date
+      const todayString = startDate || formatLocalDate(new Date());
       const deletedCount = await storage.deleteFutureSessions(userId, todayString);
       console.log(`[REGENERATE] Deleted ${deletedCount} incomplete future sessions from ${todayString} onwards`);
 
-      // Generate workout schedule for entire program duration starting from today
+      // Generate workout schedule for entire program duration starting from user's today
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, todayString);
 
       res.json({ program, generatedProgram });
