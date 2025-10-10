@@ -1,14 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateAge } from "@shared/utils";
 
 interface NutritionAssessmentProps {
@@ -37,11 +33,54 @@ export interface NutritionData {
 export default function NutritionAssessment({ onComplete }: NutritionAssessmentProps) {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthYear, setBirthYear] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [goal, setGoal] = useState("");
   
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const isMetric = unitPreference === 'metric';
+
+  // Construct date when all three values are set
+  useEffect(() => {
+    if (birthMonth && birthDay && birthYear) {
+      const month = parseInt(birthMonth);
+      const day = parseInt(birthDay);
+      const year = parseInt(birthYear);
+      
+      // Validate the date is valid
+      const date = new Date(year, month - 1, day);
+      if (date.getFullYear() === year && 
+          date.getMonth() === month - 1 && 
+          date.getDate() === day) {
+        setDateOfBirth(date);
+      } else {
+        // Clear stale date if current combination is invalid
+        setDateOfBirth(undefined);
+      }
+    } else {
+      setDateOfBirth(undefined);
+    }
+  }, [birthMonth, birthDay, birthYear]);
+
+  // Reset day when month/year changes make it invalid
+  useEffect(() => {
+    if (birthDay && birthMonth && birthYear) {
+      const maxDays = getDaysInMonth();
+      if (parseInt(birthDay) > maxDays) {
+        setBirthDay("");
+      }
+    }
+  }, [birthMonth, birthYear]);
+
+  // Get days in selected month
+  const getDaysInMonth = () => {
+    if (!birthMonth || !birthYear) return 31;
+    const month = parseInt(birthMonth);
+    const year = parseInt(birthYear);
+    return new Date(year, month, 0).getDate();
+  };
 
   const calculateBMR = () => {
     let h = parseFloat(height);
@@ -168,34 +207,56 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
             </div>
             <div className="space-y-2">
               <Label>Birthday</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dateOfBirth && "text-muted-foreground"
-                    )}
-                    data-testid="button-birthday-picker"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateOfBirth ? format(dateOfBirth, "PPP") : <span>Select birthday</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateOfBirth}
-                    onSelect={setDateOfBirth}
-                    initialFocus
-                    defaultMonth={new Date(1990, 0)}
-                    fromYear={1924}
-                    toYear={new Date().getFullYear() - 13}
-                    captionLayout="dropdown-buttons"
-                    data-testid="calendar-birthday"
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="grid grid-cols-3 gap-2">
+                <Select value={birthMonth} onValueChange={setBirthMonth}>
+                  <SelectTrigger data-testid="select-birth-month">
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">January</SelectItem>
+                    <SelectItem value="2">February</SelectItem>
+                    <SelectItem value="3">March</SelectItem>
+                    <SelectItem value="4">April</SelectItem>
+                    <SelectItem value="5">May</SelectItem>
+                    <SelectItem value="6">June</SelectItem>
+                    <SelectItem value="7">July</SelectItem>
+                    <SelectItem value="8">August</SelectItem>
+                    <SelectItem value="9">September</SelectItem>
+                    <SelectItem value="10">October</SelectItem>
+                    <SelectItem value="11">November</SelectItem>
+                    <SelectItem value="12">December</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={birthDay} onValueChange={setBirthDay}>
+                  <SelectTrigger data-testid="select-birth-day">
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: getDaysInMonth() }, (_, i) => i + 1).map(day => (
+                      <SelectItem key={day} value={day.toString()}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={birthYear} onValueChange={setBirthYear}>
+                  <SelectTrigger data-testid="select-birth-year">
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from(
+                      { length: new Date().getFullYear() - 13 - 1924 + 1 },
+                      (_, i) => new Date().getFullYear() - 13 - i
+                    ).map(year => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
