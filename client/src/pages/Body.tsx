@@ -13,14 +13,24 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { calculateAge } from "@shared/utils";
+import { formatLocalDate } from "@shared/dateUtils";
 
 export default function Body() {
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
   });
 
+  // Include current date in query to ensure calories are calculated for user's timezone
+  const currentDate = formatLocalDate(new Date());
   const { data: todayCaloriesData } = useQuery<{ calories: number }>({
-    queryKey: ["/api/workout-sessions/calories/today"],
+    queryKey: ["/api/workout-sessions/calories/today", currentDate],
+    queryFn: async () => {
+      const response = await fetch(`/api/workout-sessions/calories/today?date=${currentDate}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch calories');
+      return response.json();
+    },
   });
 
   const { toast } = useToast();

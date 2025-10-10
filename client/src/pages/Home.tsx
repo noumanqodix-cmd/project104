@@ -110,7 +110,10 @@ export default function Home() {
 
   const archiveOldSessionsMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/workout-sessions/archive-old", {});
+      // Send current local date to ensure archive logic uses user's timezone
+      return await apiRequest("POST", "/api/workout-sessions/archive-old", {
+        currentDate: formatLocalDate(new Date()),
+      });
     },
     onSuccess: () => {
       // Silently refresh sessions after archival

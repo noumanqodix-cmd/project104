@@ -1555,9 +1555,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
+      // Use currentDate from frontend if provided, otherwise use server's date as fallback
+      const currentDateString = req.body.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+      
       // Calculate current day of week in ISO format (1=Monday, 7=Sunday)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const dayOfWeek = today.getDay();
       const sessionDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
@@ -1565,7 +1567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId,
         sessionDayOfWeek,
-        scheduledDate: req.body.scheduledDate || formatLocalDate(today),
+        scheduledDate: req.body.scheduledDate || currentDateString,
       });
 
       // Validate that the programWorkoutId exists and belongs to user's program
@@ -1706,8 +1708,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Get today's date (in user's timezone)
-      const today = new Date();
+      // Use currentDate from frontend if provided, otherwise use server's date as fallback
+      const currentDateString = req.body.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
 
       // Get all sessions for this user
       const allSessions = await storage.getUserSessions(userId);
@@ -1840,9 +1843,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Get today's date range
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Use date from query parameter if provided, otherwise use server's date as fallback
+      const currentDateString = (req.query.date as string) || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+      
+      // Calculate tomorrow for date range
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
