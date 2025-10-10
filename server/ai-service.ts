@@ -486,45 +486,92 @@ export async function generateWorkoutProgram(
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
   console.log(`[TEMPLATE] Selected template: ${selectedTemplate.name} for nutrition goal: ${user.nutritionGoal}`);
   
-  // Calculate exercise counts based on workout duration
-  // Time estimates per exercise type:
-  // - Warmup: ~2 min per exercise (2 sets × 30s work + 30s rest)
-  // - Main strength: ~8 min per exercise (3-4 sets × 45s work + 90s rest)
-  // - Cardio finisher: ~8 min (8 intervals × 30s work + 30s rest)
+  // Calculate exercise counts using PRECISE time estimates from calculateExerciseTime()
   
-  const warmupTimePerExercise = 2; // minutes
-  const mainStrengthTimePerExercise = 8; // minutes
-  const cardioFinisherTime = 8; // minutes
+  // Warmup exercise (2 sets, 12 reps avg, 30s rest): ~2min
+  const warmupTimePerExercise = calculateExerciseTime({
+    sets: 2,
+    repsMin: 10,
+    repsMax: 15,
+    restSeconds: 30
+  });
   
-  // Iteratively allocate time budget to prioritize quality strength work
+  // Primary compound (5 sets, 5 reps avg, 180s rest): ~13.5min
+  const primaryCompoundTime = calculateExerciseTime({
+    sets: 5,
+    repsMin: 4,
+    repsMax: 6,
+    restSeconds: 180
+  });
+  
+  // Secondary compound/hypertrophy (4 sets, 10 reps avg, 90s rest): ~6.7min
+  const secondaryCompoundTime = calculateExerciseTime({
+    sets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90
+  });
+  
+  // HIIT cardio finisher (8 intervals, 30s work, 30s rest): ~8min
+  const cardioFinisherTime = calculateExerciseTime({
+    sets: 8,
+    workSeconds: 30,
+    restSeconds: 30
+  });
+  
+  // PRECISE TIME-AWARE ALLOCATION
+  // Account for the fact that first 2 main exercises are ALWAYS primary compounds (13.5min each)
   let timeRemaining = workoutDuration;
   
   // Step 1: Allocate warmups (minimum 2, scale up for longer sessions)
-  let warmupCount = 2; // Start with minimum
+  let warmupCount = 2;
   if (workoutDuration >= 60) {
-    warmupCount = 3; // Add one more warmup for 60+ min sessions
+    warmupCount = 3;
   }
   timeRemaining -= warmupCount * warmupTimePerExercise;
+  console.log(`[TIME-ALLOC] After ${warmupCount} warmups: ${timeRemaining.toFixed(1)}min remaining`);
   
-  // Step 2: Check if template wants cardio and reserve time if possible
+  // Step 2: Reserve cardio time FIRST if template wants it (before calculating secondary count)
   let cardioCount = 0;
   const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
-  const hasRoomForCardio = timeRemaining >= (mainStrengthTimePerExercise * 3 + cardioFinisherTime);
+  const minTimeForCardio = primaryCompoundTime * 2 + cardioFinisherTime; // Need at least 2 primaries + cardio
   
-  if (templateWantsCardio && hasRoomForCardio) {
+  if (templateWantsCardio && timeRemaining >= minTimeForCardio) {
     cardioCount = 1;
     timeRemaining -= cardioFinisherTime;
+    console.log(`[TIME-ALLOC] Reserved cardio finisher: ${timeRemaining.toFixed(1)}min remaining for strength work`);
   }
   
-  // Step 3: Allocate main strength exercises with remaining time
-  // Target at least 3 main exercises for proper workout structure
-  const mainCount = Math.max(3, Math.floor(timeRemaining / mainStrengthTimePerExercise));
+  // Step 3: Allocate primary and secondary compounds with remaining time
+  let primaryCount = 0;
+  let secondaryCount = 0;
+  
+  if (timeRemaining >= primaryCompoundTime * 2) {
+    primaryCount = 2;
+    timeRemaining -= primaryCompoundTime * 2;
+    console.log(`[TIME-ALLOC] After 2 primary compounds: ${timeRemaining.toFixed(1)}min remaining`);
+    
+    // Fill remaining time with secondary compounds
+    secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
+    if (secondaryCount > 0) {
+      timeRemaining -= secondaryCount * secondaryCompoundTime;
+      console.log(`[TIME-ALLOC] After ${secondaryCount} secondary compounds: ${timeRemaining.toFixed(1)}min remaining`);
+    }
+  } else if (timeRemaining >= primaryCompoundTime) {
+    // Only room for 1 primary compound
+    primaryCount = 1;
+    timeRemaining -= primaryCompoundTime;
+    console.log(`[TIME-ALLOC] After 1 primary compound: ${timeRemaining.toFixed(1)}min remaining`);
+  }
+  
+  const mainCount = primaryCount + secondaryCount;
   
   const estimatedTotal = (warmupCount * warmupTimePerExercise) + 
-                         (mainCount * mainStrengthTimePerExercise) + 
+                         (primaryCount * primaryCompoundTime) +
+                         (secondaryCount * secondaryCompoundTime) +
                          (cardioCount * cardioFinisherTime);
   
-  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups (${warmupCount * warmupTimePerExercise}min), ${mainCount} main exercises (${mainCount * mainStrengthTimePerExercise}min), ${cardioCount} cardio finisher (${cardioCount * cardioFinisherTime}min). Estimated total: ${estimatedTotal}min`);
+  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${primaryCount} primary compounds, ${secondaryCount} secondary compounds, ${cardioCount} cardio finisher. Estimated total: ${estimatedTotal.toFixed(1)}min`);
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
@@ -542,12 +589,13 @@ export async function generateWorkoutProgram(
       const exercises: GeneratedExercise[] = [];
       const movementFocus: string[] = [];
       
-      // Add main strength exercises using precise time calculations
+      // Add main strength exercises respecting precise time-based counts
       const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
       
-      // Use calculated mainCount from earlier (based on workout duration)
-      // This is more precise than template defaults
+      // Track remaining slots for each exercise type (respect calculated primaryCount/secondaryCount)
+      let primarySlotsRemaining = primaryCount;
+      let secondarySlotsRemaining = secondaryCount;
       
       // Pre-calculate superset allocation to reserve capacity
       const shouldAddSupersets = 
@@ -567,7 +615,6 @@ export async function generateWorkoutProgram(
       
       // Distribute exercises across movement patterns
       const exercisesPerPattern = Math.ceil(compoundSlotsToFill / strengthPatterns.length);
-      let strengthExercisesAdded = 0; // Track position for primary vs secondary classification
       
       for (const pattern of strengthPatterns) {
         // Use pre-filtered exercises from pattern map (optimization)
@@ -575,14 +622,25 @@ export async function generateWorkoutProgram(
         const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
         
         for (const ex of selected) {
-          // Determine exercise role: first 2 compounds are primary (strength focus), rest are secondary (hypertrophy)
-          const exerciseRole = strengthExercisesAdded < 2 && ex.liftType === 'compound' 
-            ? 'primary-compound' 
-            : ex.liftType === 'compound' 
-            ? 'secondary-compound'
-            : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
-            ? 'core-accessory'
-            : 'isolation';
+          // Determine exercise role based on REMAINING SLOTS (respects time-based allocation)
+          let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio';
+          
+          if (ex.liftType === 'compound') {
+            if (primarySlotsRemaining > 0) {
+              exerciseRole = 'primary-compound';
+              primarySlotsRemaining--;
+            } else if (secondarySlotsRemaining > 0) {
+              exerciseRole = 'secondary-compound';
+              secondarySlotsRemaining--;
+            } else {
+              // No slots remaining, skip this exercise
+              continue;
+            }
+          } else if (ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry') {
+            exerciseRole = 'core-accessory';
+          } else {
+            exerciseRole = 'isolation';
+          }
           
           const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
           exercises.push({
@@ -591,7 +649,6 @@ export async function generateWorkoutProgram(
             ...params,
           });
           movementFocus.push(pattern);
-          strengthExercisesAdded++;
           
           // Track compound exercises for superset logic
           if (ex.liftType === 'compound') {
