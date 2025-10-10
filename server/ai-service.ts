@@ -280,99 +280,112 @@ export async function generateWorkoutProgram(
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
   console.log(`[TEMPLATE] Selected template: ${selectedTemplate.name} for nutrition goal: ${user.nutritionGoal}`);
   
-  // Template-based workout generation
+  // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
   const usedExerciseIds = new Set<string>();
   
-  for (let i = 0; i < scheduledDays.length; i++) {
-    const dayOfWeek = scheduledDays[i];
+  // Generate workouts for each day of the week (1-7 = Monday-Sunday)
+  for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
     const dayName = dayNames[dayOfWeek];
+    const isScheduledDay = scheduledDays.includes(dayOfWeek);
     
-    const exercises: GeneratedExercise[] = [];
-    const movementFocus: string[] = [];
-    
-    // Add warmup exercises
-    const warmupCount = selectedTemplate.structure.workoutStructure.warmupExercises;
-    const selectedWarmups: Exercise[] = [];
-    
-    for (const warmupEx of warmupExercises) {
-      if (selectedWarmups.length >= warmupCount) break;
-      if (!usedExerciseIds.has(warmupEx.id)) {
-        selectedWarmups.push(warmupEx);
-        usedExerciseIds.add(warmupEx.id);
-      }
-    }
-    
-    for (const warmupEx of selectedWarmups) {
-      const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
-      exercises.push({
-        exerciseName: warmupEx.name,
-        equipment: warmupEx.equipment?.[0] || "bodyweight",
-        ...params,
-        isWarmup: true,
-      });
-    }
-    
-    // Add main strength exercises based on template
-    const mainCount = selectedTemplate.structure.workoutStructure.mainStrengthExercises;
-    const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
-    
-    // Distribute exercises across movement patterns
-    const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
-    
-    for (const pattern of strengthPatterns) {
-      const selected = selectExercisesByPattern(mainExercises, pattern, exercisesPerPattern, usedExerciseIds);
+    if (isScheduledDay) {
+      // WORKOUT DAY: Generate actual workout with exercises
+      const exercises: GeneratedExercise[] = [];
+      const movementFocus: string[] = [];
       
-      for (const ex of selected) {
-        const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
-        exercises.push({
-          exerciseName: ex.name,
-          equipment: ex.equipment?.[0] || "bodyweight",
-          ...params,
-        });
-        movementFocus.push(pattern);
-      }
+      // Add warmup exercises
+      const warmupCount = selectedTemplate.structure.workoutStructure.warmupExercises;
+      const selectedWarmups: Exercise[] = [];
       
-      if (exercises.length >= mainCount + warmupCount) break;
-    }
-    
-    // Add cardio exercises based on template
-    const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises;
-    if (cardioCount > 0 && cardioExercises.length > 0) {
-      const selectedCardio: Exercise[] = [];
-      
-      for (const cardioEx of cardioExercises) {
-        if (selectedCardio.length >= cardioCount) break;
-        if (!usedExerciseIds.has(cardioEx.id)) {
-          selectedCardio.push(cardioEx);
-          usedExerciseIds.add(cardioEx.id);
+      for (const warmupEx of warmupExercises) {
+        if (selectedWarmups.length >= warmupCount) break;
+        if (!usedExerciseIds.has(warmupEx.id)) {
+          selectedWarmups.push(warmupEx);
+          usedExerciseIds.add(warmupEx.id);
         }
       }
       
-      for (const cardioEx of selectedCardio) {
-        const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+      for (const warmupEx of selectedWarmups) {
+        const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user);
         exercises.push({
-          exerciseName: cardioEx.name,
-          equipment: cardioEx.equipment?.[0] || "bodyweight",
+          exerciseName: warmupEx.name,
+          equipment: warmupEx.equipment?.[0] || "bodyweight",
           ...params,
+          isWarmup: true,
         });
-        movementFocus.push("cardio");
       }
+      
+      // Add main strength exercises based on template
+      const mainCount = selectedTemplate.structure.workoutStructure.mainStrengthExercises;
+      const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
+      
+      // Distribute exercises across movement patterns
+      const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
+      
+      for (const pattern of strengthPatterns) {
+        const selected = selectExercisesByPattern(mainExercises, pattern, exercisesPerPattern, usedExerciseIds);
+        
+        for (const ex of selected) {
+          const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
+          exercises.push({
+            exerciseName: ex.name,
+            equipment: ex.equipment?.[0] || "bodyweight",
+            ...params,
+          });
+          movementFocus.push(pattern);
+        }
+        
+        if (exercises.length >= mainCount + warmupCount) break;
+      }
+      
+      // Add cardio exercises based on template
+      const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises;
+      if (cardioCount > 0 && cardioExercises.length > 0) {
+        const selectedCardio: Exercise[] = [];
+        
+        for (const cardioEx of cardioExercises) {
+          if (selectedCardio.length >= cardioCount) break;
+          if (!usedExerciseIds.has(cardioEx.id)) {
+            selectedCardio.push(cardioEx);
+            usedExerciseIds.add(cardioEx.id);
+          }
+        }
+        
+        for (const cardioEx of selectedCardio) {
+          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user);
+          exercises.push({
+            exerciseName: cardioEx.name,
+            equipment: cardioEx.equipment?.[0] || "bodyweight",
+            ...params,
+          });
+          movementFocus.push("cardio");
+        }
+      }
+      
+      // Determine workout type based on primary focus
+      let workoutType: "strength" | "cardio" | "hiit" | "mobility" | null = "strength";
+      if (selectedTemplate.structure.cardioFocus > 50) {
+        workoutType = "cardio";
+      }
+      
+      workouts.push({
+        dayOfWeek,
+        workoutName: `${dayName} - ${selectedTemplate.name}`,
+        workoutType,
+        movementFocus: Array.from(new Set(movementFocus)),
+        exercises,
+      });
+    } else {
+      // REST DAY: Generate rest day with null workoutType and no exercises
+      workouts.push({
+        dayOfWeek,
+        workoutName: `${dayName} - Rest Day`,
+        workoutType: null,
+        movementFocus: [],
+        exercises: [],
+      });
     }
-    
-    // Determine workout type based on primary focus
-    let workoutType: "strength" | "cardio" | "hiit" | "mobility" | null = "strength";
-    if (selectedTemplate.structure.cardioFocus > 50) {
-      workoutType = "cardio";
-    }
-    
-    workouts.push({
-      dayOfWeek,
-      workoutName: `${dayName} - ${selectedTemplate.name}`,
-      workoutType,
-      movementFocus: Array.from(new Set(movementFocus)),
-      exercises,
-    });
   }
   
   const program: GeneratedProgram = {
@@ -382,7 +395,7 @@ export async function generateWorkoutProgram(
     workouts,
   };
   
-  console.log(`[TEMPLATE-BASED] Generated ${workouts.length} workouts for ${daysPerWeek} days/week`);
+  console.log(`[TEMPLATE-BASED] Generated ${workouts.length} workouts (${scheduledDays.length} workout days + ${7 - scheduledDays.length} rest days per week)`);
   
   return program;
 }
