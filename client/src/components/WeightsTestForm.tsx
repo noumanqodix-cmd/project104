@@ -38,6 +38,7 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
   const [currentExercise, setCurrentExercise] = useState(0);
   const [results, setResults] = useState<Partial<WeightsTestResults>>({});
   const [value, setValue] = useState("");
+  const [error, setError] = useState("");
   
   const unitPreference = localStorage.getItem('unitPreference') || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
@@ -45,21 +46,49 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
   const exercise = exercises[currentExercise];
 
   const handleNext = () => {
+    console.log('[WEIGHTS TEST] Attempting to submit value:', value);
+    
     const numValue = parseFloat(value);
-    if (!numValue || numValue <= 0) return;
+    
+    // Validate input
+    if (!value || value.trim() === '') {
+      setError('Please enter a value');
+      console.log('[WEIGHTS TEST] Validation failed: empty value');
+      return;
+    }
+    
+    if (isNaN(numValue)) {
+      setError('Please enter a valid number');
+      console.log('[WEIGHTS TEST] Validation failed: not a number');
+      return;
+    }
+    
+    if (numValue <= 0) {
+      setError('Please enter a value greater than 0');
+      console.log('[WEIGHTS TEST] Validation failed: value <= 0');
+      return;
+    }
 
+    console.log('[WEIGHTS TEST] Value validated:', numValue);
+    setError('');
+    
     const newResults = { ...results, [exercise.id]: numValue };
     setResults(newResults);
     setValue("");
 
     if (currentExercise < exercises.length - 1) {
+      console.log('[WEIGHTS TEST] Moving to next exercise');
       setCurrentExercise(currentExercise + 1);
     } else {
+      console.log('[WEIGHTS TEST] Final exercise complete, calling onComplete with:', newResults);
       onComplete(newResults as WeightsTestResults);
     }
   };
 
   const handleDontKnow = () => {
+    console.log('[WEIGHTS TEST] Using default value for:', exercise.id);
+    setError('');
+    
     // Set beginner-level default values for "Don't Know"
     const beginnerDefaults: Record<string, number> = {
       squat: unitPreference === 'imperial' ? 95 : 43,
@@ -80,6 +109,7 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
     if (currentExercise < exercises.length - 1) {
       setCurrentExercise(currentExercise + 1);
     } else {
+      console.log('[WEIGHTS TEST] Final exercise complete (using defaults), calling onComplete');
       onComplete(newResults as WeightsTestResults);
     }
   };
@@ -126,20 +156,29 @@ export default function WeightsTestForm({ onComplete, onBack }: WeightsTestFormP
               id="value"
               type="number"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (error) setError(''); // Clear error when user types
+              }}
               onKeyDown={(e) => e.key === "Enter" && handleNext()}
               placeholder={exercise.id === 'plankHold' ? "Enter seconds" :
                           exercise.id === 'mileTime' ? "Enter minutes" :
                           "Enter weight"}
-              className="text-4xl text-center h-20 font-mono"
+              className={`text-4xl text-center h-20 font-mono ${error ? 'border-destructive' : ''}`}
               autoFocus
               data-testid="input-test-value"
             />
-            <p className="text-sm text-muted-foreground text-center">
-              {exercise.id === 'plankHold' ? 'seconds' :
-               exercise.id === 'mileTime' ? 'minutes' :
-               unitPreference === 'imperial' ? 'pounds (lbs)' : 'kilograms (kg)'}
-            </p>
+            {error ? (
+              <p className="text-sm text-destructive text-center" data-testid="text-validation-error">
+                {error}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                {exercise.id === 'plankHold' ? 'seconds' :
+                 exercise.id === 'mileTime' ? 'minutes' :
+                 unitPreference === 'imperial' ? 'pounds (lbs)' : 'kilograms (kg)'}
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">

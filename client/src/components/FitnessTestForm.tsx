@@ -34,25 +34,54 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
   const [currentExercise, setCurrentExercise] = useState(0);
   const [results, setResults] = useState<Partial<FitnessTestResults>>({});
   const [value, setValue] = useState("");
+  const [error, setError] = useState("");
 
   const exercise = exercises[currentExercise];
 
   const handleNext = () => {
+    console.log('[FITNESS TEST] Attempting to submit value:', value);
+    
     const numValue = parseFloat(value);
-    if (!numValue || numValue <= 0) return;
+    
+    // Validate input
+    if (!value || value.trim() === '') {
+      setError('Please enter a value');
+      console.log('[FITNESS TEST] Validation failed: empty value');
+      return;
+    }
+    
+    if (isNaN(numValue)) {
+      setError('Please enter a valid number');
+      console.log('[FITNESS TEST] Validation failed: not a number');
+      return;
+    }
+    
+    if (numValue <= 0) {
+      setError('Please enter a value greater than 0');
+      console.log('[FITNESS TEST] Validation failed: value <= 0');
+      return;
+    }
 
+    console.log('[FITNESS TEST] Value validated:', numValue);
+    setError('');
+    
     const newResults = { ...results, [exercise.id]: numValue };
     setResults(newResults);
     setValue("");
 
     if (currentExercise < exercises.length - 1) {
+      console.log('[FITNESS TEST] Moving to next exercise');
       setCurrentExercise(currentExercise + 1);
     } else {
+      console.log('[FITNESS TEST] Final exercise complete, calling onComplete with:', newResults);
       onComplete(newResults as FitnessTestResults);
     }
   };
 
   const handleDontKnow = () => {
+    console.log('[FITNESS TEST] Using default value for:', exercise.id);
+    setError('');
+    
     // Set beginner-level default values for "Don't Know"
     const beginnerDefaults: Record<string, number> = {
       pushups: 5,
@@ -71,6 +100,7 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
     if (currentExercise < exercises.length - 1) {
       setCurrentExercise(currentExercise + 1);
     } else {
+      console.log('[FITNESS TEST] Final exercise complete (using defaults), calling onComplete');
       onComplete(newResults as FitnessTestResults);
     }
   };
@@ -116,16 +146,25 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
               id="value"
               type="number"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (error) setError(''); // Clear error when user types
+              }}
               onKeyDown={(e) => e.key === "Enter" && handleNext()}
               placeholder="Enter number"
-              className="text-4xl text-center h-20 font-mono"
+              className={`text-4xl text-center h-20 font-mono ${error ? 'border-destructive' : ''}`}
               autoFocus
               data-testid="input-test-value"
             />
-            <p className="text-sm text-muted-foreground text-center">
-              {exercise.unit}
-            </p>
+            {error ? (
+              <p className="text-sm text-destructive text-center" data-testid="text-validation-error">
+                {error}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                {exercise.unit}
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">
