@@ -10,6 +10,7 @@ import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from 
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import HIITIntervalTimer from "@/components/HIITIntervalTimer";
+import LastPerformance from "@/components/LastPerformance";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -128,6 +129,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       startSessionMutation.mutate(currentWorkoutId);
     }
   };
+
+  // Fetch recent sets for the current exercise to show historical performance
+  const currentExerciseId = programExercises[currentExerciseIndex]?.exercise?.id;
+  const { data: recentSets } = useQuery<any[]>({
+    queryKey: currentExerciseId ? [`/api/workout-sets?exerciseId=${currentExerciseId}`] : [],
+    enabled: !!currentExerciseId,
+  });
 
   useEffect(() => {
     if (programDetails?.workouts) {
@@ -856,6 +864,13 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   </div>
                 </div>
               </div>
+            )}
+
+            {recentSets && recentSets.length > 0 && (
+              <LastPerformance 
+                recentSets={recentSets} 
+                unitPreference={unitPreference}
+              />
             )}
 
             <div className="text-center">
