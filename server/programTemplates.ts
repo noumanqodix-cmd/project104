@@ -87,28 +87,28 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
   {
     id: 'hybrid-balance',
     name: 'Hybrid Balance',
-    description: 'Equal emphasis on strength and cardiovascular fitness. Well-rounded athletic development.',
+    description: 'Strength-focused training with cardio finishers. Ideal for maintaining fitness and general health.',
     selectionCriteria: {
       nutritionGoals: ['maintain', 'fitness', 'athletic', 'performance', 'recomp', 'toned', 'general', 'balanced', 'healthy'],
     },
     structure: {
-      strengthFocus: 50,
-      cardioFocus: 50,
+      strengthFocus: 70,
+      cardioFocus: 30,
       movementPatternDistribution: {
         strength: ['push', 'pull', 'hinge', 'squat', 'lunge', 'carry', 'core', 'rotation'],
         cardio: ['cardio', 'plyometric'],
       },
-      cardioPlacement: 'mixed',
+      cardioPlacement: 'finisher',
       workoutStructure: {
         warmupExercises: 2,
-        mainStrengthExercises: 4,
-        cardioExercises: 2, // Balanced approach
+        mainStrengthExercises: 5,
+        cardioExercises: 1, // Cardio as finisher
       },
     },
     intensityGuidelines: {
       strengthRPE: [7, 8],
       strengthRIR: [2, 3],
-      cardioIntensity: 'varied',
+      cardioIntensity: 'moderate',
     },
   },
 ];
