@@ -144,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/onboarding-assessment/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { fitnessTest, weightsTest, experienceLevel, ...profileData} = req.body;
+      const { fitnessTest, weightsTest, experienceLevel, startDate, ...profileData} = req.body;
       
       // Convert dateOfBirth string to Date object if present
       if (profileData.dateOfBirth && typeof profileData.dateOfBirth === 'string') {
@@ -310,24 +310,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("[ONBOARDING] Workout sessions created, generating scheduled sessions");
 
-      // Generate scheduled workout sessions for the program using created programWorkouts
-      const today = new Date();
-
-      for (let week = 0; week < (newProgram.durationWeeks || 8); week++) {
-        for (const programWorkout of createdProgramWorkouts) {
-          const dayOffset = week * 7 + programWorkout.dayOfWeek;
-          const scheduledDate = new Date(today);
-          scheduledDate.setDate(today.getDate() + dayOffset);
-
-          await storage.createWorkoutSession({
-            userId,
-            programWorkoutId: programWorkout.id,
-            scheduledDate: scheduledDate,
-            workoutType: programWorkout.workoutType,
-            completed: 0,
+      // Track which days have workouts to create rest days for remaining days
+      const scheduledDays = new Set<number>();
+      for (const workout of generatedProgram.workouts) {
+        scheduledDays.add(workout.dayOfWeek);
+      }
+      
+      // Create rest days for any days not scheduled
+      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+        if (!scheduledDays.has(dayOfWeek)) {
+          const restDay = await storage.createProgramWorkout({
+            programId: newProgram.id,
+            dayOfWeek,
+            workoutName: "Rest Day",
+            movementFocus: [],
+            workoutType: null,
           });
+          createdProgramWorkouts.push(restDay);
         }
       }
+
+      // Generate workout schedule for entire program duration starting from TODAY
+      // Use client-provided startDate (user's local timezone) with fallback to server date
+      const startDateString = startDate || formatLocalDate(new Date());
+      await generateWorkoutSchedule(newProgram.id, userId, createdProgramWorkouts, newProgram.durationWeeks || 8, startDateString);
 
       console.log("[ONBOARDING] Program generation complete");
       
