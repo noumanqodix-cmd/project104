@@ -48,6 +48,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 - **Calorie Tracking System**: Incorporates MET calculations for calorie expenditure on both frontend and backend.
 - **Goal-Based Cardio Variety System**: Implements cardio type rotation based on nutrition goal to optimize training adaptations. GAIN: HIIT only (most time-efficient for heart health). MAINTAIN: Rotates between HIIT (70%) and Steady-State (30%) for balanced conditioning. LOSE: Rotates through 4 types - HIIT (40%), Steady-State (25%), Tempo (20%), Metabolic Circuits (15%) - to maximize calorie burn and prevent adaptation. Sets are automatically calculated based on goal-specific duration and fitness-level work/rest ratios.
 - **HIIT Interval Training System**: Supports HIIT with automated timers, common protocols, and custom intervals based on user's cardio equipment.
+- **Unified Program Settings**: Settings page combines nutrition goals and workout preferences into a single "Program Settings" card. Nutrition goal changes (GAIN/MAINTAIN/LOSE) trigger the same regeneration dialog as equipment, schedule, or duration changes. Goal-specific info boxes explain how each nutrition goal affects workout structure (cardio duration, frequency, and type variety). Single "Update Program Settings" button handles all program-affecting changes with async/await pattern to ensure UI state consistency.
 
 ## External Dependencies
 
