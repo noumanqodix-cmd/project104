@@ -512,12 +512,39 @@ export async function generateWorkoutProgram(
     restSeconds: 90
   });
   
-  // HIIT cardio finisher (8 intervals, 30s work, 30s rest): ~8min
-  const cardioFinisherTime = calculateExerciseTime({
-    sets: 8,
-    workSeconds: 30,
-    restSeconds: 30
-  });
+  // GOAL-SPECIFIC CARDIO CONFIGURATION
+  // Different nutrition goals require different cardio approaches
+  const nutritionGoal = user.nutritionGoal || "maintain";
+  
+  interface CardioConfig {
+    duration: number;  // Minutes
+    minSecondaries: number;  // Minimum secondary exercises needed before including cardio
+    types: string[];  // Available cardio types for this goal
+  }
+  
+  const cardioConfigs: Record<string, CardioConfig> = {
+    gain: {
+      duration: 5.5,  // Short HIIT for heart health without impacting recovery
+      minSecondaries: 3,  // Need 3 secondaries before adding cardio
+      types: ["hiit"]  // HIIT only - most time-efficient
+    },
+    maintain: {
+      duration: 7.5,  // Standard cardio duration
+      minSecondaries: 2,  // Need 2 secondaries before adding cardio
+      types: ["hiit", "steady-state"]  // Mix HIIT and steady-state
+    },
+    lose: {
+      duration: 9,  // Extended cardio for max calorie burn
+      minSecondaries: 1,  // Only need 1 secondary before adding cardio
+      types: ["hiit", "steady-state", "tempo", "circuit"]  // All cardio modalities
+    }
+  };
+  
+  const cardioConfig = cardioConfigs[nutritionGoal];
+  console.log(`[CARDIO-CONFIG] Nutrition goal: ${nutritionGoal}, cardio duration: ${cardioConfig.duration}min, min secondaries: ${cardioConfig.minSecondaries}`);
+  
+  // Calculate cardio finisher time based on goal
+  const cardioFinisherTime = cardioConfig.duration;
   
   // PRECISE TIME-AWARE ALLOCATION
   // Account for the fact that first 2 main exercises are ALWAYS primary compounds (13.5min each)
@@ -531,15 +558,11 @@ export async function generateWorkoutProgram(
   timeRemaining -= warmupCount * warmupTimePerExercise;
   console.log(`[TIME-ALLOC] After ${warmupCount} warmups: ${timeRemaining.toFixed(1)}min remaining`);
   
-  // Step 2: Intelligently allocate primaries, secondaries, and cardio
+  // Step 2: Dynamically allocate primaries, secondaries, and cardio based on nutrition goal
   let primaryCount = 0;
   let secondaryCount = 0;
   let cardioCount = 0;
   const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
-  
-  // Calculate minimum requirements
-  const minForGoodWorkout = primaryCompoundTime * 2 + secondaryCompoundTime * 2; // 2 primaries + 2 secondaries
-  const minWithCardio = minForGoodWorkout + cardioFinisherTime; // Add cardio on top
   
   if (timeRemaining >= primaryCompoundTime * 2) {
     // Have room for 2 primary compounds
@@ -548,11 +571,14 @@ export async function generateWorkoutProgram(
     console.log(`[TIME-ALLOC] After 2 primary compounds: ${timeRemaining.toFixed(1)}min remaining`);
     
     // Check if we should reserve cardio before filling with secondaries
-    if (templateWantsCardio && timeRemaining >= (secondaryCompoundTime * 2 + cardioFinisherTime)) {
-      // Have room for 2+ secondaries AND cardio - reserve cardio now
+    // Use goal-specific minimum secondaries requirement
+    const minRequiredForCardio = (cardioConfig.minSecondaries * secondaryCompoundTime) + cardioFinisherTime;
+    
+    if (templateWantsCardio && timeRemaining >= minRequiredForCardio) {
+      // Have room for minimum secondaries AND cardio - reserve cardio now
       cardioCount = 1;
       timeRemaining -= cardioFinisherTime;
-      console.log(`[TIME-ALLOC] Reserved cardio finisher: ${timeRemaining.toFixed(1)}min remaining for secondaries`);
+      console.log(`[TIME-ALLOC] Reserved ${cardioFinisherTime}min cardio finisher (${nutritionGoal} goal): ${timeRemaining.toFixed(1)}min remaining for secondaries`);
     }
     
     // Fill remaining time with secondary compounds
@@ -567,7 +593,7 @@ export async function generateWorkoutProgram(
     timeRemaining -= primaryCompoundTime;
     console.log(`[TIME-ALLOC] After 1 primary compound: ${timeRemaining.toFixed(1)}min remaining`);
     
-    // Fill with secondary compounds (no cardio for short sessions)
+    // Fill with secondary compounds (no cardio for very short sessions)
     secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
     if (secondaryCount > 0) {
       timeRemaining -= secondaryCount * secondaryCompoundTime;
