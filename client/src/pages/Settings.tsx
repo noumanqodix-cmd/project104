@@ -84,6 +84,7 @@ export default function Settings() {
   const [originalEquipment, setOriginalEquipment] = useState<string[]>([]);
   const [originalDaysPerWeek, setOriginalDaysPerWeek] = useState(3);
   const [originalWorkoutDuration, setOriginalWorkoutDuration] = useState(60);
+  const [originalGoal, setOriginalGoal] = useState("maintain");
 
   useEffect(() => {
     if (user) {
@@ -98,6 +99,7 @@ export default function Settings() {
       setOriginalEquipment(user.equipment || []);
       setOriginalDaysPerWeek(user.daysPerWeek || 3);
       setOriginalWorkoutDuration(user.workoutDuration || 60);
+      setOriginalGoal(user.nutritionGoal || "maintain");
       
       const isMetric = unitPreference === 'metric';
       if (user.height) {
@@ -182,11 +184,6 @@ export default function Settings() {
     });
   };
 
-  const handleSaveGoal = () => {
-    updateProfileMutation.mutate({
-      nutritionGoal: selectedGoal,
-    });
-  };
 
   const handleSubmitTicket = () => {
     if (!helpTicket.trim()) {
@@ -241,8 +238,9 @@ export default function Settings() {
     const equipmentChanged = JSON.stringify([...selectedEquipment].sort()) !== JSON.stringify([...originalEquipment].sort());
     const daysChanged = daysPerWeek !== originalDaysPerWeek;
     const durationChanged = workoutDuration !== originalWorkoutDuration;
+    const goalChanged = selectedGoal !== originalGoal;
     
-    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged;
+    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged || goalChanged;
     
     if (programAffectingChanges) {
       // Show dialog asking if user wants new program or just update settings
@@ -250,6 +248,7 @@ export default function Settings() {
     } else {
       // No program-affecting changes, just save
       updateProfileMutation.mutate({
+        nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
         workoutDuration,
@@ -258,26 +257,35 @@ export default function Settings() {
     }
   };
   
-  const handleKeepCurrentProgram = () => {
-    // Just save preferences, don't generate new program
-    updateProfileMutation.mutate({
-      equipment: selectedEquipment,
-      daysPerWeek,
-      workoutDuration,
-      selectedDays,
-    });
-    setShowProgramUpdateDialog(false);
-    
-    // Update original values so dialog doesn't show again
-    setOriginalEquipment(selectedEquipment);
-    setOriginalDaysPerWeek(daysPerWeek);
-    setOriginalWorkoutDuration(workoutDuration);
+  const handleKeepCurrentProgram = async () => {
+    try {
+      // Save preferences and wait for completion
+      await updateProfileMutation.mutateAsync({
+        nutritionGoal: selectedGoal,
+        equipment: selectedEquipment,
+        daysPerWeek,
+        workoutDuration,
+        selectedDays,
+      });
+      
+      setShowProgramUpdateDialog(false);
+      
+      // Update original values only after successful save
+      setOriginalGoal(selectedGoal);
+      setOriginalEquipment(selectedEquipment);
+      setOriginalDaysPerWeek(daysPerWeek);
+      setOriginalWorkoutDuration(workoutDuration);
+    } catch (error) {
+      // If save fails, keep dialog open so user can retry
+      console.error("Failed to save preferences:", error);
+    }
   };
   
   const handleGenerateNewProgram = async () => {
     try {
       // Save preferences first and wait for completion
       await updateProfileMutation.mutateAsync({
+        nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
         workoutDuration,
@@ -291,6 +299,7 @@ export default function Settings() {
       generateNewProgramMutation.mutate();
       
       // Update original values
+      setOriginalGoal(selectedGoal);
       setOriginalEquipment(selectedEquipment);
       setOriginalDaysPerWeek(daysPerWeek);
       setOriginalWorkoutDuration(workoutDuration);
@@ -576,14 +585,14 @@ export default function Settings() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              <CardTitle>Fitness Goals</CardTitle>
+              <Dumbbell className="h-5 w-5" />
+              <CardTitle>Program Settings</CardTitle>
             </div>
-            <CardDescription>Update your nutrition and fitness objectives</CardDescription>
+            <CardDescription>Configure your workout program and fitness goals</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="goal">Primary Goal</Label>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="goal">Nutrition Goal</Label>
               <Select value={selectedGoal} onValueChange={setSelectedGoal}>
                 <SelectTrigger id="goal" data-testid="select-goal">
                   <SelectValue />
@@ -594,32 +603,45 @@ export default function Settings() {
                   <SelectItem value="gain">Gain Muscle</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {/* Goal-specific descriptions */}
+              {selectedGoal === "gain" && (
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <p className="text-sm font-medium text-primary">Muscle Gain Focus</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Prioritizes lifting volume with minimal cardio (5.5min HIIT only). Cardio included only when you have 3+ secondary exercises.
+                  </p>
+                </div>
+              )}
+              
+              {selectedGoal === "maintain" && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Balanced Training</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Balanced strength and cardio mix (7.5min alternating HIIT/Steady-State). Cardio included when you have 2+ secondary exercises.
+                  </p>
+                </div>
+              )}
+              
+              {selectedGoal === "lose" && (
+                <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Fat Loss Focus</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Maximizes calorie burn with varied cardio (9min rotating through 4 types). Cardio included when you have 1+ secondary exercise.
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-1">
+                <Label className="text-sm">Daily Calorie Target</Label>
+                <p className="text-base font-semibold" data-testid="text-calories">
+                  {user?.targetCalories || '-'} calories
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Daily Calorie Target</Label>
-              <p className="text-lg font-semibold" data-testid="text-calories">
-                {user?.targetCalories || '-'} calories
-              </p>
-            </div>
-            <Button 
-              onClick={handleSaveGoal}
-              disabled={updateProfileMutation.isPending}
-              data-testid="button-save-goal"
-            >
-              {updateProfileMutation.isPending ? "Saving..." : "Update Goal"}
-            </Button>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Dumbbell className="h-5 w-5" />
-              <CardTitle>Workout Preferences</CardTitle>
-            </div>
-            <CardDescription>Customize your training program</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            <Separator />
+
             <div className="space-y-2">
               <Label>Available Equipment</Label>
               <div className="grid grid-cols-2 gap-3">
@@ -741,9 +763,9 @@ export default function Settings() {
               onClick={handleSaveWorkoutPreferences}
               disabled={updateProfileMutation.isPending}
               className="w-full"
-              data-testid="button-save-workout-preferences"
+              data-testid="button-save-program-settings"
             >
-              {updateProfileMutation.isPending ? "Saving..." : "Save Workout Preferences"}
+              {updateProfileMutation.isPending ? "Saving..." : "Update Program Settings"}
             </Button>
           </CardContent>
         </Card>
