@@ -27,6 +27,7 @@ export default function Home() {
   const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
   const [showMissedWorkoutDialog, setShowMissedWorkoutDialog] = useState(false);
   const [missedWorkoutData, setMissedWorkoutData] = useState<{ count: number; dateRange: string }>({ count: 0, dateRange: '' });
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
@@ -47,6 +48,18 @@ export default function Home() {
 
   const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<ProgramWorkout[]>({
     queryKey: ["/api/program-workouts", activeProgram?.id],
+    enabled: !!activeProgram?.id,
+  });
+
+  // Check for 4-week program completion
+  const { data: completionCheck } = useQuery<{
+    shouldPrompt: boolean;
+    reason: string;
+    programWeeks: number;
+    completedWorkouts: number;
+    totalExpectedWorkouts: number;
+  }>({
+    queryKey: ["/api/programs/completion-check"],
     enabled: !!activeProgram?.id,
   });
 
@@ -254,6 +267,13 @@ export default function Home() {
       }
     }
   }, [missedWorkoutsResponse]);
+
+  // Check for 4-week program completion
+  useEffect(() => {
+    if (completionCheck?.shouldPrompt && !showMissedWorkoutDialog) {
+      setShowCompletionDialog(true);
+    }
+  }, [completionCheck?.shouldPrompt, showMissedWorkoutDialog]);
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const totalCompletedSessions = completedSessions.length;
@@ -831,6 +851,68 @@ export default function Home() {
         onSkip={() => skipMissedWorkoutsMutation.mutate()}
         isProcessing={resetProgramMutation.isPending || skipMissedWorkoutsMutation.isPending}
       />
+
+      {/* 4-Week Program Completion Dialog */}
+      <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              {completionCheck?.reason === 'all_workouts_completed' 
+                ? 'Congratulations! Program Completed!' 
+                : '4-Week Checkpoint Reached!'}
+            </DialogTitle>
+            <DialogDescription>
+              {completionCheck?.reason === 'all_workouts_completed' ? (
+                <>You've completed all {completionCheck.completedWorkouts} workouts! Time to reassess your progress and decide your next steps.</>
+              ) : (
+                <>You've reached the 4-week mark of your program. Let's evaluate your progress and see how far you've come!</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+              <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Workouts Completed</p>
+                <p className="text-xs text-muted-foreground">
+                  {completionCheck?.completedWorkouts} / {completionCheck?.totalExpectedWorkouts} workouts
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Next Steps:</p>
+              <p className="text-sm text-muted-foreground">
+                Retake your fitness test to see your improvements, then generate a new program tailored to your current strength level, or continue with your existing program.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Button 
+              onClick={() => {
+                setShowCompletionDialog(false);
+                setLocation("/fitness-test");
+              }}
+              className="w-full"
+              data-testid="button-retake-fitness-test"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Retake Fitness Test & Generate New Program
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowCompletionDialog(false)}
+              className="w-full"
+              data-testid="button-keep-current-program"
+            >
+              Keep Current Program
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

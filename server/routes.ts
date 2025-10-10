@@ -1427,6 +1427,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/programs/completion-check", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      const program = await storage.getUserActiveProgram(userId);
+      if (!program) {
+        return res.json({ shouldPrompt: false, reason: "no_active_program" });
+      }
+
+      // Check if program is 4 weeks old (28 days)
+      const programCreatedDate = new Date(program.createdAt);
+      const fourWeeksAgo = new Date();
+      fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+      const isProgramOldEnough = programCreatedDate <= fourWeeksAgo;
+
+      // Check if user has completed all workouts in the 4-week program
+      const allSessions = await storage.getUserSessions(userId);
+      
+      // Get workout IDs that belong to the current program
+      const programWorkouts = await storage.getProgramWorkouts(program.id);
+      const programWorkoutIds = new Set(programWorkouts.map(pw => pw.id));
+      
+      const programSessions = allSessions.filter(s => {
+        // Sessions belong to this program if they have a programWorkoutId from this specific program
+        return s.programWorkoutId && programWorkoutIds.has(s.programWorkoutId);
+      });
+
+      const completedWorkouts = programSessions.filter(s => s.completed === 1 && s.sessionType === "workout");
+      
+      // Get total workout days in program (exclude rest days)
+      const totalWorkoutDays = programWorkouts.filter(pw => pw.workoutType !== null).length;
+      
+      // For 4-week program: typically 4 weeks × number of workout days per week
+      const expectedCompletedWorkouts = totalWorkoutDays * 4; // 4 weeks
+
+      const hasCompletedAllWorkouts = completedWorkouts.length >= expectedCompletedWorkouts;
+
+      // Prompt if program is old enough OR user has completed all workouts
+      const shouldPrompt = isProgramOldEnough || hasCompletedAllWorkouts;
+
+      res.json({
+        shouldPrompt,
+        reason: hasCompletedAllWorkouts ? "all_workouts_completed" : isProgramOldEnough ? "program_duration_reached" : "not_yet",
+        programWeeks: 4,
+        completedWorkouts: completedWorkouts.length,
+        totalExpectedWorkouts: expectedCompletedWorkouts,
+      });
+    } catch (error) {
+      console.error("Completion check error:", error);
+      res.status(500).json({ error: "Failed to check program completion" });
+    }
+  });
+
   app.get("/api/programs/archived", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
