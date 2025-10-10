@@ -1437,7 +1437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if program is 4 weeks old (28 days)
-      const programCreatedDate = new Date(program.createdAt);
+      const programCreatedDate = new Date(program.createdDate);
       const fourWeeksAgo = new Date();
       fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
