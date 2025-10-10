@@ -128,13 +128,83 @@ function selectExercisesByPattern(
   return selected;
 }
 
+// Helper function to identify weak movement patterns from fitness assessment
+function identifyWeakMovementPatterns(assessment: FitnessAssessment, user: User): string[] {
+  const weakPatterns: string[] = [];
+  const experienceLevel = assessment.experienceLevel || user.fitnessLevel || "beginner";
+  
+  // Beginners don't get supersets - they need full recovery
+  if (experienceLevel === "beginner") {
+    return [];
+  }
+  
+  // Define thresholds based on experience level
+  const thresholds = {
+    intermediate: {
+      pushups: 30,
+      pullups: 8,
+      squats: 50,
+      plankHold: 60,
+    },
+    advanced: {
+      pushups: 50,
+      pullups: 15,
+      squats: 75,
+      plankHold: 90,
+    },
+  };
+  
+  const threshold = thresholds[experienceLevel as 'intermediate' | 'advanced'] || thresholds.intermediate;
+  
+  // Check push strength (chest, shoulders, triceps)
+  if (assessment.pushups !== null && assessment.pushups !== undefined && assessment.pushups < threshold.pushups) {
+    weakPatterns.push('push');
+  }
+  
+  // Check pull strength (back, biceps)
+  if (assessment.pullups !== null && assessment.pullups !== undefined && assessment.pullups < threshold.pullups) {
+    weakPatterns.push('pull');
+  }
+  
+  // Check lower body strength (quads, glutes, hamstrings)
+  if (assessment.squats !== null && assessment.squats !== undefined && assessment.squats < threshold.squats) {
+    weakPatterns.push('squat');
+  }
+  
+  // Check core strength
+  if (assessment.plankHold !== null && assessment.plankHold !== undefined && assessment.plankHold < threshold.plankHold) {
+    weakPatterns.push('core');
+  }
+  
+  return weakPatterns;
+}
+
+// Helper function to find isolation exercise for superset pairing
+function findIsolationExercise(
+  pattern: string,
+  availableExercises: Exercise[],
+  usedExerciseIds: Set<string>,
+  userEquipment: string[]
+): Exercise | null {
+  const isolationExercises = availableExercises.filter(ex => 
+    ex.movementPattern === pattern &&
+    ex.liftType === 'isolation' &&
+    !usedExerciseIds.has(ex.id) &&
+    ex.equipment?.some(eq => userEquipment?.includes(eq) || eq === 'bodyweight')
+  );
+  
+  return isolationExercises.length > 0 ? isolationExercises[0] : null;
+}
+
 // Helper function to assign training parameters based on fitness level
 function assignTrainingParameters(
   exercise: Exercise,
   fitnessLevel: string,
   template: ProgramTemplate,
   assessment: FitnessAssessment,
-  user: User
+  user: User,
+  supersetGroup?: string,
+  supersetOrder?: number
 ): {
   sets: number;
   repsMin?: number;
@@ -145,6 +215,8 @@ function assignTrainingParameters(
   recommendedWeight?: number;
   durationSeconds?: number;
   workSeconds?: number;
+  supersetGroup?: string;
+  supersetOrder?: number;
 } {
   // Base parameters by fitness level
   const baseSets = fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 4;
@@ -251,6 +323,8 @@ function assignTrainingParameters(
     targetRPE: template.intensityGuidelines.strengthRPE[fitnessLevel === "beginner" ? 0 : 1],
     targetRIR: template.intensityGuidelines.strengthRIR[fitnessLevel === "beginner" ? 1 : 0],
     recommendedWeight,
+    supersetGroup,
+    supersetOrder,
   };
 }
 
@@ -382,6 +456,9 @@ export async function generateWorkoutProgram(
       const mainCount = selectedTemplate.structure.workoutStructure.mainStrengthExercises;
       const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
       
+      // Track compound exercises for potential superset pairing
+      const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
+      
       // Distribute exercises across movement patterns
       const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
       
@@ -398,9 +475,78 @@ export async function generateWorkoutProgram(
             ...params,
           });
           movementFocus.push(pattern);
+          
+          // Track compound exercises for superset logic
+          if (ex.liftType === 'compound') {
+            compoundExercises.push({ exercise: ex, pattern });
+          }
         }
         
         if (exercises.length >= mainCount + warmupCount) break;
+      }
+      
+      // Strategic superset logic: Add isolation exercises for weak patterns
+      // Only for intermediate/advanced users with ≤4 workout days
+      const shouldAddSupersets = 
+        fitnessLevel !== 'beginner' && 
+        daysPerWeek <= 4 && 
+        compoundExercises.length > 0;
+      
+      if (shouldAddSupersets) {
+        const weakPatterns = identifyWeakMovementPatterns(latestAssessment, user);
+        let supersetsAdded = 0;
+        const maxSupersets = 2; // Limit to 2 supersets per workout
+        const supersetGroups = ['A', 'B', 'C'];
+        
+        for (const weakPattern of weakPatterns) {
+          if (supersetsAdded >= maxSupersets) break;
+          
+          // Find a compound exercise with this pattern
+          const compoundIndex = compoundExercises.findIndex(ce => ce.pattern === weakPattern);
+          if (compoundIndex === -1) continue;
+          
+          // Find matching isolation exercise
+          const isolationEx = findIsolationExercise(
+            weakPattern,
+            availableExercises,
+            usedExerciseIds,
+            user.equipment || []
+          );
+          
+          if (isolationEx) {
+            // Mark the compound exercise with superset group
+            const compoundExInList = exercises.find(
+              e => e.exerciseName === compoundExercises[compoundIndex].exercise.name && !e.isWarmup
+            );
+            if (compoundExInList) {
+              const supersetGroup = supersetGroups[supersetsAdded];
+              compoundExInList.supersetGroup = supersetGroup;
+              compoundExInList.supersetOrder = 1;
+              
+              // Add isolation exercise with same superset group
+              const isolationParams = assignTrainingParameters(
+                isolationEx,
+                fitnessLevel,
+                selectedTemplate,
+                latestAssessment,
+                user,
+                supersetGroup,
+                2
+              );
+              
+              exercises.push({
+                exerciseName: isolationEx.name,
+                equipment: isolationEx.equipment?.[0] || "bodyweight",
+                ...isolationParams,
+              });
+              movementFocus.push(weakPattern);
+              usedExerciseIds.add(isolationEx.id);
+              supersetsAdded++;
+              
+              console.log(`[SUPERSET] Added ${supersetGroup}: ${compoundExInList.exerciseName} + ${isolationEx.name} for weak ${weakPattern}`);
+            }
+          }
+        }
       }
       
       // Add cardio exercises based on template
