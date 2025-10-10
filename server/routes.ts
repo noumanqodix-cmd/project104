@@ -2227,24 +2227,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const movementDifficulties = getMovementDifficultiesMap(movementLevels, fitnessLevel);
       
-      const allExercises = await storage.getAllExercises();
+      // Get allowed difficulty levels for this movement pattern
+      const allowedDifficulties = movementDifficulties[movementPattern as keyof typeof movementDifficulties] || ['beginner'];
       
-      // Filter by movement pattern, broad muscle groups, AND difficulty level
-      // Note: primaryMuscles now contains broad groups (chest, shoulders, back, core, legs, arms, grip)
-      // while secondaryMuscles contains specific anatomical details
-      const similarExercises = allExercises.filter(ex => {
-        // Include same exercise (for equipment variants) OR different exercises
-        if (ex.movementPattern !== movementPattern) return false;
-        
-        // Match broad muscle groups (e.g., "chest" matches exercises with "chest" in primaryMuscles)
+      // Database-level filtering: fetch only exercises matching movement pattern and difficulty
+      const { sql: sqlFunc } = await import("drizzle-orm");
+      const { exercises: exercisesTable } = await import("@shared/schema");
+      const { db } = await import("./db");
+      
+      const candidateExercises = await db.select()
+        .from(exercisesTable)
+        .where(
+          sqlFunc`${exercisesTable.movementPattern} = ${movementPattern} 
+              AND ${exercisesTable.difficulty} = ANY(ARRAY[${sqlFunc.join(allowedDifficulties.map(d => sqlFunc`${d}`), sqlFunc`, `)}]::text[])`
+        );
+      
+      // Client-side filtering: only filter by muscle groups now
+      const similarExercises = candidateExercises.filter(ex => {
+        // Match broad muscle groups
         const hasMatchingMuscle = primaryMuscles.some((muscle: string) => 
           ex.primaryMuscles.includes(muscle)
         );
-        
-        if (!hasMatchingMuscle) return false;
-        
-        // Apply difficulty filtering based on user's movement pattern level
-        return checkExerciseAllowed(ex, movementDifficulties, fitnessLevel);
+        return hasMatchingMuscle;
       });
 
       // Build results with equipment variants

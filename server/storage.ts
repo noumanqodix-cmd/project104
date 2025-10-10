@@ -80,7 +80,7 @@ import {
   workoutSessions, 
   workoutSets 
 } from "@shared/schema";
-import { eq, desc, and, inArray, gte } from "drizzle-orm";
+import { eq, desc, and, inArray, gte, sql } from "drizzle-orm";
 
 export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -188,10 +188,13 @@ export class DbStorage implements IStorage {
   }
 
   async getExercisesByEquipment(equipment: string[]): Promise<Exercise[]> {
-    const allExercises = await this.getAllExercises();
-    return allExercises.filter((ex) =>
-      ex.equipment?.some((eq) => equipment.includes(eq) || eq === "bodyweight")
-    );
+    // Database-level filtering using array overlap operator
+    // Equipment array includes bodyweight by default since it's always available
+    const equipmentWithBodyweight = Array.from(new Set([...equipment, "bodyweight"]));
+    
+    return db.select()
+      .from(exercises)
+      .where(sql`${exercises.equipment} && ARRAY[${sql.join(equipmentWithBodyweight.map(eq => sql`${eq}`), sql`, `)}]::text[]`);
   }
 
   async deleteExercise(id: string): Promise<void> {
@@ -361,25 +364,26 @@ export class DbStorage implements IStorage {
   }
 
   async getUserRecentSets(userId: string, exerciseId: string, limit: number): Promise<WorkoutSet[]> {
-    const userSessions = await this.getUserSessions(userId);
-    const sessionIds = userSessions.map((s) => s.id);
-    
-    if (sessionIds.length === 0) {
-      return [];
-    }
-
-    const matchingProgramExercises = await db.select().from(programExercises)
-      .where(eq(programExercises.exerciseId, exerciseId));
-    const programExerciseIds = matchingProgramExercises.map((pe) => pe.id);
-    
-    if (programExerciseIds.length === 0) {
-      return [];
-    }
-
-    return db.select().from(workoutSets)
+    // Optimize with database-level JOIN instead of fetching all sessions first
+    // This reduces data transfer and filtering on the client side
+    return db.select({
+      id: workoutSets.id,
+      sessionId: workoutSets.sessionId,
+      programExerciseId: workoutSets.programExerciseId,
+      setNumber: workoutSets.setNumber,
+      reps: workoutSets.reps,
+      weight: workoutSets.weight,
+      durationSeconds: workoutSets.durationSeconds,
+      rir: workoutSets.rir,
+      completed: workoutSets.completed,
+      timestamp: workoutSets.timestamp,
+    })
+      .from(workoutSets)
+      .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+      .innerJoin(programExercises, eq(workoutSets.programExerciseId, programExercises.id))
       .where(and(
-        inArray(workoutSets.sessionId, sessionIds),
-        inArray(workoutSets.programExerciseId, programExerciseIds),
+        eq(workoutSessions.userId, userId),
+        eq(programExercises.exerciseId, exerciseId),
         eq(workoutSets.completed, 1)
       ))
       .orderBy(desc(workoutSets.timestamp))
