@@ -1213,9 +1213,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingPrograms = await storage.getUserPrograms(userId);
       for (const oldProgram of existingPrograms) {
         if (oldProgram.isActive === 1) {
-          // Delete incomplete workout sessions from old program before archiving
-          await storage.deleteIncompleteProgramSessions(oldProgram.id);
-          
           await storage.updateWorkoutProgram(oldProgram.id, { 
             isActive: 0,
             archivedDate: new Date(),
@@ -1300,11 +1297,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Delete all incomplete future sessions from today onwards to prevent duplicates
+      // Archive ALL sessions (completed and incomplete) from today onwards to prevent duplicates
       // Use client-provided startDate (user's local timezone) with fallback to server date
       const todayString = startDate || formatLocalDate(new Date());
-      const deletedCount = await storage.deleteFutureSessions(userId, todayString);
-      console.log(`[REGENERATE] Deleted ${deletedCount} incomplete future sessions from ${todayString} onwards`);
+      const archivedCount = await storage.archiveFutureSessions(userId, todayString);
+      console.log(`[REGENERATE] Archived ${archivedCount} sessions from ${todayString} onwards`);
 
       // Generate workout schedule for entire program duration starting from user's today
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, todayString);

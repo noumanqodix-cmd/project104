@@ -287,7 +287,10 @@ export class DbStorage implements IStorage {
 
   async getUserSessions(userId: string): Promise<WorkoutSession[]> {
     return db.select().from(workoutSessions)
-      .where(eq(workoutSessions.userId, userId))
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.isArchived, 0)
+      ))
       .orderBy(desc(workoutSessions.sessionDate));
   }
 
@@ -298,8 +301,11 @@ export class DbStorage implements IStorage {
     startDate?: string, 
     endDate?: string
   ): Promise<{ sessions: WorkoutSession[], total: number }> {
-    // Build where conditions
-    const conditions = [eq(workoutSessions.userId, userId)];
+    // Build where conditions - exclude archived sessions
+    const conditions = [
+      eq(workoutSessions.userId, userId),
+      eq(workoutSessions.isArchived, 0)
+    ];
     
     if (startDate) {
       conditions.push(gte(workoutSessions.scheduledDate, startDate));
@@ -372,19 +378,25 @@ export class DbStorage implements IStorage {
       ));
   }
 
-  async deleteFutureSessions(userId: string, fromDate: string): Promise<number> {
-    // Delete INCOMPLETE sessions from the specified date onwards for the user
-    // This ensures only one session per date when regenerating programs
-    // Preserves completed sessions to maintain workout history
-    const result = await db.delete(workoutSessions)
+  async archiveFutureSessions(userId: string, fromDate: string): Promise<number> {
+    // Archive ALL sessions (completed and incomplete) from the specified date onwards
+    // This prevents duplicate sessions when regenerating programs
+    // Archived sessions are hidden from the UI but preserved for history
+    const result = await db.update(workoutSessions)
+      .set({ isArchived: 1 })
       .where(and(
         eq(workoutSessions.userId, userId),
-        gte(workoutSessions.scheduledDate, fromDate),
-        eq(workoutSessions.completed, 0)
+        gte(workoutSessions.scheduledDate, fromDate)
       ))
       .returning();
     
     return result.length;
+  }
+
+  async deleteFutureSessions(userId: string, fromDate: string): Promise<number> {
+    // DEPRECATED: Use archiveFutureSessions instead
+    // This method kept for backwards compatibility but should not be used
+    return this.archiveFutureSessions(userId, fromDate);
   }
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {

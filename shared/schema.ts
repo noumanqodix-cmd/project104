@@ -201,6 +201,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   durationMinutes: integer("duration_minutes"),
   caloriesBurned: integer("calories_burned"),
   notes: text("notes"),
+  isArchived: integer("is_archived").notNull().default(0),
 });
 
 export const workoutSets = pgTable("workout_sets", {
