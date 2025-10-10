@@ -231,18 +231,9 @@ export async function generateWorkoutProgram(
     cardio: movementDifficulties.cardio,
   });
 
-  // Filter exercises by equipment and difficulty
-
-  // Include main exercises (functional AND isolation) plus warmup exercises, filtered by movement-specific difficulty
-  const mainExercises = availableExercises
-    .filter((ex) => 
-      ex.exerciseType !== "cooldown" && // Include main (functional + isolation) and warmup, exclude cooldown
-      ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
-      isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
-    )
-    .slice(0, 80); // Isolation exercises will be filtered by difficulty (intermediate/advanced only)
-
-  // Separate warmup exercises for explicit reference, filtered by movement-specific difficulty
+  // OPTIMIZATION: Pre-filter exercises by equipment and difficulty ONCE before loop
+  // This prevents repeated filtering in the workout generation loop
+  
   const warmupExercises = availableExercises
     .filter((ex) => 
       ex.exerciseType === "warmup" &&
@@ -251,7 +242,6 @@ export async function generateWorkoutProgram(
     )
     .slice(0, 30);
 
-  // Separate cardio/HIIT exercises for HIIT workouts, filtered by cardio-specific difficulty
   const cardioExercises = availableExercises
     .filter((ex) => 
       ex.movementPattern === "cardio" &&
@@ -259,6 +249,29 @@ export async function generateWorkoutProgram(
       isExerciseAllowed(ex, movementDifficulties, fitnessLevel)
     )
     .slice(0, 30);
+
+  // Pre-filter main exercises by movement pattern for faster lookup
+  const exercisesByPattern: { [key: string]: Exercise[] } = {
+    push: [],
+    pull: [],
+    squat: [],
+    lunge: [],
+    hinge: [],
+    core: [],
+    carry: [],
+    rotation: [],
+    plyometric: [],
+  };
+
+  // Single pass through exercises to categorize by pattern
+  availableExercises.forEach((ex) => {
+    if (ex.exerciseType !== "cooldown" && 
+        ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+        isExerciseAllowed(ex, movementDifficulties, fitnessLevel) &&
+        exercisesByPattern[ex.movementPattern]) {
+      exercisesByPattern[ex.movementPattern].push(ex);
+    }
+  });
 
   //  Determine scheduled days for the week
   const daySchedules: { [key: number]: number[] } = {
@@ -324,7 +337,9 @@ export async function generateWorkoutProgram(
       const exercisesPerPattern = Math.ceil(mainCount / strengthPatterns.length);
       
       for (const pattern of strengthPatterns) {
-        const selected = selectExercisesByPattern(mainExercises, pattern, exercisesPerPattern, usedExerciseIds);
+        // Use pre-filtered exercises from pattern map (optimization)
+        const patternExercises = exercisesByPattern[pattern] || [];
+        const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
         
         for (const ex of selected) {
           const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user);
@@ -391,7 +406,7 @@ export async function generateWorkoutProgram(
   const program: GeneratedProgram = {
     programType: selectedTemplate.name,
     weeklyStructure: selectedTemplate.description,
-    durationWeeks: 8,
+    durationWeeks: 4, // Reduced from 8 to 4 weeks for faster generation and progress check
     workouts,
   };
   

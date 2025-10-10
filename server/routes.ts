@@ -65,10 +65,8 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
     
     console.log(`Creating ${sessions.length} workout sessions for program ${programId}`);
     
-    // Create all sessions in database
-    for (const session of sessions) {
-      await storage.createWorkoutSession(session);
-    }
+    // OPTIMIZATION: Use batch insert instead of loop for better performance
+    await storage.createWorkoutSessionsBatch(sessions);
     
     console.log(`Successfully created ${sessions.length} workout sessions`);
     return sessions.length;

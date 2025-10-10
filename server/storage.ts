@@ -53,6 +53,7 @@ export interface IStorage {
   updateProgramExercise(id: string, updates: Partial<ProgramExercise>): Promise<ProgramExercise | undefined>;
   
   createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
+  createWorkoutSessionsBatch(sessions: InsertWorkoutSession[]): Promise<WorkoutSession[]>;
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
   getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
@@ -265,6 +266,14 @@ export class DbStorage implements IStorage {
   async createWorkoutSession(insertSession: InsertWorkoutSession): Promise<WorkoutSession> {
     const result = await db.insert(workoutSessions).values(insertSession).returning();
     return result[0];
+  }
+
+  async createWorkoutSessionsBatch(insertSessions: InsertWorkoutSession[]): Promise<WorkoutSession[]> {
+    if (insertSessions.length === 0) {
+      return [];
+    }
+    const result = await db.insert(workoutSessions).values(insertSessions).returning();
+    return result;
   }
 
   async getWorkoutSession(id: string): Promise<WorkoutSession | undefined> {
