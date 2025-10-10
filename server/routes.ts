@@ -1297,11 +1297,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Archive ALL sessions (completed and incomplete) from today onwards to prevent duplicates
+      // Two-phase cleanup: Archive completed sessions, delete incomplete sessions
       // Use client-provided startDate (user's local timezone) with fallback to server date
       const todayString = startDate || formatLocalDate(new Date());
-      const archivedCount = await storage.archiveFutureSessions(userId, todayString);
-      console.log(`[REGENERATE] Archived ${archivedCount} sessions from ${todayString} onwards`);
+      const { archived, deleted } = await storage.cleanupSessionsForRegeneration(userId, todayString);
+      console.log(`[REGENERATE] Archived ${archived} completed sessions, deleted ${deleted} incomplete sessions from ${todayString} onwards`);
 
       // Generate workout schedule for entire program duration starting from user's today
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, todayString);
@@ -1780,30 +1780,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "This is a workout day, not a rest day. You can only add cardio to rest days." });
       }
 
-      // Archive the existing rest session
-      await storage.updateWorkoutSession(sessionOnDate.id, {
-        status: "archived"
-      });
-
-      // Create a new cardio session with the same scheduled date
+      // Replace the rest session with cardio by updating it in place
+      // This ensures only one session per day exists
       const duration = suggestedDuration || 30; // Default 30 minutes
-      const newCardioSession = await storage.createWorkoutSession({
-        userId,
-        scheduledDate: formatLocalDate(sessionScheduledDate),
+      const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
         sessionType: "workout",
         workoutType: "cardio",
         workoutName: "Zone 2 Cardio",
         notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
-        completed: 0,
         status: "scheduled"
       });
 
-      if (!newCardioSession) {
-        return res.status(500).json({ error: "Failed to create cardio session" });
+      if (!updatedSession) {
+        return res.status(500).json({ error: "Failed to update session to cardio" });
       }
 
-      console.log('[CARDIO] Successfully replaced rest session with cardio:', newCardioSession.id);
-      res.json(newCardioSession);
+      console.log('[CARDIO] Successfully converted rest session to cardio:', updatedSession.id);
+      res.json(updatedSession);
     } catch (error) {
       console.error("Convert to cardio session error:", error);
       res.status(500).json({ error: "Failed to convert to cardio session" });

@@ -29,7 +29,12 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 - **Workout Completion Status**: The `completed` field uses numeric values (0 or 1) consistently across all session types to ensure proper status detection on the home page.
 
 ### Feature Specifications
-- **Data Model**: The database schema includes Users, Fitness Assessments, an Exercise Database, Workout Programs (with history tracking), and Performance Tracking. Workout sessions are pre-generated with `scheduledDate` values, and session types (`workoutType`, `sessionType`) are clearly defined for data integrity. A date-based archival system archives completed or skipped sessions when the date changes, maintaining a clean workout queue while keeping status visible for the current day.
+- **Data Model**: The database schema includes Users, Fitness Assessments, an Exercise Database, Workout Programs (with history tracking), and Performance Tracking. Workout sessions are pre-generated with `scheduledDate` values, and session types (`workoutType`, `sessionType`) are clearly defined for data integrity.
+  - **Session Lifecycle Management (October 2025)**: The system enforces a strict one-session-per-day rule through a two-phase cleanup process:
+    - **Archival of Completed Sessions**: When regenerating programs, completed sessions are archived (`is_archived = 1`) to preserve historical workout data for analytics and progress tracking
+    - **Deletion of Incomplete Sessions**: Incomplete sessions from today onwards are deleted when regenerating programs to make room for the new program structure
+    - **Cardio Session Replacement**: Adding cardio to a rest day replaces (updates) the existing rest session instead of creating a duplicate, ensuring only one session exists per day
+    - **Query Filtering**: All session queries filter by `is_archived = 0` to exclude archived historical data from active workout views
 - **Comprehensive Fitness Assessment System**: The onboarding flow supports three assessment pathways:
     - **Bodyweight Test** (7 exercises): Push-ups, pull-ups, bodyweight squats, walking lunges, single-leg RDL, plank hold, and 1-mile run time
     - **Weights Test** (9 exercises): Squat 1RM, deadlift 1RM, bench press 1RM, overhead press 1RM, barbell row 1RM, dumbbell lunge 1RM, plank hold, farmer's carry 1RM, and 1-mile run time
@@ -45,13 +50,13 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
     - **Isolation Exercise Integration**: Isolation exercises are strategically used for intermediate/advanced users, paired with compound movements (agonist supersets), or to target specific weaknesses, based on user fitness assessment data. They are skipped for beginners or users with limited time/equipment.
     - **Category-Specific Difficulty Filtering**: An advanced filtering system enables independent progression across movement patterns (push, pull, squat, lunge, hinge, cardio, core, rotation, carry). Exercise selection is pre-filtered by movement pattern difficulty levels derived from fitness assessments, ensuring exercises match the user's pattern-specific fitness levels. This filtering is consistently applied across program generation using shared utilities.
     - **Progressive Overload**: Automatically adjusts exercise difficulty based on user performance and Reps in Reserve (RIR).
-    - **Daily Calendar Workflow (October 2025)**: The home page displays today's workout with a date-based archival system:
+    - **Daily Calendar Workflow (October 2025)**: The home page displays today's workout with strict one-session-per-day enforcement:
       - **Today's Display**: Shows completion states (Complete with green checkmark, Skipped with orange icon, or Pending with action buttons)
-      - **Rest Day Actions**: "Add Cardio Session" (archives rest, creates cardio) or "Complete Rest Day" (marks completed)
+      - **Rest Day Actions**: "Add Cardio Session" (replaces rest session with cardio by updating in place) or "Complete Rest Day" (marks completed)
       - **Workout Actions**: "Start Workout" or "Skip" (marks skipped with `completed=0`, `status='skipped'`)
       - **Next Workout Preview**: Always displays tomorrow's session (next calendar day), regardless of completion status or session type. Only excludes archived sessions. Shows rest days, completed workouts, or pending workouts scheduled for the next day.
-      - **Date-Based Archival**: Sessions stay visible with their completion/skipped status all day. When date changes and Home page loads, previous day's completed/skipped sessions are automatically archived via POST `/api/workout-sessions/archive-old`. Archival happens on page load, not on completion/skip action. **Important:** Archived sessions can ONLY exist for past dates, never for today's date.
-      - **Status Persistence**: Completed/skipped status remains visible for current day, only gets archived when viewing tomorrow's workout
+      - **Date-Based Archival**: Completed workout sessions from past dates can be archived for historical tracking. Incomplete sessions are deleted during program regeneration. All active session queries filter by `is_archived = 0`.
+      - **Status Persistence**: Completed/skipped status remains visible for current day
       - **Home Page Session Logic**: Explicitly excludes archived sessions when finding today's workout to ensure current session is always displayed
       - **Missed Workout Detection & Recovery (October 2025)**: When users return after missing workouts, the system automatically detects pending workouts from past dates and prompts them with recovery options:
         - **Detection**: On home page load, GET `/api/workout-sessions/missed` checks for sessions where `scheduledDate < today AND status='scheduled' AND completed=0`

@@ -55,12 +55,15 @@ export interface IStorage {
   createWorkoutSession(session: InsertWorkoutSession): Promise<WorkoutSession>;
   createWorkoutSessionsBatch(sessions: InsertWorkoutSession[]): Promise<WorkoutSession[]>;
   getWorkoutSession(id: string): Promise<WorkoutSession | undefined>;
+  getSessionByDate(userId: string, scheduledDate: string): Promise<WorkoutSession | undefined>;
   getUserSessions(userId: string): Promise<WorkoutSession[]>;
   getUserSessionsPaginated(userId: string, limit: number, offset: number, startDate?: string, endDate?: string): Promise<{ sessions: WorkoutSession[], total: number }>;
   getTodayCaloriesBurned(userId: string, startDate: Date, endDate: Date): Promise<number>;
   updateWorkoutSession(id: string, updates: Partial<WorkoutSession>): Promise<WorkoutSession | undefined>;
   deleteIncompleteProgramSessions(programId: string): Promise<void>;
-  deleteFutureSessions(userId: string, fromDate: string): Promise<number>;
+  archiveCompletedSessions(userId: string, fromDate: string): Promise<number>;
+  deleteIncompleteSessions(userId: string, fromDate: string): Promise<number>;
+  cleanupSessionsForRegeneration(userId: string, fromDate: string): Promise<{ archived: number; deleted: number }>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
   getWorkoutSet(id: string): Promise<WorkoutSet | undefined>;
@@ -378,25 +381,57 @@ export class DbStorage implements IStorage {
       ));
   }
 
-  async archiveFutureSessions(userId: string, fromDate: string): Promise<number> {
-    // Archive ALL sessions (completed and incomplete) from the specified date onwards
-    // This prevents duplicate sessions when regenerating programs
-    // Archived sessions are hidden from the UI but preserved for history
+  async archiveCompletedSessions(userId: string, fromDate: string): Promise<number> {
+    // Archive only COMPLETED sessions from the specified date onwards
+    // This preserves historical workout data while cleaning up for program regeneration
     const result = await db.update(workoutSessions)
       .set({ isArchived: 1 })
       .where(and(
         eq(workoutSessions.userId, userId),
-        gte(workoutSessions.scheduledDate, fromDate)
+        gte(workoutSessions.scheduledDate, fromDate),
+        eq(workoutSessions.completed, 1)
       ))
       .returning();
     
     return result.length;
   }
 
-  async deleteFutureSessions(userId: string, fromDate: string): Promise<number> {
-    // DEPRECATED: Use archiveFutureSessions instead
-    // This method kept for backwards compatibility but should not be used
-    return this.archiveFutureSessions(userId, fromDate);
+  async deleteIncompleteSessions(userId: string, fromDate: string): Promise<number> {
+    // Delete all INCOMPLETE sessions from the specified date onwards
+    // This cleans up pending workouts when regenerating a program
+    const result = await db.delete(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        gte(workoutSessions.scheduledDate, fromDate),
+        eq(workoutSessions.completed, 0)
+      ))
+      .returning();
+    
+    return result.length;
+  }
+
+  async cleanupSessionsForRegeneration(userId: string, fromDate: string): Promise<{ archived: number; deleted: number }> {
+    // Two-phase cleanup for program regeneration:
+    // 1. Archive completed sessions to preserve workout history
+    // 2. Delete incomplete sessions to make room for new program
+    const archived = await this.archiveCompletedSessions(userId, fromDate);
+    const deleted = await this.deleteIncompleteSessions(userId, fromDate);
+    
+    return { archived, deleted };
+  }
+
+  async getSessionByDate(userId: string, scheduledDate: string): Promise<WorkoutSession | undefined> {
+    // Get the active (non-archived) session for a specific date
+    // Ensures only one session per day is returned
+    const result = await db.select().from(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.scheduledDate, scheduledDate),
+        eq(workoutSessions.isArchived, 0)
+      ))
+      .limit(1);
+    
+    return result[0];
   }
 
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {
