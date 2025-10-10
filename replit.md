@@ -14,6 +14,12 @@ The frontend uses React 18 with TypeScript, Vite, and Wouter for routing, with R
 ### Technical Implementations
 The backend is an Express.js server developed with TypeScript, handling JSON requests/responses with CORS support. It integrates with Vite for HMR and serves static files in production. Replit Auth (OpenID Connect) is used for authentication, integrating with Passport.js for session management. PostgreSQL is the primary database, accessed via Drizzle ORM.
 
+**Performance Optimizations**:
+- **Database-Level Query Optimization**: Exercise filtering uses PostgreSQL array operators (`&&`) for equipment matching instead of client-side filtering. Strategic indexes added on workout_sessions (user_id, scheduled_date, program_workout_id), exercises (equipment GIN index, movement_pattern, difficulty_level), and program_workouts (program_id).
+- **Paginated API Endpoints**: GET `/api/workout-sessions/paginated` supports limit/offset pagination with optional date range filtering (startDate/endDate). WorkoutHistory component uses "Load More" pattern with Set-based deduplication to prevent duplicates on React Query refetches.
+- **Combined Home Data Endpoint**: GET `/api/home-data` fetches user, activeProgram, sessions, and fitnessAssessments in parallel using Promise.all, reducing 4 sequential API calls to 1 optimized request. All Home page mutations invalidate the combined cache key.
+- **Recent Sets Optimization**: Similar exercises and recent sets endpoints use JOIN queries instead of separate database calls for better performance.
+
 **Login Flow**: After OAuth callback, the system checks `/api/programs/active` to determine user status. If an active program exists, user redirects to home. If no active program, user redirects to onboarding assessment. This prevents existing users from being forced through onboarding again.
 
 **Timezone-Safe Date Handling**: The application uses a dual approach for date/time handling:
