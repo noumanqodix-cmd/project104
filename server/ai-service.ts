@@ -427,23 +427,35 @@ export async function generateWorkoutProgram(
   const mainStrengthTimePerExercise = 8; // minutes
   const cardioFinisherTime = 8; // minutes
   
-  // Calculate how many exercises fit in the available time
+  // Iteratively allocate time budget to prioritize quality strength work
   let timeRemaining = workoutDuration;
   
-  // Reserve time for warmup (2-3 exercises)
-  const warmupCount = Math.max(2, Math.min(3, Math.floor(timeRemaining / warmupTimePerExercise / 3)));
+  // Step 1: Allocate warmups (minimum 2, scale up for longer sessions)
+  let warmupCount = 2; // Start with minimum
+  if (workoutDuration >= 60) {
+    warmupCount = 3; // Add one more warmup for 60+ min sessions
+  }
   timeRemaining -= warmupCount * warmupTimePerExercise;
   
-  // Reserve time for cardio finisher if template includes it
-  const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises > 0 ? 1 : 0;
-  if (cardioCount > 0) {
+  // Step 2: Check if template wants cardio and reserve time if possible
+  let cardioCount = 0;
+  const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
+  const hasRoomForCardio = timeRemaining >= (mainStrengthTimePerExercise * 3 + cardioFinisherTime);
+  
+  if (templateWantsCardio && hasRoomForCardio) {
+    cardioCount = 1;
     timeRemaining -= cardioFinisherTime;
   }
   
-  // Calculate main strength exercises to fill remaining time
-  const mainCount = Math.max(4, Math.floor(timeRemaining / mainStrengthTimePerExercise));
+  // Step 3: Allocate main strength exercises with remaining time
+  // Target at least 3 main exercises for proper workout structure
+  const mainCount = Math.max(3, Math.floor(timeRemaining / mainStrengthTimePerExercise));
   
-  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${mainCount} main exercises, ${cardioCount} cardio finisher`);
+  const estimatedTotal = (warmupCount * warmupTimePerExercise) + 
+                         (mainCount * mainStrengthTimePerExercise) + 
+                         (cardioCount * cardioFinisherTime);
+  
+  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups (${warmupCount * warmupTimePerExercise}min), ${mainCount} main exercises (${mainCount * mainStrengthTimePerExercise}min), ${cardioCount} cardio finisher (${cardioCount * cardioFinisherTime}min). Estimated total: ${estimatedTotal}min`);
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
