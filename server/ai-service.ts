@@ -45,6 +45,55 @@ export interface GeneratedExercise {
   supersetOrder?: number;  // 1 or 2 to indicate order in superset
 }
 
+// Helper function to generate descriptive workout names based on movement patterns
+function generateWorkoutName(movementFocus: string[], workoutType: "strength" | "cardio" | "hiit" | "mobility" | null, dayName: string): string {
+  // Filter out duplicate patterns
+  const uniquePatterns = Array.from(new Set(movementFocus));
+  
+  // Handle cardio/HIIT workouts
+  if (workoutType === "cardio" || workoutType === "hiit") {
+    return `${dayName} - Cardio & Conditioning`;
+  }
+  
+  // Categorize patterns
+  const upperPush = uniquePatterns.filter(p => p === "push").length > 0;
+  const upperPull = uniquePatterns.filter(p => p === "pull").length > 0;
+  const lowerBody = uniquePatterns.filter(p => ["squat", "lunge", "hinge"].includes(p)).length > 0;
+  const core = uniquePatterns.filter(p => ["core", "rotation"].includes(p)).length > 0;
+  const cardioIncluded = uniquePatterns.filter(p => p === "cardio").length > 0;
+  
+  // Generate descriptive name based on focus
+  if (upperPush && upperPull && lowerBody) {
+    return `${dayName} - Full Body Strength`;
+  }
+  
+  if (upperPush && !upperPull && !lowerBody) {
+    return core ? `${dayName} - Push & Core` : `${dayName} - Upper Body Push`;
+  }
+  
+  if (upperPull && !upperPush && !lowerBody) {
+    return core ? `${dayName} - Pull & Core` : `${dayName} - Upper Body Pull`;
+  }
+  
+  if (upperPush && upperPull && !lowerBody) {
+    return `${dayName} - Upper Body Power`;
+  }
+  
+  if (lowerBody && !upperPush && !upperPull) {
+    return core ? `${dayName} - Lower Body & Core` : `${dayName} - Lower Body Strength`;
+  }
+  
+  if (lowerBody && (upperPush || upperPull)) {
+    if (cardioIncluded) {
+      return `${dayName} - Total Body Conditioning`;
+    }
+    return `${dayName} - Full Body Power`;
+  }
+  
+  // Default fallback
+  return `${dayName} - Strength Training`;
+}
+
 // Helper function to select exercises based on movement pattern
 function selectExercisesByPattern(
   exercises: Exercise[],
@@ -384,9 +433,12 @@ export async function generateWorkoutProgram(
         workoutType = "cardio";
       }
       
+      // Generate descriptive workout name based on movement patterns
+      const descriptiveWorkoutName = generateWorkoutName(movementFocus, workoutType, dayName);
+      
       workouts.push({
         dayOfWeek,
-        workoutName: `${dayName} - ${selectedTemplate.name}`,
+        workoutName: descriptiveWorkoutName,
         workoutType,
         movementFocus: Array.from(new Set(movementFocus)),
         exercises,
