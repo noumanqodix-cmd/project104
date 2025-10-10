@@ -45,6 +45,13 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
       - **Date-Based Archival**: Sessions stay visible with their completion/skipped status all day. When date changes and Home page loads, previous day's completed/skipped sessions are automatically archived via POST `/api/workout-sessions/archive-old`. Archival happens on page load, not on completion/skip action. **Important:** Archived sessions can ONLY exist for past dates, never for today's date.
       - **Status Persistence**: Completed/skipped status remains visible for current day, only gets archived when viewing tomorrow's workout
       - **Home Page Session Logic**: Explicitly excludes archived sessions when finding today's workout to ensure current session is always displayed
+      - **Missed Workout Detection & Recovery (October 2025)**: When users return after missing workouts, the system automatically detects pending workouts from past dates and prompts them with recovery options:
+        - **Detection**: On home page load, GET `/api/workout-sessions/missed` checks for sessions where `scheduledDate < today AND status='scheduled' AND completed=0`
+        - **Dialog Display**: Shows MissedWorkoutDialog with count, date range, and two recovery options
+        - **Reset Program**: POST `/api/workout-sessions/reset-from-today` reschedules all pending workouts sequentially starting from today, maintaining program sequence integrity
+        - **Skip Missed**: POST `/api/workout-sessions/skip-missed` marks all missed workouts as skipped (`completed=0, status='skipped'`), allowing continuation with originally scheduled workouts
+        - **User Feedback**: Success toasts confirm actions, and React Query cache invalidation ensures UI updates immediately
+        - **Timezone Safety**: All operations use `getTodayEDT()` for consistent date handling across frontend and backend
 - **Calorie Tracking System**: Incorporates MET (Metabolic Equivalent of Task) calculations for calorie expenditure. Calories are calculated on both frontend and backend, with automatic intensity mapping to MET values and unit conversion.
 - **HIIT Interval Training System**: Supports HIIT with automated work/rest timers and multiple cardio equipment options. The system generates HIIT exercises with common protocols and custom intervals based on user's cardio equipment. A dedicated `HIITIntervalTimer` component handles the countdown and progress tracking for HIIT workouts.
 
