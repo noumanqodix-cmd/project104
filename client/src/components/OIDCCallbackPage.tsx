@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dumbbell, Loader2, AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatLocalDate } from "@shared/dateUtils";
+import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
 
 export default function OIDCCallbackPage() {
   const [, setLocation] = useLocation();
@@ -77,7 +77,7 @@ export default function OIDCCallbackPage() {
         const response = await apiRequest('POST', '/api/auth/complete-onboarding', {
           ...questionnaireData,
           generatedProgram,
-          startDate: formatLocalDate(new Date()),
+          startDate: formatLocalDate(getTodayEDT()), // TEMP: Hardcoded to EDT for testing
         });
 
         // Check if user has existing data
@@ -119,7 +119,7 @@ export default function OIDCCallbackPage() {
       await apiRequest('POST', '/api/auth/complete-onboarding-force', {
         ...storedOnboardingData.questionnaireData,
         generatedProgram: storedOnboardingData.generatedProgram,
-        startDate: formatLocalDate(new Date()),
+        startDate: formatLocalDate(getTodayEDT()), // TEMP: Hardcoded to EDT for testing
       });
 
       // Clear localStorage, force refresh, and redirect

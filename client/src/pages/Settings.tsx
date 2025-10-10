@@ -53,7 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatLocalDate } from "@shared/dateUtils";
+import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Settings() {
@@ -258,7 +258,7 @@ export default function Settings() {
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/regenerate", {
-        startDate: formatLocalDate(new Date()), // Include user's local date for timezone-safe session generation
+        startDate: formatLocalDate(getTodayEDT()), // TEMP: Hardcoded to EDT for testing
       });
     },
     onSuccess: () => {

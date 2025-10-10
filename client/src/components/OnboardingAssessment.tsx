@@ -8,7 +8,7 @@ import WeightsTestForm, { type WeightsTestResults } from "./WeightsTestForm";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatLocalDate } from "@shared/dateUtils";
+import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
 
 type AssessmentStep = "questionnaire" | "nutrition" | "testSelection" | "fitnessTest" | "weightsTest";
 
@@ -36,7 +36,7 @@ export default function OnboardingAssessment() {
           console.log('[ONBOARDING] User authenticated, saving assessment...');
           const response = await apiRequest("POST", "/api/onboarding-assessment/complete", {
             ...data,
-            startDate: formatLocalDate(new Date()), // Include user's local date for timezone-safe session generation
+            startDate: formatLocalDate(getTodayEDT()), // TEMP: Hardcoded to EDT for testing
           });
           const responseData = await response.json();
           console.log('[ONBOARDING] Assessment saved successfully:', responseData);
