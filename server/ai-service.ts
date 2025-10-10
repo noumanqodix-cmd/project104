@@ -355,34 +355,6 @@ export async function generateWorkoutProgram(
     cardio: movementDifficulties.cardio,
   });
 
-  // Calculate exercise counts based on workout duration
-  // Time estimates per exercise type:
-  // - Warmup: ~2 min per exercise (2 sets × 30s work + 30s rest)
-  // - Main strength: ~8 min per exercise (3-4 sets × 45s work + 90s rest)
-  // - Cardio finisher: ~8 min (8 intervals × 30s work + 30s rest)
-  
-  const warmupTimePerExercise = 2; // minutes
-  const mainStrengthTimePerExercise = 8; // minutes
-  const cardioFinisherTime = 8; // minutes
-  
-  // Calculate how many exercises fit in the available time
-  let timeRemaining = workoutDuration;
-  
-  // Reserve time for warmup (2-3 exercises)
-  const warmupCount = Math.max(2, Math.min(3, Math.floor(timeRemaining / warmupTimePerExercise / 3)));
-  timeRemaining -= warmupCount * warmupTimePerExercise;
-  
-  // Reserve time for cardio finisher if template includes it
-  const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises > 0 ? 1 : 0;
-  if (cardioCount > 0) {
-    timeRemaining -= cardioFinisherTime;
-  }
-  
-  // Calculate main strength exercises to fill remaining time
-  const mainCount = Math.max(4, Math.floor(timeRemaining / mainStrengthTimePerExercise));
-  
-  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${mainCount} main exercises, ${cardioCount} cardio finisher`);
-
   // OPTIMIZATION: Pre-filter exercises by equipment and difficulty ONCE before loop
   // This prevents repeated filtering in the workout generation loop
   
@@ -444,6 +416,34 @@ export async function generateWorkoutProgram(
   // Select the appropriate program template based on user's nutrition goal
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
   console.log(`[TEMPLATE] Selected template: ${selectedTemplate.name} for nutrition goal: ${user.nutritionGoal}`);
+  
+  // Calculate exercise counts based on workout duration
+  // Time estimates per exercise type:
+  // - Warmup: ~2 min per exercise (2 sets × 30s work + 30s rest)
+  // - Main strength: ~8 min per exercise (3-4 sets × 45s work + 90s rest)
+  // - Cardio finisher: ~8 min (8 intervals × 30s work + 30s rest)
+  
+  const warmupTimePerExercise = 2; // minutes
+  const mainStrengthTimePerExercise = 8; // minutes
+  const cardioFinisherTime = 8; // minutes
+  
+  // Calculate how many exercises fit in the available time
+  let timeRemaining = workoutDuration;
+  
+  // Reserve time for warmup (2-3 exercises)
+  const warmupCount = Math.max(2, Math.min(3, Math.floor(timeRemaining / warmupTimePerExercise / 3)));
+  timeRemaining -= warmupCount * warmupTimePerExercise;
+  
+  // Reserve time for cardio finisher if template includes it
+  const cardioCount = selectedTemplate.structure.workoutStructure.cardioExercises > 0 ? 1 : 0;
+  if (cardioCount > 0) {
+    timeRemaining -= cardioFinisherTime;
+  }
+  
+  // Calculate main strength exercises to fill remaining time
+  const mainCount = Math.max(4, Math.floor(timeRemaining / mainStrengthTimePerExercise));
+  
+  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${mainCount} main exercises, ${cardioCount} cardio finisher`);
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
