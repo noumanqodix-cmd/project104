@@ -668,7 +668,7 @@ export default function Home() {
                               : lastSession.workout?.workoutName || "Session"}
                     </p>
                     <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
-                      {formatDate(lastSession.session.scheduledDate)}
+                      {formatDate(lastSession.session.scheduledDate || lastSession.session.sessionDate)}
                     </p>
                     {lastSession.session.durationMinutes && lastSession.session.status !== "skipped" && (
                       <p className="text-sm text-muted-foreground">
@@ -740,26 +740,6 @@ export default function Home() {
             );
           })}
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Link href="/program">
-              <Button variant="outline" className="w-full justify-start" data-testid="button-view-program">
-                <Calendar className="h-4 w-4 mr-2" />
-                View Full Program
-              </Button>
-            </Link>
-            <Link href="/history">
-              <Button variant="outline" className="w-full justify-start" data-testid="button-view-history">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                View Progress
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
       </div>
 
       <Dialog open={showGenerationModal} onOpenChange={setShowGenerationModal}>
