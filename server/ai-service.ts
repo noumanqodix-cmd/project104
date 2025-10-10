@@ -465,8 +465,9 @@ export async function generateWorkoutProgram(
   };
 
   // Single pass through exercises to categorize by pattern
+  // Only include "main" exercises - exclude warmup and cooldown from main workout selection
   availableExercises.forEach((ex) => {
-    if (ex.exerciseType !== "cooldown" && 
+    if (ex.exerciseType === "main" && 
         ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
         isExerciseAllowed(ex, movementDifficulties, fitnessLevel) &&
         exercisesByPattern[ex.movementPattern]) {
