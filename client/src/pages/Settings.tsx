@@ -136,6 +136,23 @@ export default function Settings() {
     },
   });
 
+  // Separate mutation for program settings - no success toast (dialog provides feedback)
+  const updateProgramSettingsMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", "/api/user/profile", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update program settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     // Properly logout from Replit Auth session
     window.location.href = "/api/logout";
@@ -247,7 +264,7 @@ export default function Settings() {
       setShowProgramUpdateDialog(true);
     } else {
       // No program-affecting changes, just save
-      updateProfileMutation.mutate({
+      updateProgramSettingsMutation.mutate({
         nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
@@ -260,7 +277,7 @@ export default function Settings() {
   const handleKeepCurrentProgram = async () => {
     try {
       // Save preferences and wait for completion
-      await updateProfileMutation.mutateAsync({
+      await updateProgramSettingsMutation.mutateAsync({
         nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
@@ -284,7 +301,7 @@ export default function Settings() {
   const handleGenerateNewProgram = async () => {
     try {
       // Save preferences first and wait for completion
-      await updateProfileMutation.mutateAsync({
+      await updateProgramSettingsMutation.mutateAsync({
         nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
@@ -761,11 +778,11 @@ export default function Settings() {
 
             <Button 
               onClick={handleSaveWorkoutPreferences}
-              disabled={updateProfileMutation.isPending}
+              disabled={updateProgramSettingsMutation.isPending}
               className="w-full"
               data-testid="button-save-program-settings"
             >
-              {updateProfileMutation.isPending ? "Saving..." : "Update Program Settings"}
+              {updateProgramSettingsMutation.isPending ? "Saving..." : "Update Program Settings"}
             </Button>
           </CardContent>
         </Card>
