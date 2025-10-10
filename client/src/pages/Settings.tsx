@@ -72,13 +72,18 @@ export default function Settings() {
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [workoutDuration, setWorkoutDuration] = useState(60);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [showProgramUpdateDialog, setShowProgramUpdateDialog] = useState(false);
   const [showGenerationModal, setShowGenerationModal] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [age, setAge] = useState("");
   const [selectedUnitPreference, setSelectedUnitPreference] = useState<string>("imperial");
+  
+  // Track original values to detect program-affecting changes
+  const [originalEquipment, setOriginalEquipment] = useState<string[]>([]);
+  const [originalDaysPerWeek, setOriginalDaysPerWeek] = useState(3);
+  const [originalWorkoutDuration, setOriginalWorkoutDuration] = useState(60);
 
   useEffect(() => {
     if (user) {
@@ -88,6 +93,11 @@ export default function Settings() {
       setWorkoutDuration(user.workoutDuration || 60);
       setSelectedDays(user.selectedDays || []);
       setSelectedUnitPreference(user.unitPreference || "imperial");
+      
+      // Set original values for change detection
+      setOriginalEquipment(user.equipment || []);
+      setOriginalDaysPerWeek(user.daysPerWeek || 3);
+      setOriginalWorkoutDuration(user.workoutDuration || 60);
       
       const isMetric = unitPreference === 'metric';
       if (user.height) {
@@ -227,12 +237,68 @@ export default function Settings() {
       return;
     }
 
+    // Detect if program-affecting settings changed (copy arrays before sorting to avoid mutation)
+    const equipmentChanged = JSON.stringify([...selectedEquipment].sort()) !== JSON.stringify([...originalEquipment].sort());
+    const daysChanged = daysPerWeek !== originalDaysPerWeek;
+    const durationChanged = workoutDuration !== originalWorkoutDuration;
+    
+    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged;
+    
+    if (programAffectingChanges) {
+      // Show dialog asking if user wants new program or just update settings
+      setShowProgramUpdateDialog(true);
+    } else {
+      // No program-affecting changes, just save
+      updateProfileMutation.mutate({
+        equipment: selectedEquipment,
+        daysPerWeek,
+        workoutDuration,
+        selectedDays,
+      });
+    }
+  };
+  
+  const handleKeepCurrentProgram = () => {
+    // Just save preferences, don't generate new program
     updateProfileMutation.mutate({
       equipment: selectedEquipment,
       daysPerWeek,
       workoutDuration,
       selectedDays,
     });
+    setShowProgramUpdateDialog(false);
+    
+    // Update original values so dialog doesn't show again
+    setOriginalEquipment(selectedEquipment);
+    setOriginalDaysPerWeek(daysPerWeek);
+    setOriginalWorkoutDuration(workoutDuration);
+  };
+  
+  const handleGenerateNewProgram = async () => {
+    try {
+      // Save preferences first and wait for completion
+      await updateProfileMutation.mutateAsync({
+        equipment: selectedEquipment,
+        daysPerWeek,
+        workoutDuration,
+        selectedDays,
+      });
+      
+      // Then generate new program with updated settings
+      setShowProgramUpdateDialog(false);
+      setShowGenerationModal(true);
+      setGenerationStatus('generating');
+      generateNewProgramMutation.mutate();
+      
+      // Update original values
+      setOriginalEquipment(selectedEquipment);
+      setOriginalDaysPerWeek(daysPerWeek);
+      setOriginalWorkoutDuration(workoutDuration);
+    } catch (error) {
+      // If profile update fails, don't proceed with program generation
+      setShowProgramUpdateDialog(false);
+      console.error("Failed to save preferences:", error);
+    }
   };
 
   const toggleEquipment = (equipment: string) => {
@@ -272,13 +338,6 @@ export default function Settings() {
       setGenerationStatus('error');
     },
   });
-
-  const handleRegenerateProgram = () => {
-    setShowRegenerateDialog(false);
-    setShowGenerationModal(true);
-    setGenerationStatus('generating');
-    generateNewProgramMutation.mutate();
-  };
 
   const handleCloseGenerationModal = () => {
     setShowGenerationModal(false);
@@ -686,40 +745,6 @@ export default function Settings() {
             >
               {updateProfileMutation.isPending ? "Saving..." : "Save Workout Preferences"}
             </Button>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Changed your equipment or goals? Generate a new program tailored to your updated preferences.
-              </p>
-              <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    data-testid="button-regenerate-program"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Generate New Program
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Generate New Workout Program?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will replace your current active program. Your existing program will be saved to your history. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleRegenerateProgram} disabled={generateNewProgramMutation.isPending}>
-                      {generateNewProgramMutation.isPending ? "Generating..." : "Generate New Program"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
           </CardContent>
         </Card>
 
@@ -844,40 +869,6 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="border-destructive">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <CardTitle>Danger Zone</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Separator />
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full" data-testid="button-logout">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Logout of your account?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    You'll need to log in again to access your workouts and progress.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleLogout}>
-                    Logout
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Program Generation Modal */}
@@ -946,6 +937,53 @@ export default function Settings() {
           </DialogHeader>
         </DialogContent>
       </Dialog>
+
+      {/* Program Update Dialog */}
+      <AlertDialog open={showProgramUpdateDialog} onOpenChange={setShowProgramUpdateDialog}>
+        <AlertDialogContent data-testid="dialog-program-update">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Your Settings Have Changed</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've updated your equipment, workout days, or workout duration. What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-3 py-4">
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-primary" />
+                <h4 className="font-semibold">Generate New Program</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Create a fresh workout program with your new settings. Your current program will be saved to history.
+              </p>
+            </div>
+
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <SettingsIcon className="h-5 w-5 text-primary" />
+                <h4 className="font-semibold">Keep Current Program</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Just update your preferences. New equipment will be available for exercise swaps in your current program.
+              </p>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel data-testid="button-keep-program">
+              <span onClick={handleKeepCurrentProgram}>Keep Current Program</span>
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleGenerateNewProgram}
+              disabled={generateNewProgramMutation.isPending}
+              data-testid="button-generate-new-program"
+            >
+              {generateNewProgramMutation.isPending ? "Generating..." : "Generate New Program"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
