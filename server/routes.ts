@@ -983,6 +983,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Validate days per week (only 3, 4, or 5 days supported for proper week-level programming)
+      if (user.daysPerWeek && ![3, 4, 5].includes(user.daysPerWeek)) {
+        return res.status(400).json({ 
+          error: "Invalid daysPerWeek. Only 3, 4, or 5 days per week are supported." 
+        });
+      }
+
       let latestAssessment = await storage.getCompleteFitnessProfile(userId);
       
       // If no assessment exists (user skipped test), create conservative defaults based on experience level
@@ -1340,6 +1347,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!equipment || !Array.isArray(equipment)) {
         return res.status(400).json({ error: "Equipment must be an array" });
+      }
+
+      // Validate days per week (only 3, 4, or 5 days supported for proper week-level programming)
+      if (daysPerWeek && ![3, 4, 5].includes(daysPerWeek)) {
+        return res.status(400).json({ 
+          error: "Invalid daysPerWeek. Only 3, 4, or 5 days per week are supported." 
+        });
       }
 
       // If no equipment selected, default to bodyweight

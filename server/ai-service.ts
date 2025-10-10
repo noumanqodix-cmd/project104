@@ -495,6 +495,38 @@ export async function generateWorkoutProgram(
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
   console.log(`[TEMPLATE] Selected template: ${selectedTemplate.name} for nutrition goal: ${user.nutritionGoal}`);
   
+  // WEEK-LEVEL PATTERN DISTRIBUTION
+  // Design entire week's pattern emphasis before selecting exercises
+  // This ensures variety and proper recovery between similar movement patterns
+  type DayPlan = { primary: string[], secondary: string[] };
+  type WeeklyDistribution = Record<number, Record<number, DayPlan>>;
+  
+  const weeklyPatternDistribution: WeeklyDistribution = {
+    3: {
+      // 3-day: Pull+Hinge → Push+Squat → Balanced Mix
+      1: { primary: ['pull', 'hinge'], secondary: ['core', 'carry'] },
+      2: { primary: ['push', 'squat'], secondary: ['core', 'rotation'] },
+      3: { primary: ['pull', 'push'], secondary: ['lunge', 'hinge', 'core'] }
+    },
+    4: {
+      // 4-day: Upper Pull → Lower → Upper Push → Lower (alternating emphasis)
+      1: { primary: ['pull', 'push'], secondary: ['core', 'rotation'] },
+      2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
+      3: { primary: ['push', 'pull'], secondary: ['core', 'carry'] },
+      4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
+    },
+    5: {
+      // 5-day: Push → Pull → Legs → Upper → Lower (classic split)
+      1: { primary: ['push'], secondary: ['rotation', 'core'] },
+      2: { primary: ['pull'], secondary: ['carry', 'core'] },
+      3: { primary: ['squat', 'lunge'], secondary: ['hinge', 'core'] },
+      4: { primary: ['push', 'pull'], secondary: ['core'] },
+      5: { primary: ['hinge', 'squat'], secondary: ['lunge', 'core'] }
+    }
+  };
+  
+  console.log(`[WEEK-PLAN] Using ${daysPerWeek}-day weekly pattern distribution for varied workouts`);
+  
   // Calculate exercise counts using PRECISE time estimates from calculateExerciseTime()
   
   // Warmup exercise (2 sets, 12 reps avg, 30s rest): ~2min
@@ -622,6 +654,9 @@ export async function generateWorkoutProgram(
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
   
+  // WEEK-LEVEL EXERCISE TRACKING: Track used exercises across entire week for variety
+  const usedExerciseIds = new Set<string>();
+  
   // Generate workouts for each day of the week (1-7 = Monday-Sunday)
   for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
     const dayName = dayNames[dayOfWeek];
@@ -629,14 +664,24 @@ export async function generateWorkoutProgram(
     
     if (isScheduledDay) {
       // WORKOUT DAY: Generate actual workout with exercises
-      // Reset usedExerciseIds for each workout to allow exercise reuse across different days
-      // This prevents running out of exercises for users with limited equipment
-      const usedExerciseIds = new Set<string>();
       const exercises: GeneratedExercise[] = [];
       const movementFocus: string[] = [];
       
-      // Add main strength exercises respecting precise time-based counts
-      const strengthPatterns = selectedTemplate.structure.movementPatternDistribution.strength;
+      // Get workout index (1st workout, 2nd workout, etc.)
+      const workoutIndex = scheduledDays.indexOf(dayOfWeek) + 1;
+      
+      // Get weekly pattern distribution for this specific workout
+      const weekPlan = weeklyPatternDistribution[daysPerWeek];
+      const dayPlan = weekPlan[workoutIndex];
+      
+      if (!dayPlan) {
+        console.warn(`[WEEK-PLAN] No pattern distribution found for day ${workoutIndex} in ${daysPerWeek}-day program, using default`);
+      }
+      
+      // Use week-level pattern distribution instead of template's generic distribution
+      const strengthPatterns = dayPlan ? [...dayPlan.primary, ...dayPlan.secondary] : selectedTemplate.structure.movementPatternDistribution.strength;
+      
+      console.log(`[WEEK-PLAN] Day ${workoutIndex} (${dayName}): Primary=${dayPlan?.primary.join(', ')}, Secondary=${dayPlan?.secondary.join(', ')}`);
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
       
       // Track remaining slots for each exercise type (respect calculated primaryCount/secondaryCount)

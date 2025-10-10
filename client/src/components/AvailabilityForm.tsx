@@ -65,7 +65,7 @@ export default function AvailabilityForm({ onComplete }: AvailabilityFormProps) 
               value={daysPerWeek?.toString()}
               onValueChange={(v) => setDaysPerWeek(parseInt(v))}
             >
-              {[3, 4, 5, 6, 7].map((days) => (
+              {[3, 4, 5].map((days) => (
                 <Label
                   key={days}
                   htmlFor={`days-${days}`}
