@@ -38,6 +38,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showFinishDialog, setShowFinishDialog] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const unitPreference = user?.unitPreference || 'imperial';
@@ -50,9 +51,10 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
 
   // Calculate Zone 2 calories based on elapsed time and user weight
   const calculateZone2Calories = (durationMinutes: number): number => {
-    if (!user?.weight) return 0;
+    // Use user weight or fallback to 70kg (154 lbs) if not available
+    const userWeight = user?.weight || 70;
+    const weightKg = unitPreference === 'imperial' ? poundsToKg(userWeight) : userWeight;
     
-    const weightKg = unitPreference === 'imperial' ? poundsToKg(user.weight) : user.weight;
     // Calories = Duration (min) × ((MET × 3.5) × Weight (kg) / 200)
     const calories = durationMinutes * ((ZONE_2_MET * 3.5) * weightKg / 200);
     return Math.round(calories);
@@ -88,8 +90,10 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
 
   const completeSessionMutation = useMutation({
     mutationFn: async () => {
-      const durationMinutes = Math.floor(elapsedTime / 60);
-      const caloriesBurned = calculateZone2Calories(durationMinutes);
+      // Use precise minutes with decimal for accurate calorie calculation
+      const preciseMinutes = elapsedTime / 60;
+      const durationMinutes = Math.round(preciseMinutes); // Round to nearest minute for storage
+      const caloriesBurned = calculateZone2Calories(preciseMinutes); // Use precise value for calories
 
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
         completed: 1,
@@ -99,10 +103,11 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
       });
     },
     onSuccess: () => {
-      const durationMinutes = Math.floor(elapsedTime / 60);
+      const preciseMinutes = elapsedTime / 60;
+      const caloriesBurned = calculateZone2Calories(preciseMinutes);
       onComplete({
         duration: elapsedTime,
-        caloriesBurned: calculateZone2Calories(durationMinutes),
+        caloriesBurned,
         sessionId,
       });
       toast({
@@ -124,6 +129,16 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
   };
 
   const handleComplete = () => {
+    completeSessionMutation.mutate();
+  };
+
+  const handleFinishNow = () => {
+    setShowFinishDialog(true);
+  };
+
+  const handleConfirmFinish = () => {
+    setShowFinishDialog(false);
+    setIsRunning(false);
     completeSessionMutation.mutate();
   };
 
@@ -216,6 +231,17 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
             </Button>
             <Button
               size="lg"
+              variant="secondary"
+              className="flex-1"
+              onClick={handleFinishNow}
+              disabled={completeSessionMutation.isPending || elapsedTime === 0}
+              data-testid="button-finish-now"
+            >
+              <Check className="h-5 w-5 mr-2" />
+              Finish Now
+            </Button>
+            <Button
+              size="lg"
               className="flex-1"
               onClick={handleComplete}
               disabled={completeSessionMutation.isPending || elapsedTime === 0}
@@ -252,6 +278,25 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
             <AlertDialogCancel data-testid="button-cancel-no">No, Continue</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCancel} data-testid="button-cancel-yes">
               Yes, Cancel Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Finish Now Confirmation Dialog */}
+      <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
+        <AlertDialogContent data-testid="dialog-finish-cardio">
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Workout Early?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've completed {Math.floor(elapsedTime / 60)} minutes of cardio. 
+              Your partial progress ({currentCalories} calories burned) will be saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-finish-no">No, Continue</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmFinish} data-testid="button-finish-yes">
+              Yes, Finish Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
