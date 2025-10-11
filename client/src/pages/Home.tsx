@@ -16,7 +16,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import MissedWorkoutDialog from "@/components/MissedWorkoutDialog";
 
 export default function Home() {
@@ -28,6 +31,9 @@ export default function Home() {
   const [showMissedWorkoutDialog, setShowMissedWorkoutDialog] = useState(false);
   const [missedWorkoutData, setMissedWorkoutData] = useState<{ count: number; dateRange: string }>({ count: 0, dateRange: '' });
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
+  const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
+  const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
 
   const { data: homeData, isLoading: homeDataLoading } = useQuery<{
     user: User | null;
@@ -82,16 +88,19 @@ export default function Home() {
   });
 
   const addCardioMutation = useMutation({
-    mutationFn: async (date: Date) => {
+    mutationFn: async ({ date, type }: { date: Date; type: string }) => {
       const dateStr = formatLocalDate(date);
-      return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, {});
+      return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, { cardioType: type });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      const typeDisplay = variables.type === 'hiit' ? 'HIIT' : 
+                          variables.type === 'steady-state' ? 'Steady State' : 'Zone 2';
       toast({
         title: "Cardio Session Added!",
-        description: "Zone 2 cardio workout has been added to this rest day.",
+        description: `${typeDisplay} cardio workout has been added to this rest day.`,
       });
+      setShowCardioTypeDialog(false);
     },
     onError: () => {
       toast({
@@ -469,13 +478,13 @@ export default function Home() {
                           });
                           return;
                         }
-                        addCardioMutation.mutate(parseLocalDate(todaySession.scheduledDate));
+                        setPendingCardioDate(parseLocalDate(todaySession.scheduledDate));
+                        setShowCardioTypeDialog(true);
                       }}
-                      disabled={addCardioMutation.isPending}
                       data-testid="button-add-cardio-home"
                     >
                       <Plus className="h-5 w-5 mr-2" />
-                      {addCardioMutation.isPending ? "Adding..." : "Add Cardio Session"}
+                      Add Cardio Session
                     </Button>
 
                     <Button 
@@ -821,6 +830,90 @@ export default function Home() {
               Keep Current Program
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cardio Type Selection Dialog */}
+      <Dialog open={showCardioTypeDialog} onOpenChange={setShowCardioTypeDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-primary" />
+              Choose Cardio Type
+            </DialogTitle>
+            <DialogDescription>
+              Select the type of cardio workout you want to add to this rest day.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <RadioGroup 
+              value={selectedCardioType} 
+              onValueChange={(value) => setSelectedCardioType(value as 'hiit' | 'steady-state' | 'zone-2')}
+              className="gap-4"
+            >
+              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('hiit')}>
+                <RadioGroupItem value="hiit" id="hiit" data-testid="radio-cardio-hiit" />
+                <Label htmlFor="hiit" className="cursor-pointer flex-1">
+                  <div className="font-medium">HIIT (5-10 min)</div>
+                  <div className="text-sm text-muted-foreground">
+                    High-intensity intervals for maximum calorie burn and cardiovascular improvement
+                  </div>
+                </Label>
+              </div>
+
+              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('steady-state')}>
+                <RadioGroupItem value="steady-state" id="steady-state" data-testid="radio-cardio-steady" />
+                <Label htmlFor="steady-state" className="cursor-pointer flex-1">
+                  <div className="font-medium">Steady State (10-15 min)</div>
+                  <div className="text-sm text-muted-foreground">
+                    Moderate continuous cardio for endurance and heart health
+                  </div>
+                </Label>
+              </div>
+
+              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('zone-2')}>
+                <RadioGroupItem value="zone-2" id="zone-2" data-testid="radio-cardio-zone2" />
+                <Label htmlFor="zone-2" className="cursor-pointer flex-1">
+                  <div className="font-medium">Zone 2 (15-20 min)</div>
+                  <div className="text-sm text-muted-foreground">
+                    Low-intensity aerobic work for fat burning and recovery
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCardioTypeDialog(false)}
+              data-testid="button-cancel-cardio-type"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingCardioDate) {
+                  addCardioMutation.mutate({ date: pendingCardioDate, type: selectedCardioType });
+                }
+              }}
+              disabled={addCardioMutation.isPending}
+              data-testid="button-confirm-cardio-type"
+            >
+              {addCardioMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Cardio
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
