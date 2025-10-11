@@ -2397,11 +2397,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const movementLevels = latestAssessment 
         ? calculateMovementPatternLevels(latestAssessment, user)
         : { 
-            push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            horizontal_push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            vertical_push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             pull: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
-            lowerBody: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            squat: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            lunge: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             hinge: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
-            cardio: fitnessLevel as 'beginner' | 'intermediate' | 'advanced' 
+            core: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            carry: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            cardio: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            rotation: fitnessLevel as 'beginner' | 'intermediate' | 'advanced' 
           };
       
       const movementDifficulties = getMovementDifficultiesMap(movementLevels, fitnessLevel);
