@@ -437,6 +437,51 @@ export async function generateWorkoutProgram(
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
   const workoutDuration = user.workoutDuration || 60; // Default to 60 minutes
 
+  // REQUIRED WEEKLY MOVEMENTS - Ensures foundational exercises appear every week
+  // Beginners use simpler equipment, Intermediate/Advanced use barbell-focused lifts
+  const requiredMovements = {
+    beginner: [
+      { name: "Goblet Squat", pattern: "squat" },
+      { name: "Glute Bridge", pattern: "hinge" },
+      { name: "DB Overhead Press", pattern: "push" },
+      { name: "Push-Up", pattern: "push" },
+      { name: "Band Pull-Up", pattern: "pull" },
+      { name: "Inverted Row", pattern: "pull" },
+      { name: "Split Squat", pattern: "lunge" },
+      { name: "Farmer Carry", pattern: "carry" }
+      // Core: Any core exercise is acceptable (tracked by pattern)
+    ],
+    intermediate: [
+      { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
+      { name: "Deadlift", pattern: "hinge" },
+      { name: "Barbell Overhead Press", pattern: "push" },
+      { name: "Bench Press", pattern: "push" },
+      { name: "Pull-Up", pattern: "pull" },
+      { name: "Barbell Row", pattern: "pull" },
+      { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
+      { name: "Suitcase Carry", pattern: "carry" }
+      // Core: Any core exercise is acceptable (tracked by pattern)
+    ],
+    advanced: [
+      { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
+      { name: "Deadlift", pattern: "hinge" },
+      { name: "Barbell Overhead Press", pattern: "push" },
+      { name: "Bench Press", pattern: "push" },
+      { name: "Pull-Up", pattern: "pull" },
+      { name: "Barbell Row", pattern: "pull" },
+      { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
+      { name: "Suitcase Carry", pattern: "carry" }
+      // Core: Any core exercise is acceptable (tracked by pattern)
+    ]
+  };
+
+  const levelRequirements = requiredMovements[fitnessLevel as keyof typeof requiredMovements] || requiredMovements.beginner;
+  console.log(`[REQUIRED-MOVEMENTS] ${fitnessLevel} level requires: ${levelRequirements.map(m => m.name).join(', ')} + Core`);
+  
+  // Weekly tracker to ensure all required movements appear across the week
+  const weeklyMovementTracker = new Set<string>();
+  const hasUsedCoreMovement = { used: false };
+
   // Calculate movement pattern levels using centralized utility
   const movementPatternLevels = calculateMovementPatternLevels(latestAssessment, user);
   
@@ -754,6 +799,100 @@ export async function generateWorkoutProgram(
       // Adjust compound selection to account for reserved isolation slots
       const compoundSlotsToFill = mainCount - reservedSupersetSlots;
       
+      // REQUIRED MOVEMENT SELECTION FIRST
+      // Before tiered selection, prioritize required movements that haven't been used this week
+      console.log(`[REQUIRED-CHECK] Week tracker before day ${workoutIndex}: ${Array.from(weeklyMovementTracker).join(', ')}, Core used: ${hasUsedCoreMovement.used}`);
+      
+      for (const requiredMov of levelRequirements) {
+        if (exercises.length >= compoundSlotsToFill) break;
+        
+        // Skip if already used this week
+        if (weeklyMovementTracker.has(requiredMov.name)) continue;
+        
+        // Check if this pattern is relevant to today's workout (primary or secondary patterns)
+        const relevantPatterns = [...primaryPatterns, ...secondaryPatterns];
+        if (!relevantPatterns.includes(requiredMov.pattern)) continue;
+        
+        // Find the required exercise in available exercises
+        const patternExercises = exercisesByPattern[requiredMov.pattern] || [];
+        let foundExercise: Exercise | undefined;
+        
+        // Try to find exact match or alternative
+        foundExercise = patternExercises.find(ex => 
+          ex.name === requiredMov.name && !usedExerciseIds.has(ex.id)
+        );
+        
+        // Try alternatives if main exercise not found
+        if (!foundExercise && 'alternatives' in requiredMov && requiredMov.alternatives) {
+          for (const altName of requiredMov.alternatives) {
+            foundExercise = patternExercises.find(ex => 
+              ex.name === altName && !usedExerciseIds.has(ex.id)
+            );
+            if (foundExercise) break;
+          }
+        }
+        
+        if (foundExercise) {
+          // Determine exercise role
+          let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio';
+          
+          if (foundExercise.liftType === 'compound') {
+            if (primarySlotsRemaining > 0) {
+              exerciseRole = 'primary-compound';
+              primarySlotsRemaining--;
+            } else if (secondarySlotsRemaining > 0) {
+              exerciseRole = 'secondary-compound';
+              secondarySlotsRemaining--;
+            } else {
+              continue;
+            }
+          } else if (foundExercise.movementPattern === 'core' || foundExercise.movementPattern === 'rotation' || foundExercise.movementPattern === 'carry') {
+            exerciseRole = 'core-accessory';
+          } else {
+            exerciseRole = 'isolation';
+          }
+          
+          const params = assignTrainingParameters(foundExercise, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
+          exercises.push({
+            exerciseName: foundExercise.name,
+            equipment: foundExercise.equipment?.[0] || "bodyweight",
+            ...params,
+          });
+          movementFocus.push(requiredMov.pattern);
+          
+          if (foundExercise.liftType === 'compound') {
+            compoundExercises.push({ exercise: foundExercise, pattern: requiredMov.pattern });
+          }
+          
+          // Mark as used in weekly tracker
+          weeklyMovementTracker.add(requiredMov.name);
+          usedExerciseIds.add(foundExercise.id);
+          
+          console.log(`[REQUIRED-ADDED] ✓ ${foundExercise.name} (${requiredMov.pattern}) - Required movement added on day ${workoutIndex}`);
+        }
+      }
+      
+      // Check for core pattern requirement (any core exercise counts)
+      if (!hasUsedCoreMovement.used && (primaryPatterns.includes('core') || secondaryPatterns.includes('core'))) {
+        const coreExercises = exercisesByPattern['core'] || [];
+        const coreEx = coreExercises.find(ex => !usedExerciseIds.has(ex.id));
+        
+        if (coreEx && exercises.length < compoundSlotsToFill) {
+          const params = assignTrainingParameters(coreEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
+          exercises.push({
+            exerciseName: coreEx.name,
+            equipment: coreEx.equipment?.[0] || "bodyweight",
+            ...params,
+          });
+          movementFocus.push('core');
+          usedExerciseIds.add(coreEx.id);
+          hasUsedCoreMovement.used = true;
+          console.log(`[REQUIRED-ADDED] ✓ ${coreEx.name} (core) - Core requirement fulfilled on day ${workoutIndex}`);
+        }
+      }
+      
+      console.log(`[REQUIRED-CHECK] After required movements: ${exercises.length}/${compoundSlotsToFill} exercises`);
+      
       // TIERED PATTERN SELECTION: Priority → Secondary → Fallback
       // This ensures workouts fill the target duration while maintaining variety
       const patternTiers = [
@@ -969,10 +1108,62 @@ export async function generateWorkoutProgram(
         });
       }
       
+      // WARMUP SUPERSET PAIRING - All warmups are superseted to save time
+      // Pair warmups in groups of 2 (WA1/WA2, WB1/WB2, WC1/WC2, etc.)
+      if (warmupExercises_toAdd.length >= 2) {
+        // Try to add one more warmup if count is odd to make pairing complete
+        if (warmupExercises_toAdd.length % 2 !== 0 && warmupExercises.length > warmupExercises_toAdd.length) {
+          const additionalWarmup = warmupExercises.find(ex => !warmupNames.has(ex.name));
+          if (additionalWarmup) {
+            const params = assignTrainingParameters(additionalWarmup, fitnessLevel, selectedTemplate, latestAssessment, user, 'warmup');
+            warmupExercises_toAdd.push({
+              exerciseName: additionalWarmup.name,
+              equipment: additionalWarmup.equipment?.[0] || "bodyweight",
+              ...params,
+              isWarmup: true,
+            });
+            console.log(`[WARMUP-SUPERSET] Added ${additionalWarmup.name} to make even number for pairing`);
+          }
+        }
+        
+        const warmupSupersetGroups = ['WA', 'WB', 'WC', 'WD', 'WE', 'WF'];
+        let warmupGroupIndex = 0;
+        
+        // Pair consecutive warmups in groups of 2
+        // Process in pairs, leaving last one solo if odd count
+        for (let i = 0; i < warmupExercises_toAdd.length; i += 2) {
+          const warmup1 = warmupExercises_toAdd[i];
+          const warmup2 = warmupExercises_toAdd[i + 1];
+          
+          if (warmup1 && warmup2) {
+            // Pair these two warmups
+            const group = warmupSupersetGroups[warmupGroupIndex];
+            warmup1.supersetGroup = group;
+            warmup1.supersetOrder = 1;
+            warmup2.supersetGroup = group;
+            warmup2.supersetOrder = 2;
+            warmupGroupIndex++;
+            
+            console.log(`[WARMUP-SUPERSET] Paired ${group}: ${warmup1.exerciseName} + ${warmup2.exerciseName}`);
+          }
+          // If warmup2 is undefined (odd count), warmup1 stays as solo exercise
+        }
+        
+        // Log if there's an unpaired warmup
+        if (warmupExercises_toAdd.length % 2 !== 0) {
+          const lastWarmup = warmupExercises_toAdd[warmupExercises_toAdd.length - 1];
+          console.log(`[WARMUP-SUPERSET] Note: ${lastWarmup.exerciseName} remains solo (odd total count)`);
+        }
+        
+        console.log(`[WARMUP-SUPERSET] Created ${warmupGroupIndex} warmup superset pairs, ${warmupExercises_toAdd.length} total warmups`);
+      } else if (warmupExercises_toAdd.length === 1) {
+        console.log(`[WARMUP-SUPERSET] Single warmup ${warmupExercises_toAdd[0].exerciseName} - no pairing needed`);
+      }
+      
       // Insert warmups at the beginning
       exercises.unshift(...warmupExercises_toAdd);
       
-      console.log(`[WARMUP] Selected warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
+      console.log(`[WARMUP] Selected ${selectedWarmups.length} warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
       
       // POWER EXERCISE SELECTION
       // Filter power exercises by primary patterns for this day and user's difficulty level
