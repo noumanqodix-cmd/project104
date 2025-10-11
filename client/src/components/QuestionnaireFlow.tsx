@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -7,22 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toggleEquipment } from "@/lib/equipmentUtils";
-import { 
-  ArrowLeft, 
-  Dumbbell, 
-  Bike, 
-  Check,
-  Box,
-  Anchor,
-  Cable,
-  Grid3x3,
-  Link,
-  Repeat,
-  User,
-  CircleDot,
-  Activity,
-  Wind
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getEquipmentIcon, formatEquipmentLabel, formatCategoryName } from "@/lib/equipmentIcons";
+import type { Equipment } from "@shared/schema";
+import { ArrowLeft, Check } from "lucide-react";
 
 interface QuestionnaireFlowProps {
   onComplete: (data: QuestionnaireData) => void;
@@ -62,35 +50,38 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
   const [minutesPerSession, setMinutesPerSession] = useState<number>(45);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
-  const equipmentCategories = [
-    {
-      category: "Strength Equipment",
-      items: [
-        { id: "bodyweight", label: "Bodyweight Only", icon: User },
-        { id: "dumbbells", label: "Dumbbells", icon: Dumbbell },
-        { id: "kettlebell", label: "Kettlebell", icon: CircleDot },
-        { id: "barbell", label: "Barbell", icon: Anchor },
-        { id: "resistance bands", label: "Resistance Bands", icon: Cable },
-        { id: "cable machine", label: "Cable Machine", icon: Cable },
-        { id: "pull-up bar", label: "Pull-up Bar", icon: Grid3x3 },
-        { id: "trx", label: "TRX/Suspension Trainer", icon: Link },
-        { id: "medicine ball", label: "Medicine Ball", icon: Box },
-        { id: "box", label: "Box/Bench", icon: Box },
-        { id: "jump rope", label: "Jump Rope", icon: Repeat },
-      ]
-    },
-    {
-      category: "Cardio Equipment",
-      items: [
-        { id: "rower", label: "Rower", icon: Activity },
-        { id: "bike", label: "Bike", icon: Bike },
-        { id: "treadmill", label: "Treadmill", icon: Activity },
-        { id: "elliptical", label: "Elliptical", icon: Activity },
-        { id: "assault bike", label: "Assault Bike", icon: Wind },
-        { id: "stair climber", label: "Stair Climber", icon: Activity },
-      ]
-    }
-  ];
+  // Fetch equipment from API
+  const { data: equipmentData } = useQuery<Equipment[]>({
+    queryKey: ['/api/equipment'],
+  });
+
+  // Transform API data into component format
+  const equipmentCategories = useMemo(() => {
+    if (!equipmentData) return [];
+
+    // Group equipment by category
+    const grouped = equipmentData.reduce((acc, item) => {
+      const category = item.category || 'other';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push({
+        id: item.name,
+        label: formatEquipmentLabel(item.name),
+        icon: getEquipmentIcon(item.name)
+      });
+      return acc;
+    }, {} as Record<string, Array<{ id: string; label: string; icon: any }>>);
+
+    // Convert to array format with proper ordering
+    const categoryOrder = ['bodyweight', 'weights', 'cardio', 'other'];
+    return categoryOrder
+      .filter(cat => grouped[cat] && grouped[cat].length > 0)
+      .map(cat => ({
+        category: formatCategoryName(cat),
+        items: grouped[cat]
+      }));
+  }, [equipmentData]);
 
   const handleEquipmentToggle = (equipmentId: string) => {
     setEquipment(prev => toggleEquipment(prev, equipmentId));
