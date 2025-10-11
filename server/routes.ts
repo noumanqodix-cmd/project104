@@ -785,6 +785,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/fitness-assessments/:id/override", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const assessmentId = req.params.id;
+      const overrideData = req.body;
+
+      // Verify the assessment belongs to the user
+      const assessment = await storage.getFitnessAssessmentById(assessmentId);
+      if (!assessment || assessment.userId !== userId) {
+        return res.status(404).json({ error: "Assessment not found" });
+      }
+
+      // Update the assessment with override data
+      const updatedAssessment = await storage.updateFitnessAssessmentOverride(assessmentId, overrideData);
+      res.json(updatedAssessment);
+    } catch (error) {
+      console.error("Override assessment error:", error);
+      res.status(500).json({ error: "Failed to update assessment override" });
+    }
+  });
+
 
   // Exercise routes
   app.post("/api/exercises/seed", isAuthenticated, async (req: any, res: Response) => {
