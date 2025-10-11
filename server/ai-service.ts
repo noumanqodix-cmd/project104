@@ -1219,7 +1219,8 @@ export async function generateWorkoutProgram(
       // Movement-specific warmup selection based on actual workout patterns
       // Define warmup mapping based on movement patterns
       const warmupMapping: Record<string, string[]> = {
-        push: ['Band Pull-Aparts', 'Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch'],
+        horizontal_push: ['Band Pull-Aparts', 'Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch'],
+        vertical_push: ['Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch', 'Band Pull-Aparts'],
         pull: ['Band Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Thoracic Rotation'],
         squat: ['Dynamic Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
         lunge: ['Dynamic Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
