@@ -811,10 +811,7 @@ export async function generateWorkoutProgram(
       let compoundExercisesAdded = 0;
       
       for (const requiredMov of levelRequirements) {
-        if (compoundExercisesAdded >= compoundSlotsToFill) {
-          console.log(`[REQUIRED-SKIP] ${requiredMov.name} - already filled ${compoundExercisesAdded}/${compoundSlotsToFill} compound slots`);
-          break;
-        }
+        // REQUIRED MOVEMENTS: No longer break on slot limits, always try to add if relevant
         
         // Skip if already used this week
         if (weeklyMovementTracker.has(requiredMov.name)) {
