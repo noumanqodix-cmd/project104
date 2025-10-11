@@ -1764,12 +1764,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert rest day session to Zone 2 cardio session (archive old, create new)
+  // Convert rest day session to cardio session with user-selected type
   app.post("/api/programs/sessions/cardio/:date", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
       const scheduledDate = req.params.date;
-      const suggestedDuration = req.body?.suggestedDuration;
+      const cardioType = req.body?.cardioType || 'zone-2'; // Default to zone-2 if not specified
 
       if (!scheduledDate) {
         return res.status(400).json({ error: "date parameter is required" });
@@ -1792,7 +1792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return formatLocalDate(existingDate) === formatLocalDate(sessionScheduledDate);
       });
 
-      console.log('[CARDIO] Date:', scheduledDate, 'Session found:', sessionOnDate ? { id: sessionOnDate.id, type: sessionOnDate.sessionType, workoutName: sessionOnDate.workoutName } : 'none');
+      console.log('[CARDIO] Date:', scheduledDate, 'Type:', cardioType, 'Session found:', sessionOnDate ? { id: sessionOnDate.id, type: sessionOnDate.sessionType, workoutName: sessionOnDate.workoutName } : 'none');
 
       if (!sessionOnDate) {
         return res.status(404).json({ error: "No session found for this date" });
@@ -1803,14 +1803,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "This is a workout day, not a rest day. You can only add cardio to rest days." });
       }
 
+      // Configure cardio based on selected type
+      let workoutName: string;
+      let duration: number;
+      let notes: string;
+
+      switch (cardioType) {
+        case 'hiit':
+          workoutName = 'HIIT Cardio';
+          duration = 8; // 5-10 minutes
+          notes = 'High-intensity interval training. Alternate between max effort and recovery periods for cardiovascular improvement and calorie burn.';
+          break;
+        case 'steady-state':
+          workoutName = 'Steady State Cardio';
+          duration = 12; // 10-15 minutes
+          notes = 'Moderate continuous cardio. Maintain a steady, sustainable pace for endurance and heart health.';
+          break;
+        case 'zone-2':
+        default:
+          workoutName = 'Zone 2 Cardio';
+          duration = 18; // 15-20 minutes
+          notes = 'Low-intensity aerobic work. Target: Zone 2 heart rate (60-70% max HR) for fat burning and recovery.';
+          break;
+      }
+
       // Replace the rest session with cardio by updating it in place
       // This ensures only one session per day exists
-      const duration = suggestedDuration || 30; // Default 30 minutes
       const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
         sessionType: "workout",
         workoutType: "cardio",
-        workoutName: "Zone 2 Cardio",
-        notes: `Low-impact steady-state cardio session. Target: ${duration} minutes at Zone 2 heart rate (60-70% max HR)`,
+        workoutName,
+        notes,
         status: "scheduled"
       });
 
@@ -1818,7 +1841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to update session to cardio" });
       }
 
-      console.log('[CARDIO] Successfully converted rest session to cardio:', updatedSession.id);
+      console.log('[CARDIO] Successfully converted rest session to', cardioType, 'cardio:', updatedSession.id);
       res.json(updatedSession);
     } catch (error) {
       console.error("Convert to cardio session error:", error);
