@@ -108,10 +108,11 @@ function selectExercisesByPattern(
   exercises: Exercise[],
   pattern: string,
   count: number,
-  usedExerciseIds: Set<string> = new Set()
+  canUseExerciseFn: (exerciseId: string, exercisePattern: string) => boolean,
+  onSelectFn?: (exerciseId: string) => void
 ): Exercise[] {
   const available = exercises.filter(
-    ex => ex.movementPattern === pattern && !usedExerciseIds.has(ex.id)
+    ex => ex.movementPattern === pattern && canUseExerciseFn(ex.id, ex.movementPattern)
   );
   
   // Prioritize compound exercises
@@ -124,14 +125,16 @@ function selectExercisesByPattern(
   for (const ex of compound) {
     if (selected.length >= count) break;
     selected.push(ex);
-    usedExerciseIds.add(ex.id);
+    // Track immediately when selected
+    if (onSelectFn) onSelectFn(ex.id);
   }
   
   // Then add isolation if needed
   for (const ex of isolation) {
     if (selected.length >= count) break;
     selected.push(ex);
-    usedExerciseIds.add(ex.id);
+    // Track immediately when selected
+    if (onSelectFn) onSelectFn(ex.id);
   }
   
   return selected;
@@ -786,8 +789,35 @@ export async function generateWorkoutProgram(
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
   
-  // WEEK-LEVEL EXERCISE TRACKING: Track used exercises across entire week for variety
-  const usedExerciseIds = new Set<string>();
+  // SMART EXERCISE REUSE TRACKING
+  // Track when each exercise was used (day number) for intelligent reuse
+  // Core/rotation/carry can repeat after 2+ days, compounds blocked for full week
+  const exerciseUsageMap = new Map<string, number>(); // exerciseId -> dayOfWeek used
+  const firstDayExercises = new Set<string>(); // Track day 1 exercises for cross-week recovery
+  
+  // Helper function to check if exercise can be used
+  const canUseExercise = (exerciseId: string, currentDay: number, exercisePattern: string): boolean => {
+    const lastUsedDay = exerciseUsageMap.get(exerciseId);
+    
+    // Not used yet - can use
+    if (lastUsedDay === undefined) return true;
+    
+    // Reusable patterns (core, rotation, carry) can repeat after 2+ days
+    const reusablePatterns = ['core', 'rotation', 'carry'];
+    if (reusablePatterns.includes(exercisePattern)) {
+      const daysSince = currentDay - lastUsedDay;
+      return daysSince >= 2;
+    }
+    
+    // Main compound lifts blocked for full week
+    return false;
+  };
+  
+  // Helper to check cross-week recovery (last day can't reuse first day exercises)
+  const canUseOnLastDay = (exerciseId: string, isLastScheduledDay: boolean): boolean => {
+    if (!isLastScheduledDay) return true;
+    return !firstDayExercises.has(exerciseId);
+  };
   
   // Generate workouts for each day of the week (1-7 = Monday-Sunday)
   for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
@@ -821,6 +851,9 @@ export async function generateWorkoutProgram(
       
       console.log(`[WEEK-PLAN] Day ${workoutIndex} (${dayName}): Primary=${primaryPatterns.join(', ')}, Secondary=${secondaryPatterns.join(', ')}, Fallback=${fallbackPatterns.join(', ')}`);
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
+      
+      // Track if this is the last scheduled workout day
+      const isLastScheduledDay = workoutIndex === scheduledDays.length;
       
       // Track remaining slots for each exercise type (respect calculated primaryCount/secondaryCount)
       let primarySlotsRemaining = primaryCount;
@@ -884,7 +917,8 @@ export async function generateWorkoutProgram(
           ex.exerciseType === "main" &&
           ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
           allowedDifficulties.includes(ex.difficulty) &&
-          !usedExerciseIds.has(ex.id)
+          canUseExercise(ex.id, dayOfWeek, ex.movementPattern) &&
+          canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
         console.log(`[REQUIRED-SEARCH] ${requiredMov.name} - found ${allPatternExercises.length} matching exercises`);
@@ -944,9 +978,12 @@ export async function generateWorkoutProgram(
             compoundExercisesAdded++;  // Count compounds toward slot limit
           }
           
-          // Mark as used in weekly tracker
+          // Mark as used in tracking systems
           weeklyMovementTracker.add(requiredMov.name);
-          usedExerciseIds.add(foundExercise.id);
+          exerciseUsageMap.set(foundExercise.id, dayOfWeek);
+          if (workoutIndex === 1) {
+            firstDayExercises.add(foundExercise.id);
+          }
           
           console.log(`[REQUIRED-ADDED] ✓ ${foundExercise.name} (${requiredMov.pattern}) - Required movement added on day ${workoutIndex}, Compounds: ${compoundExercisesAdded}/${compoundSlotsToFill}`);
         }
@@ -955,7 +992,10 @@ export async function generateWorkoutProgram(
       // Check for core pattern requirement (any core exercise counts)
       if (!hasUsedCoreMovement.used && (primaryPatterns.includes('core') || secondaryPatterns.includes('core'))) {
         const coreExercises = exercisesByPattern['core'] || [];
-        const coreEx = coreExercises.find(ex => !usedExerciseIds.has(ex.id));
+        const coreEx = coreExercises.find(ex => 
+          canUseExercise(ex.id, dayOfWeek, ex.movementPattern) &&
+          canUseOnLastDay(ex.id, isLastScheduledDay)
+        );
         
         if (coreEx && exercises.length < compoundSlotsToFill) {
           const params = assignTrainingParameters(coreEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
@@ -965,7 +1005,10 @@ export async function generateWorkoutProgram(
             ...params,
           });
           movementFocus.push('core');
-          usedExerciseIds.add(coreEx.id);
+          exerciseUsageMap.set(coreEx.id, dayOfWeek);
+          if (workoutIndex === 1) {
+            firstDayExercises.add(coreEx.id);
+          }
           hasUsedCoreMovement.used = true;
           console.log(`[REQUIRED-ADDED] ✓ ${coreEx.name} (core) - Core requirement fulfilled on day ${workoutIndex}`);
         }
@@ -992,7 +1035,19 @@ export async function generateWorkoutProgram(
           
           // Use pre-filtered exercises from pattern map (optimization)
           const patternExercises = exercisesByPattern[pattern] || [];
-          const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
+          const selected = selectExercisesByPattern(
+            patternExercises, 
+            pattern, 
+            exercisesPerPattern, 
+            (exId, exPattern) => canUseExercise(exId, dayOfWeek, exPattern) && canUseOnLastDay(exId, isLastScheduledDay),
+            (exId) => {
+              // Track immediately when selected
+              exerciseUsageMap.set(exId, dayOfWeek);
+              if (workoutIndex === 1) {
+                firstDayExercises.add(exId);
+              }
+            }
+          );
           
           for (const ex of selected) {
             if (exercises.length >= compoundSlotsToFill) break;
@@ -1024,6 +1079,8 @@ export async function generateWorkoutProgram(
               ...params,
             });
             movementFocus.push(pattern);
+            
+            // Note: Exercise usage already tracked in selectExercisesByPattern callback
             
             // Track compound exercises for superset logic
             if (ex.liftType === 'compound') {
@@ -1104,7 +1161,10 @@ export async function generateWorkoutProgram(
             if (exercises.length >= mainCount) break;
             
             const patternExercises = exercisesByPattern[pattern] || [];
-            const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
+            const available = patternExercises.filter(ex => 
+              canUseExercise(ex.id, dayOfWeek, ex.movementPattern) &&
+              canUseOnLastDay(ex.id, isLastScheduledDay)
+            );
             
             for (const ex of available) {
               if (exercises.length >= mainCount) break;
@@ -1122,7 +1182,10 @@ export async function generateWorkoutProgram(
                 ...params,
               });
               movementFocus.push(pattern);
-              usedExerciseIds.add(ex.id);
+              exerciseUsageMap.set(ex.id, dayOfWeek);
+              if (workoutIndex === 1) {
+                firstDayExercises.add(ex.id);
+              }
             }
           }
         }
@@ -1171,7 +1234,10 @@ export async function generateWorkoutProgram(
           if (actualStrengthDuration >= strengthTimeBudget - 1) break; // Stop when within 1 minute of strength target
           
           const patternExercises = exercisesByPattern[pattern] || [];
-          const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
+          const available = patternExercises.filter(ex => 
+            canUseExercise(ex.id, dayOfWeek, ex.movementPattern) &&
+            canUseOnLastDay(ex.id, isLastScheduledDay)
+          );
           
           // Prioritize compound exercises for fallback
           const compounds = available.filter(ex => ex.liftType === 'compound');
@@ -1202,7 +1268,10 @@ export async function generateWorkoutProgram(
               ...params,
             });
             movementFocus.push(pattern);
-            usedExerciseIds.add(ex.id);
+            exerciseUsageMap.set(ex.id, dayOfWeek);
+            if (workoutIndex === 1) {
+              firstDayExercises.add(ex.id);
+            }
             
             actualStrengthDuration += exerciseTime;
             fallbackAdded++;
@@ -1340,7 +1409,8 @@ export async function generateWorkoutProgram(
           ex.isPower === 1 &&
           ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
           isExerciseAllowed(ex, movementDifficulties, fitnessLevel) &&
-          !usedExerciseIds.has(ex.id)
+          canUseExercise(ex.id, dayOfWeek, ex.movementPattern) &&
+          canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
         // Select power exercises from PRIMARY patterns first (follows tiered approach)
@@ -1354,7 +1424,10 @@ export async function generateWorkoutProgram(
           for (const powerEx of tierPowerExercises) {
             if (selectedPowerExercises.length >= powerCount) break;
             selectedPowerExercises.push(powerEx);
-            usedExerciseIds.add(powerEx.id);
+            exerciseUsageMap.set(powerEx.id, dayOfWeek);
+            if (workoutIndex === 1) {
+              firstDayExercises.add(powerEx.id);
+            }
           }
         }
         
@@ -1428,9 +1501,13 @@ export async function generateWorkoutProgram(
         const selectedCardio: Exercise[] = [];
         for (const cardioEx of cardioPool) {
           if (selectedCardio.length >= cardioCount) break;
-          if (!usedExerciseIds.has(cardioEx.id)) {
+          if (canUseExercise(cardioEx.id, dayOfWeek, cardioEx.movementPattern) && 
+              canUseOnLastDay(cardioEx.id, isLastScheduledDay)) {
             selectedCardio.push(cardioEx);
-            usedExerciseIds.add(cardioEx.id);
+            exerciseUsageMap.set(cardioEx.id, dayOfWeek);
+            if (workoutIndex === 1) {
+              firstDayExercises.add(cardioEx.id);
+            }
           }
         }
         
