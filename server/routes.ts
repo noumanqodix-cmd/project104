@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
-import { insertFitnessAssessmentSchema, overrideFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout, type Exercise } from "@shared/schema";
+import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout, type Exercise } from "@shared/schema";
 import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg } from "./calorie-calculator";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
@@ -785,27 +785,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/fitness-assessments/:id/override", isAuthenticated, async (req: any, res: Response) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { id } = req.params;
-
-      const assessment = await storage.getFitnessAssessmentById(id);
-      if (!assessment || assessment.userId !== userId) {
-        return res.status(404).json({ error: "Assessment not found" });
-      }
-
-      const validatedData = overrideFitnessAssessmentSchema.parse(req.body);
-      const updated = await storage.updateFitnessAssessmentOverride(id, validatedData);
-      res.json(updated);
-    } catch (error) {
-      console.error("Update assessment override error:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid override data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update assessment override" });
-    }
-  });
 
   // Exercise routes
   app.post("/api/exercises/seed", isAuthenticated, async (req: any, res: Response) => {

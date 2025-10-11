@@ -69,27 +69,12 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   barbellRow1rm: real("barbell_row_1rm"),
   dumbbellLunge1rm: real("dumbbell_lunge_1rm"),
   farmersCarry1rm: real("farmers_carry_1rm"),
-  horizontalPushOverride: text("horizontal_push_override"),
-  verticalPushOverride: text("vertical_push_override"),
-  pullOverride: text("pull_override"),
-  lowerBodyOverride: text("lower_body_override"),
-  hingeOverride: text("hinge_override"),
-  cardioOverride: text("cardio_override"),
 });
 
 export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessments).omit({
   id: true,
   testDate: true,
 });
-
-export const overrideFitnessAssessmentSchema = z.object({
-  horizontalPushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  verticalPushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  pullOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  lowerBodyOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  hingeOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  cardioOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-}).strict(); // Prevents additional properties
 
 export type InsertFitnessAssessment = z.infer<typeof insertFitnessAssessmentSchema>;
 export type FitnessAssessment = typeof fitnessAssessments.$inferSelect;
@@ -161,6 +146,7 @@ export const programExercises = pgTable("program_exercises", {
   durationSeconds: integer("duration_seconds"),
   workSeconds: integer("work_seconds"),
   restSeconds: integer("rest_seconds").notNull(),
+  tempo: text("tempo"),
   targetRPE: integer("target_rpe"),
   targetRIR: integer("target_rir"),
   notes: text("notes"),
