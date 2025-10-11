@@ -344,7 +344,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
                   }}
                   className="grid grid-cols-3 gap-3"
                 >
-                  {[3, 4, 5, 6, 7].map((days) => (
+                  {[3, 4, 5].map((days) => (
                     <Label
                       key={days}
                       htmlFor={`days-${days}`}
@@ -407,7 +407,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
                   onValueChange={(value) => setMinutesPerSession(Number(value))}
                   className="grid grid-cols-2 gap-4"
                 >
-                  {[20, 30, 45, 60].map((mins) => (
+                  {[30, 45, 60, 90].map((mins) => (
                     <Label
                       key={mins}
                       htmlFor={`duration-${mins}`}
