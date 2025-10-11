@@ -2025,10 +2025,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
-      // Get all sessions for this user
+      // STEP 1: Snapshot all pending (incomplete) sessions BEFORE cleanup
       const allSessions = await storage.getUserSessions(userId);
-
-      // Get all pending (not completed/skipped/archived) workouts sorted by scheduled date
       const pendingWorkouts = allSessions
         .filter((session: any) => {
           if (session.status === 'archived') return false;
@@ -2045,31 +2043,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "No pending workouts to reschedule", rescheduledCount: 0 });
       }
 
-      // Reschedule each pending workout starting from today
+      // STEP 2: Clean up sessions from today onwards to prevent duplicates
+      // This archives completed sessions and deletes incomplete ones
+      await storage.cleanupSessionsForRegeneration(userId, currentDateString);
+
+      // STEP 3: Recreate sessions starting from today using the snapshot
       let dayOffset = 0;
-      const updates = [];
+      const createdSessions = [];
       
       for (const workout of pendingWorkouts) {
         const newScheduledDate = new Date(today);
         newScheduledDate.setDate(today.getDate() + dayOffset);
         const newScheduledDateString = formatLocalDate(newScheduledDate);
         
-        // Update the calendar day-of-week to match the new date
+        // Calculate the calendar day-of-week to match the new date
         const calendarDay = newScheduledDate.getDay();
         const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
         
-        updates.push(
-          storage.updateWorkoutSession(workout.id, {
-            scheduledDate: newScheduledDateString,
-            sessionDayOfWeek: schemaDayOfWeek,
-            status: 'scheduled'
-          })
-        );
+        // Create a new session with the rescheduled date
+        const newSession = await storage.createWorkoutSession({
+          userId: workout.userId,
+          programWorkoutId: workout.programWorkoutId,
+          workoutName: workout.workoutName,
+          workoutType: workout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
+          scheduledDate: newScheduledDateString,
+          sessionDayOfWeek: schemaDayOfWeek,
+          sessionType: (workout.sessionType === 'rest' ? 'rest' : 'workout') as 'workout' | 'rest',
+          status: 'scheduled',
+          completed: 0,
+          isArchived: 0
+        });
+        createdSessions.push(newSession);
         
         dayOffset++;
       }
-
-      await Promise.all(updates);
 
       console.log(`[RESET] Rescheduled ${pendingWorkouts.length} workouts starting from ${currentDateString}`);
       res.json({ 
