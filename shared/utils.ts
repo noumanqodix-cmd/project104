@@ -21,7 +21,8 @@ export function calculateAge(dateOfBirth: Date | string | null | undefined): num
 export type MovementPatternLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface MovementPatternLevels {
-  push: MovementPatternLevel;
+  horizontal_push: MovementPatternLevel;
+  vertical_push: MovementPatternLevel;
   pull: MovementPatternLevel;
   squat: MovementPatternLevel;
   lunge: MovementPatternLevel;
@@ -29,11 +30,13 @@ export interface MovementPatternLevels {
   core: MovementPatternLevel;
   carry: MovementPatternLevel;
   cardio: MovementPatternLevel;
+  rotation: MovementPatternLevel;
 }
 
 interface AssessmentData {
   experienceLevel?: string | null;
   pushups?: number | null;
+  pikePushups?: number | null;
   pullups?: number | null;
   squats?: number | null;
   walkingLunges?: number | null;
@@ -47,7 +50,8 @@ interface AssessmentData {
   barbellRow1rm?: number | null;
   dumbbellLunge1rm?: number | null;
   farmersCarry1rm?: number | null;
-  pushOverride?: string | null;
+  horizontalPushOverride?: string | null;
+  verticalPushOverride?: string | null;
   pullOverride?: string | null;
   lowerBodyOverride?: string | null;
   hingeOverride?: string | null;
@@ -69,7 +73,8 @@ export interface ProgressionTarget {
 }
 
 export interface ProgressionTargets {
-  push: ProgressionTarget;
+  horizontal_push: ProgressionTarget;
+  vertical_push: ProgressionTarget;
   pull: ProgressionTarget;
   lowerBody: ProgressionTarget;
   hinge: ProgressionTarget;
@@ -81,13 +86,21 @@ export function getProgressionTargets(userWeight?: number, unitPreference?: stri
   const weight = userWeight || 0;
   
   return {
-    push: {
+    horizontal_push: {
       bodyweightTest: 'Pushups',
       bodyweightIntermediate: '10+ pushups',
       bodyweightAdvanced: '20+ pushups',
-      weightedTest: 'Bench Press or OHP 1RM',
-      weightedIntermediate: `Bench: ${(weight * 1.0).toFixed(0)}${weightUnit} (1.0×BW) or OHP: ${(weight * 0.6).toFixed(0)}${weightUnit} (0.6×BW)`,
-      weightedAdvanced: `Bench: ${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW) or OHP: ${(weight * 0.9).toFixed(0)}${weightUnit} (0.9×BW)`,
+      weightedTest: 'Bench Press 1RM',
+      weightedIntermediate: `${(weight * 1.0).toFixed(0)}${weightUnit} (1.0×BW)`,
+      weightedAdvanced: `${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW)`,
+    },
+    vertical_push: {
+      bodyweightTest: 'Pike Pushups',
+      bodyweightIntermediate: '8+ pike pushups',
+      bodyweightAdvanced: '15+ pike pushups',
+      weightedTest: 'Overhead Press 1RM',
+      weightedIntermediate: `${(weight * 0.6).toFixed(0)}${weightUnit} (0.6×BW)`,
+      weightedAdvanced: `${(weight * 0.9).toFixed(0)}${weightUnit} (0.9×BW)`,
     },
     pull: {
       bodyweightTest: 'Pullups',
@@ -129,7 +142,8 @@ export function calculateMovementPatternLevels(
   user: UserData
 ): MovementPatternLevels {
   // Calculate levels based purely on test metrics, allowing progression
-  let pushLevel: MovementPatternLevel = 'beginner';
+  let horizontalPushLevel: MovementPatternLevel = 'beginner';
+  let verticalPushLevel: MovementPatternLevel = 'beginner';
   let pullLevel: MovementPatternLevel = 'beginner';
   let squatLevel: MovementPatternLevel = 'beginner';
   let lungeLevel: MovementPatternLevel = 'beginner';
@@ -137,13 +151,22 @@ export function calculateMovementPatternLevels(
   let coreLevel: MovementPatternLevel = 'beginner';
   let carryLevel: MovementPatternLevel = 'beginner';
   let cardioLevel: MovementPatternLevel = 'beginner';
+  let rotationLevel: MovementPatternLevel = 'beginner';
   
-  // Push pattern - based on pushups or bench/OHP performance
+  // Horizontal Push pattern - based on pushups or bench press performance
   const pushups = assessment.pushups || 0;
   if (pushups >= 20) {
-    pushLevel = 'advanced';
+    horizontalPushLevel = 'advanced';
   } else if (pushups >= 10) {
-    pushLevel = 'intermediate';
+    horizontalPushLevel = 'intermediate';
+  }
+  
+  // Vertical Push pattern - based on pike pushups or OHP performance
+  const pikePushups = assessment.pikePushups || 0;
+  if (pikePushups >= 15) {
+    verticalPushLevel = 'advanced';
+  } else if (pikePushups >= 8) {
+    verticalPushLevel = 'intermediate';
   }
   
   // Pull pattern - based on pullups or row performance
@@ -253,29 +276,29 @@ export function calculateMovementPatternLevels(
       }
     }
     
-    // Bench Press 1RM for push level
+    // Bench Press 1RM for horizontal push level
     if (assessment.benchPress1rm) {
       const bench1rmKg = user.unitPreference === 'imperial' ? assessment.benchPress1rm * 0.453592 : assessment.benchPress1rm;
       const ratio = bench1rmKg / weightInKg;
       if (ratio >= 1.5) {
-        pushLevel = 'advanced';
+        horizontalPushLevel = 'advanced';
       } else if (ratio >= 1.0) {
-        pushLevel = 'intermediate';
+        horizontalPushLevel = 'intermediate';
       } else if (ratio < 0.75) {
-        pushLevel = 'beginner';
+        horizontalPushLevel = 'beginner';
       }
     }
     
-    // Overhead Press 1RM for push level (more conservative)
+    // Overhead Press 1RM for vertical push level
     if (assessment.overheadPress1rm) {
       const ohp1rmKg = user.unitPreference === 'imperial' ? assessment.overheadPress1rm * 0.453592 : assessment.overheadPress1rm;
       const ratio = ohp1rmKg / weightInKg;
       if (ratio >= 0.9) {
-        pushLevel = 'advanced';
+        verticalPushLevel = 'advanced';
       } else if (ratio >= 0.6) {
-        pushLevel = pushLevel === 'advanced' ? 'advanced' : 'intermediate';
+        verticalPushLevel = 'intermediate';
       } else if (ratio < 0.5) {
-        pushLevel = 'beginner';
+        verticalPushLevel = 'beginner';
       }
     }
     
@@ -293,6 +316,9 @@ export function calculateMovementPatternLevels(
     }
   }
   
+  // Rotation defaults to beginner (no specific test)
+  rotationLevel = assessment.experienceLevel as MovementPatternLevel || 'beginner';
+  
   // Apply manual overrides - use the higher of performance level or override
   function getMaxLevel(performanceLevel: MovementPatternLevel, override?: string | null): MovementPatternLevel {
     if (!override) return performanceLevel;
@@ -305,7 +331,8 @@ export function calculateMovementPatternLevels(
   }
   
   return {
-    push: getMaxLevel(pushLevel, assessment.pushOverride),
+    horizontal_push: getMaxLevel(horizontalPushLevel, assessment.horizontalPushOverride),
+    vertical_push: getMaxLevel(verticalPushLevel, assessment.verticalPushOverride),
     pull: getMaxLevel(pullLevel, assessment.pullOverride),
     squat: getMaxLevel(squatLevel, assessment.lowerBodyOverride),
     lunge: getMaxLevel(lungeLevel, assessment.lowerBodyOverride),
@@ -313,6 +340,7 @@ export function calculateMovementPatternLevels(
     core: getMaxLevel(coreLevel, undefined),
     carry: getMaxLevel(carryLevel, undefined),
     cardio: getMaxLevel(cardioLevel, assessment.cardioOverride),
+    rotation: getMaxLevel(rotationLevel, undefined),
   };
 }
 
@@ -328,14 +356,9 @@ export function getMovementDifficultiesMap(
   levels: MovementPatternLevels,
   fitnessLevel: string = 'beginner'
 ): { [pattern: string]: string[] } {
-  const getDefault = (level: string): string[] => {
-    if (level === 'beginner') return ['beginner'];
-    if (level === 'intermediate') return ['beginner', 'intermediate'];
-    return ['beginner', 'intermediate', 'advanced'];
-  };
-  
   return {
-    push: getAllowedDifficulties(levels.push),
+    horizontal_push: getAllowedDifficulties(levels.horizontal_push),
+    vertical_push: getAllowedDifficulties(levels.vertical_push),
     pull: getAllowedDifficulties(levels.pull),
     squat: getAllowedDifficulties(levels.squat),
     lunge: getAllowedDifficulties(levels.lunge),
@@ -343,7 +366,7 @@ export function getMovementDifficultiesMap(
     core: getAllowedDifficulties(levels.core),
     carry: getAllowedDifficulties(levels.carry),
     cardio: getAllowedDifficulties(levels.cardio),
-    rotation: getDefault(fitnessLevel),
+    rotation: getAllowedDifficulties(levels.rotation),
   };
 }
 

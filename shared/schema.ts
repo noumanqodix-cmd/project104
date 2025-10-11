@@ -55,6 +55,7 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   testDate: timestamp("test_date").notNull().defaultNow(),
   experienceLevel: text("experience_level"),
   pushups: integer("pushups"),
+  pikePushups: integer("pike_pushups"),
   pullups: integer("pullups"),
   squats: integer("squats"),
   walkingLunges: integer("walking_lunges"),
@@ -68,7 +69,8 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   barbellRow1rm: real("barbell_row_1rm"),
   dumbbellLunge1rm: real("dumbbell_lunge_1rm"),
   farmersCarry1rm: real("farmers_carry_1rm"),
-  pushOverride: text("push_override"),
+  horizontalPushOverride: text("horizontal_push_override"),
+  verticalPushOverride: text("vertical_push_override"),
   pullOverride: text("pull_override"),
   lowerBodyOverride: text("lower_body_override"),
   hingeOverride: text("hinge_override"),
@@ -81,7 +83,8 @@ export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessmen
 });
 
 export const overrideFitnessAssessmentSchema = z.object({
-  pushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  horizontalPushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+  verticalPushOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   pullOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   lowerBodyOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   hingeOverride: z.enum(["beginner", "intermediate", "advanced"]).optional(),
