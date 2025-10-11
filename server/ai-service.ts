@@ -1132,14 +1132,14 @@ export async function generateWorkoutProgram(
       // Movement-specific warmup selection based on actual workout patterns
       // Define warmup mapping based on movement patterns
       const warmupMapping: Record<string, string[]> = {
-        push: ['Band Pull-Aparts', 'Arm Circles', 'Shoulder Dislocations', 'Cat-Cow Stretch'],
+        push: ['Band Pull-Aparts', 'Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch'],
         pull: ['Band Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Thoracic Rotation'],
-        squat: ['Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
-        lunge: ['Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
-        hinge: ['Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
+        squat: ['Dynamic Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
+        lunge: ['Dynamic Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
+        hinge: ['Dynamic Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
         core: ['Cat-Cow Stretch', 'Torso Twists', 'Dead Bug', 'Bird Dog'],
         rotation: ['Torso Twists', 'Thoracic Rotation', 'Cat-Cow Stretch'],
-        carry: ['Arm Circles', 'Shoulder Dislocations', 'Farmer Walk'],
+        carry: ['Arm Circles', 'Band Shoulder Dislocates', 'Dynamic Shoulder Rolls'],
       };
       
       // Analyze the actual patterns used in this workout (from movementFocus array)
