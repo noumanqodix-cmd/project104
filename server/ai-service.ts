@@ -242,7 +242,7 @@ function assignTrainingParameters(
   template: ProgramTemplate,
   assessment: FitnessAssessment,
   user: User,
-  exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio',
+  exerciseRole: 'power' | 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio',
   supersetGroup?: string,
   supersetOrder?: number,
   cardioConfig?: { duration: number; minSecondaries: number; types: string[] }
@@ -259,6 +259,23 @@ function assignTrainingParameters(
   supersetGroup?: string;
   supersetOrder?: number;
 } {
+  
+  // Power exercises - explosive movements with max intent
+  if (exerciseRole === 'power' || exercise.isPower === 1) {
+    const powerParams = {
+      beginner: { sets: 3, repsMin: 3, repsMax: 3, restSeconds: 180 },     // 3x3 @ 3min rest
+      intermediate: { sets: 4, repsMin: 2, repsMax: 3, restSeconds: 240 }, // 4x2-3 @ 4min rest
+      advanced: { sets: 5, repsMin: 1, repsMax: 2, restSeconds: 300 }      // 5x1-2 @ 5min rest
+    };
+    
+    const params = powerParams[fitnessLevel as keyof typeof powerParams] || powerParams.beginner;
+    
+    return {
+      ...params,
+      targetRPE: 9, // Max effort, explosive intent
+      targetRIR: 0, // All-out power development
+    };
+  }
   
   // Warmup exercises
   if (exerciseRole === 'warmup' || exercise.exerciseType === "warmup") {
