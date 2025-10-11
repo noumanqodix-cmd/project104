@@ -245,7 +245,7 @@ function assignTrainingParameters(
   exerciseRole: 'power' | 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio',
   supersetGroup?: string,
   supersetOrder?: number,
-  cardioConfig?: { duration: number; minSecondaries: number; types: string[] }
+  cardioDuration?: number  // Duration in minutes for cardio exercises
 ): {
   sets: number;
   repsMin?: number;
@@ -294,10 +294,10 @@ function assignTrainingParameters(
       const workSeconds = fitnessLevel === "beginner" ? 20 : fitnessLevel === "intermediate" ? 30 : 40;
       const restSeconds = fitnessLevel === "beginner" ? 40 : fitnessLevel === "intermediate" ? 30 : 20;
       
-      // Calculate sets based on goal-specific cardio duration
+      // Calculate sets based on allocated cardio duration
       // Formula: duration (min) = (workSeconds × sets + restSeconds × (sets-1)) / 60
       // Solving for sets: sets ≈ (duration × 60) / (workSeconds + restSeconds)
-      const targetDurationSeconds = (cardioConfig?.duration || 8) * 60;
+      const targetDurationSeconds = (cardioDuration || 8) * 60;
       const intervalDuration = workSeconds + restSeconds;
       const calculatedSets = Math.round(targetDurationSeconds / intervalDuration);
       
@@ -544,6 +544,60 @@ export async function generateWorkoutProgram(
   
   console.log(`[WEEK-PLAN] Using ${daysPerWeek}-day weekly pattern distribution for varied workouts`);
   
+  // PERCENTAGE-BASED TIME ALLOCATION MATRIX
+  // Allocates workout time based on BOTH nutrition goal AND workout duration
+  // This ensures optimal training regardless of session length
+  
+  interface TimeAllocation {
+    warmup: number;    // % of total duration
+    power: number;     // % of total duration  
+    strength: number;  // % of total duration
+    cardio: number;    // % of total duration
+  }
+  
+  type AllocationMatrix = Record<string, Record<number, TimeAllocation>>;
+  
+  const allocationMatrix: AllocationMatrix = {
+    gain: {
+      30: { warmup: 7, power: 18, strength: 65, cardio: 5 },   // Minimal cardio for short sessions
+      45: { warmup: 7, power: 18, strength: 63, cardio: 8 },
+      60: { warmup: 7, power: 18, strength: 60, cardio: 10 },
+      90: { warmup: 8, power: 17, strength: 58, cardio: 12 }   // Can add more cardio with extra time
+    },
+    maintain: {
+      30: { warmup: 6, power: 17, strength: 60, cardio: 12 },  // Balanced approach
+      45: { warmup: 6, power: 17, strength: 58, cardio: 15 },
+      60: { warmup: 7, power: 18, strength: 55, cardio: 18 },
+      90: { warmup: 8, power: 17, strength: 52, cardio: 20 }
+    },
+    lose: {
+      30: { warmup: 5, power: 15, strength: 55, cardio: 20 },  // Max cardio even in short sessions
+      45: { warmup: 5, power: 15, strength: 53, cardio: 23 },
+      60: { warmup: 6, power: 16, strength: 50, cardio: 25 },
+      90: { warmup: 7, power: 15, strength: 48, cardio: 28 }   // Extended cardio for fat loss
+    }
+  };
+  
+  // Get allocation percentages for current goal and duration
+  const nutritionGoal = user.nutritionGoal || "maintain";
+  const getDurationKey = (duration: number): number => {
+    if (duration <= 35) return 30;
+    if (duration <= 52) return 45;
+    if (duration <= 75) return 60;
+    return 90;
+  };
+  
+  const durationKey = getDurationKey(workoutDuration);
+  const allocation = allocationMatrix[nutritionGoal][durationKey];
+  
+  console.log(`[ALLOCATION-MATRIX] ${nutritionGoal.toUpperCase()} goal, ${workoutDuration}min → Using ${durationKey}min template: ${allocation.warmup}% warmup, ${allocation.power}% power, ${allocation.strength}% strength, ${allocation.cardio}% cardio`);
+  
+  // Calculate time budgets from percentages
+  const warmupTimeBudget = (workoutDuration * allocation.warmup) / 100;
+  const powerTimeBudget = (workoutDuration * allocation.power) / 100;
+  const strengthTimeBudget = (workoutDuration * allocation.strength) / 100;
+  const cardioTimeBudget = (workoutDuration * allocation.cardio) / 100;
+  
   // Calculate exercise counts using PRECISE time estimates from calculateExerciseTime()
   
   // Warmup exercise (2 sets, 12 reps avg, 30s rest): ~2min
@@ -571,38 +625,25 @@ export async function generateWorkoutProgram(
   });
   
   // GOAL-SPECIFIC CARDIO CONFIGURATION
-  // Different nutrition goals require different cardio approaches
-  const nutritionGoal = user.nutritionGoal || "maintain";
-  
+  // Different nutrition goals require different cardio types
   interface CardioConfig {
-    duration: number;  // Minutes
-    minSecondaries: number;  // Minimum secondary exercises needed before including cardio
     types: string[];  // Available cardio types for this goal
   }
   
   const cardioConfigs: Record<string, CardioConfig> = {
     gain: {
-      duration: 5.5,  // Short HIIT for heart health without impacting recovery
-      minSecondaries: 3,  // Need 3 secondaries before adding cardio
       types: ["hiit"]  // HIIT only - most time-efficient
     },
     maintain: {
-      duration: 7.5,  // Standard cardio duration
-      minSecondaries: 2,  // Need 2 secondaries before adding cardio
       types: ["hiit", "steady-state"]  // Mix HIIT and steady-state
     },
     lose: {
-      duration: 9,  // Extended cardio for max calorie burn
-      minSecondaries: 1,  // Only need 1 secondary before adding cardio
       types: ["hiit", "steady-state", "tempo", "circuit"]  // All cardio modalities
     }
   };
   
   const cardioConfig = cardioConfigs[nutritionGoal];
-  console.log(`[CARDIO-CONFIG] Nutrition goal: ${nutritionGoal}, cardio duration: ${cardioConfig.duration}min, min secondaries: ${cardioConfig.minSecondaries}`);
-  
-  // Calculate cardio finisher time based on goal
-  const cardioFinisherTime = cardioConfig.duration;
+  console.log(`[CARDIO-CONFIG] Nutrition goal: ${nutritionGoal}, cardio types: ${cardioConfig.types.join(', ')}, allocated time: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%)`);
   
   // POWER EXERCISE TIME CALCULATION
   // Power exercises have longer rest periods based on fitness level
@@ -613,119 +654,33 @@ export async function generateWorkoutProgram(
     restSeconds: fitnessLevel === "beginner" ? 180 : fitnessLevel === "intermediate" ? 240 : 300
   });
   
-  // PRECISE TIME-AWARE ALLOCATION
-  // New flow: warmup → power → strength → hypertrophy → cardio
-  let timeRemaining = workoutDuration;
+  // PERCENTAGE-BASED TIME ALLOCATION
+  // Use calculated budgets from allocation matrix to determine exercise counts
   
-  // Step 1: DYNAMIC WARMUP ALLOCATION
-  // Keep warmups shorter for standard durations to make room for power
-  let warmupCount = workoutDuration >= 75 ? 3 : workoutDuration >= 45 ? 2 : 1;
-  timeRemaining -= warmupCount * warmupTimePerExercise;
-  console.log(`[TIME-ALLOC] After ${warmupCount} warmups: ${timeRemaining.toFixed(1)}min remaining`);
+  // Step 1: WARMUP ALLOCATION (percentage-based)
+  const warmupCount = Math.max(1, Math.floor(warmupTimeBudget / warmupTimePerExercise));
+  console.log(`[TIME-ALLOC] Warmup: ${warmupTimeBudget.toFixed(1)}min (${allocation.warmup}%) → ${warmupCount} exercises`);
   
-  // Step 2: POWER EXERCISE ALLOCATION
-  // Always include 1-2 power exercises after warmup
-  let powerCount = 0;
-  if (timeRemaining >= powerExerciseTime * 2) {
-    powerCount = 2;
-    timeRemaining -= powerExerciseTime * 2;
-    console.log(`[TIME-ALLOC] After 2 power exercises: ${timeRemaining.toFixed(1)}min remaining`);
-  } else if (timeRemaining >= powerExerciseTime) {
-    powerCount = 1;
-    timeRemaining -= powerExerciseTime;
-    console.log(`[TIME-ALLOC] After 1 power exercise: ${timeRemaining.toFixed(1)}min remaining`);
-  } else {
-    console.log(`[TIME-ALLOC] Skipping power (insufficient time), ${timeRemaining.toFixed(1)}min remaining`);
-  }
+  // Step 2: POWER EXERCISE ALLOCATION (percentage-based)
+  const powerCount = Math.max(0, Math.floor(powerTimeBudget / powerExerciseTime));
+  console.log(`[TIME-ALLOC] Power: ${powerTimeBudget.toFixed(1)}min (${allocation.power}%) → ${powerCount} exercises`);
   
-  // Step 3: Dynamically allocate primaries, secondaries, and cardio based on nutrition goal
-  // For 30-45 min workouts, we'll use supersets to maximize efficiency
+  // Step 3: STRENGTH ALLOCATION (percentage-based)
+  // Split strength budget between primary and secondary compounds
   const useSupersets = workoutDuration <= 45;
-  let primaryCount = 0;
-  let secondaryCount = 0;
-  let cardioCount = 0;
-  const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
   
-  if (timeRemaining >= primaryCompoundTime * 2) {
-    // Have room for 2 primary compounds
-    primaryCount = 2;
-    timeRemaining -= primaryCompoundTime * 2;
-    console.log(`[TIME-ALLOC] After 2 primary compounds: ${timeRemaining.toFixed(1)}min remaining`);
-    
-    // SMART CARDIO ALLOCATION
-    // Try different combinations to find optimal fill while respecting goal priorities
-    
-    if (templateWantsCardio) {
-      // Option 1: minSecondaries + cardio (ideal per goal)
-      const option1Time = (cardioConfig.minSecondaries * secondaryCompoundTime) + cardioFinisherTime;
-      const option1Fits = timeRemaining >= option1Time;
-      
-      // Option 2: cardio with fewer secondaries (0 or more)
-      const option2Secondaries = Math.max(0, Math.floor((timeRemaining - cardioFinisherTime) / secondaryCompoundTime));
-      const option2Time = (option2Secondaries * secondaryCompoundTime) + cardioFinisherTime;
-      const option2Fits = timeRemaining >= cardioFinisherTime;
-      
-      // Option 3: no cardio, max secondaries
-      const option3Secondaries = Math.floor(timeRemaining / secondaryCompoundTime);
-      const option3Time = option3Secondaries * secondaryCompoundTime;
-      
-      // Decision logic based on goal priorities and fit
-      if (option1Fits) {
-        // Ideal: meet minSecondaries requirement with cardio
-        cardioCount = 1;
-        secondaryCount = cardioConfig.minSecondaries;
-        timeRemaining -= option1Time;
-        console.log(`[TIME-ALLOC] Ideal allocation: ${cardioFinisherTime}min cardio + ${secondaryCount} secondaries (${nutritionGoal} goal), ${timeRemaining.toFixed(1)}min remaining`);
-      } else if (option2Fits) {
-        // Can't fit ideal - compare option2 (cardio + few secondaries) vs option3 (more secondaries, no cardio)
-        // Decision depends on goal priorities and time utilization
-        
-        const option2UsesMoreTime = option2Time > option3Time;
-        const option2HasEnoughSecondaries = option2Secondaries >= (cardioConfig.minSecondaries - 1); // Within 1 of ideal
-        
-        // GAIN goal: prioritize hypertrophy (secondaries) over cardio
-        // LOSE/MAINTAIN: prioritize better time usage and include cardio when close to ideal
-        const shouldUseOption2 = (nutritionGoal === 'lose' && option2UsesMoreTime) || 
-                                  (nutritionGoal === 'maintain' && (option2HasEnoughSecondaries || option2UsesMoreTime)) ||
-                                  (nutritionGoal === 'gain' && option2Secondaries >= cardioConfig.minSecondaries);
-        
-        if (shouldUseOption2) {
-          cardioCount = 1;
-          secondaryCount = option2Secondaries;
-          timeRemaining -= option2Time;
-          console.log(`[TIME-ALLOC] Compromise: ${cardioFinisherTime}min cardio + ${secondaryCount} secondaries (${nutritionGoal} priority), ${timeRemaining.toFixed(1)}min remaining`);
-        } else {
-          cardioCount = 0;
-          secondaryCount = option3Secondaries;
-          timeRemaining -= option3Time;
-          console.log(`[TIME-ALLOC] Prioritizing strength: ${secondaryCount} secondaries, no cardio (${nutritionGoal} goal), ${timeRemaining.toFixed(1)}min remaining`);
-        }
-      } else {
-        // Can't fit cardio at all
-        cardioCount = 0;
-        secondaryCount = option3Secondaries;
-        timeRemaining -= option3Time;
-        console.log(`[TIME-ALLOC] No room for cardio: ${secondaryCount} secondaries only, ${timeRemaining.toFixed(1)}min remaining`);
-      }
-    } else {
-      // Template doesn't want cardio, use all time for secondaries
-      secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
-      timeRemaining -= secondaryCount * secondaryCompoundTime;
-      console.log(`[TIME-ALLOC] No cardio requested: ${secondaryCount} secondaries, ${timeRemaining.toFixed(1)}min remaining`);
-    }
-  } else if (timeRemaining >= primaryCompoundTime) {
-    // Only room for 1 primary compound
-    primaryCount = 1;
-    timeRemaining -= primaryCompoundTime;
-    console.log(`[TIME-ALLOC] After 1 primary compound: ${timeRemaining.toFixed(1)}min remaining`);
-    
-    // Fill with secondary compounds (no cardio for very short sessions)
-    secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
-    if (secondaryCount > 0) {
-      timeRemaining -= secondaryCount * secondaryCompoundTime;
-      console.log(`[TIME-ALLOC] After ${secondaryCount} secondary compounds: ${timeRemaining.toFixed(1)}min remaining`);
-    }
-  }
+  // Always try to fit 2 primary compounds, then fill with secondaries
+  let primaryCount = Math.min(2, Math.floor(strengthTimeBudget / primaryCompoundTime));
+  const primaryTime = primaryCount * primaryCompoundTime;
+  const secondaryTimeBudget = strengthTimeBudget - primaryTime;
+  const secondaryCount = Math.max(0, Math.floor(secondaryTimeBudget / secondaryCompoundTime));
+  
+  console.log(`[TIME-ALLOC] Strength: ${strengthTimeBudget.toFixed(1)}min (${allocation.strength}%) → ${primaryCount} primaries (${primaryTime.toFixed(1)}min) + ${secondaryCount} secondaries (${(secondaryCount * secondaryCompoundTime).toFixed(1)}min)`);
+  
+  // Step 4: CARDIO ALLOCATION (percentage-based)
+  const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
+  const cardioCount = (templateWantsCardio && cardioTimeBudget > 0) ? 1 : 0;
+  console.log(`[TIME-ALLOC] Cardio: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%) → ${cardioCount} finisher`);
   
   const mainCount = primaryCount + secondaryCount;
   
@@ -733,9 +688,9 @@ export async function generateWorkoutProgram(
                          (powerCount * powerExerciseTime) +
                          (primaryCount * primaryCompoundTime) +
                          (secondaryCount * secondaryCompoundTime) +
-                         (cardioCount * cardioFinisherTime);
+                         (cardioCount * cardioTimeBudget);
   
-  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${powerCount} power, ${primaryCount} primary compounds, ${secondaryCount} secondary compounds, ${cardioCount} cardio finisher. Estimated total: ${estimatedTotal.toFixed(1)}min. Supersets: ${useSupersets ? 'YES' : 'NO'}`);
+  console.log(`[EXERCISE-CALC] For ${workoutDuration}min ${nutritionGoal.toUpperCase()} session: ${warmupCount}w + ${powerCount}p + ${primaryCount}pri + ${secondaryCount}sec + ${cardioCount}c = ${estimatedTotal.toFixed(1)}min. Supersets: ${useSupersets ? 'YES' : 'NO'}`);
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
@@ -1118,7 +1073,7 @@ export async function generateWorkoutProgram(
         }
         
         for (const cardioEx of selectedCardio) {
-          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioConfig);
+          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioTimeBudget);
           exercises.push({
             exerciseName: cardioEx.name,
             equipment: cardioEx.equipment?.[0] || "bodyweight",
