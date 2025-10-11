@@ -87,16 +87,25 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
     let w = parseFloat(weight);
     const age = calculateAge(dateOfBirth);
     
+    if (!age) {
+      throw new Error("Date of birth is required to calculate BMR");
+    }
+    
     if (!isMetric) {
       h = h * 2.54;
       w = w * 0.453592;
     }
     
-    return Math.round(10 * w + 6.25 * h - 5 * (age || 25) + 5);
+    return Math.round(10 * w + 6.25 * h - 5 * age + 5);
   };
 
   const calculateHeartRateZones = (): HeartRateZones => {
-    const age = calculateAge(dateOfBirth) || 25;
+    const age = calculateAge(dateOfBirth);
+    
+    if (!age) {
+      throw new Error("Date of birth is required to calculate heart rate zones");
+    }
+    
     const maxHR = 220 - age;
     
     return {

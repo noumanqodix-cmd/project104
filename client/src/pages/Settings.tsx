@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
+import { calculateAge } from "@shared/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { toggleEquipment as toggleEquipmentUtil } from "@/lib/equipmentUtils";
 
@@ -78,7 +79,6 @@ export default function Settings() {
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-  const [age, setAge] = useState("");
   const [selectedUnitPreference, setSelectedUnitPreference] = useState<string>("imperial");
   
   // Track original values to detect program-affecting changes
@@ -110,9 +110,6 @@ export default function Settings() {
       if (user.weight) {
         const displayWeight = Math.round(user.weight * (isMetric ? 1 : 2.20462));
         setWeight(displayWeight.toString());
-      }
-      if (user.age) {
-        setAge(user.age.toString());
       }
     }
   }, [user, unitPreference]);
@@ -159,28 +156,14 @@ export default function Settings() {
     window.location.href = "/api/logout";
   };
 
-  const calculateBMR = (heightValue: number, weightValue: number, ageValue: number) => {
-    return Math.round(10 * weightValue + 6.25 * heightValue - 5 * ageValue + 5);
-  };
-
   const handleSavePhysicalStats = () => {
     const heightVal = parseFloat(height);
     const weightVal = parseFloat(weight);
-    const ageVal = parseFloat(age);
 
-    if (!heightVal || !weightVal || !ageVal) {
+    if (!heightVal || !weightVal) {
       toast({
         title: "Error",
-        description: "Please enter valid height, weight, and age values.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (ageVal < 18 || ageVal > 100) {
-      toast({
-        title: "Error",
-        description: "Age must be between 18 and 100.",
+        description: "Please enter valid height and weight values.",
         variant: "destructive",
       });
       return;
@@ -198,7 +181,6 @@ export default function Settings() {
     updateProfileMutation.mutate({
       height: heightInCm,
       weight: weightInKg,
-      age: ageVal,
     });
   };
 
@@ -534,17 +516,13 @@ export default function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="age">Age (years)</Label>
-                <Input
-                  id="age"
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  placeholder="30"
-                  min="18"
-                  max="100"
-                  data-testid="input-age"
-                />
+                <Label>Age</Label>
+                <p className="text-lg font-semibold" data-testid="text-age">
+                  {user?.dateOfBirth ? `${calculateAge(new Date(user.dateOfBirth))} years` : 'Not set'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Age is calculated from your date of birth (set during onboarding)
+                </p>
               </div>
             </div>
             <div className="space-y-2">
@@ -558,31 +536,35 @@ export default function Settings() {
             </div>
             <div className="space-y-2">
               <Label>Heart Rate Training Zones</Label>
-              {user?.age ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold" data-testid="text-max-hr">
-                    Maximum HR: {220 - user.age} bpm
-                  </p>
-                  <div className="grid grid-cols-1 gap-1 text-sm">
-                    <p data-testid="text-hr-zone1">
-                      Zone 1 (50-60%): {Math.round((220 - user.age) * 0.50)}-{Math.round((220 - user.age) * 0.60)} bpm - Warm-up
+              {user?.dateOfBirth ? (() => {
+                const userAge = calculateAge(new Date(user.dateOfBirth));
+                const maxHR = 220 - userAge;
+                return (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold" data-testid="text-max-hr">
+                      Maximum HR: {maxHR} bpm
                     </p>
-                    <p data-testid="text-hr-zone2">
-                      Zone 2 (60-70%): {Math.round((220 - user.age) * 0.60)}-{Math.round((220 - user.age) * 0.70)} bpm - Fat Burning
-                    </p>
-                    <p data-testid="text-hr-zone3">
-                      Zone 3 (70-80%): {Math.round((220 - user.age) * 0.70)}-{Math.round((220 - user.age) * 0.80)} bpm - Aerobic
-                    </p>
-                    <p data-testid="text-hr-zone4">
-                      Zone 4 (80-90%): {Math.round((220 - user.age) * 0.80)}-{Math.round((220 - user.age) * 0.90)} bpm - Anaerobic
-                    </p>
-                    <p data-testid="text-hr-zone5">
-                      Zone 5 (90-100%): {Math.round((220 - user.age) * 0.90)}-{220 - user.age} bpm - Peak
-                    </p>
+                    <div className="grid grid-cols-1 gap-1 text-sm">
+                      <p data-testid="text-hr-zone1">
+                        Zone 1 (50-60%): {Math.round(maxHR * 0.50)}-{Math.round(maxHR * 0.60)} bpm - Warm-up
+                      </p>
+                      <p data-testid="text-hr-zone2">
+                        Zone 2 (60-70%): {Math.round(maxHR * 0.60)}-{Math.round(maxHR * 0.70)} bpm - Fat Burning
+                      </p>
+                      <p data-testid="text-hr-zone3">
+                        Zone 3 (70-80%): {Math.round(maxHR * 0.70)}-{Math.round(maxHR * 0.80)} bpm - Aerobic
+                      </p>
+                      <p data-testid="text-hr-zone4">
+                        Zone 4 (80-90%): {Math.round(maxHR * 0.80)}-{Math.round(maxHR * 0.90)} bpm - Anaerobic
+                      </p>
+                      <p data-testid="text-hr-zone5">
+                        Zone 5 (90-100%): {Math.round(maxHR * 0.90)}-{maxHR} bpm - Peak
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">-</p>
+                );
+              })() : (
+                <p className="text-muted-foreground">Date of birth not set</p>
               )}
             </div>
             <Button 
