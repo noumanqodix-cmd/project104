@@ -678,10 +678,16 @@ export async function generateWorkoutProgram(
         console.warn(`[WEEK-PLAN] No pattern distribution found for day ${workoutIndex} in ${daysPerWeek}-day program, using default`);
       }
       
-      // Use week-level pattern distribution instead of template's generic distribution
-      const strengthPatterns = dayPlan ? [...dayPlan.primary, ...dayPlan.secondary] : selectedTemplate.structure.movementPatternDistribution.strength;
+      // PRIORITY-BASED PATTERN DISTRIBUTION SYSTEM
+      // Use week-level pattern distribution with priority/emphasis approach
+      // First select from priority patterns, then fill remaining time from other patterns
+      const primaryPatterns = dayPlan?.primary || [];
+      const secondaryPatterns = dayPlan?.secondary || [];
+      const allPatterns = ['push', 'pull', 'squat', 'lunge', 'hinge', 'core', 'rotation', 'carry'];
+      const usedPatterns = new Set([...primaryPatterns, ...secondaryPatterns]);
+      const fallbackPatterns = allPatterns.filter(p => !usedPatterns.has(p));
       
-      console.log(`[WEEK-PLAN] Day ${workoutIndex} (${dayName}): Primary=${dayPlan?.primary.join(', ')}, Secondary=${dayPlan?.secondary.join(', ')}`);
+      console.log(`[WEEK-PLAN] Day ${workoutIndex} (${dayName}): Primary=${primaryPatterns.join(', ')}, Secondary=${secondaryPatterns.join(', ')}, Fallback=${fallbackPatterns.join(', ')}`);
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
       
       // Track remaining slots for each exercise type (respect calculated primaryCount/secondaryCount)
@@ -704,52 +710,67 @@ export async function generateWorkoutProgram(
       // Adjust compound selection to account for reserved isolation slots
       const compoundSlotsToFill = mainCount - reservedSupersetSlots;
       
-      // Distribute exercises across movement patterns
-      const exercisesPerPattern = Math.ceil(compoundSlotsToFill / strengthPatterns.length);
+      // TIERED PATTERN SELECTION: Priority → Secondary → Fallback
+      // This ensures workouts fill the target duration while maintaining variety
+      const patternTiers = [
+        { name: 'PRIMARY', patterns: primaryPatterns },
+        { name: 'SECONDARY', patterns: secondaryPatterns },
+        { name: 'FALLBACK', patterns: fallbackPatterns }
+      ];
       
-      for (const pattern of strengthPatterns) {
-        // Use pre-filtered exercises from pattern map (optimization)
-        const patternExercises = exercisesByPattern[pattern] || [];
-        const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
+      for (const tier of patternTiers) {
+        if (exercises.length >= compoundSlotsToFill) break;
         
-        for (const ex of selected) {
-          // Determine exercise role based on REMAINING SLOTS (respects time-based allocation)
-          let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio';
+        const exercisesPerPattern = Math.ceil((compoundSlotsToFill - exercises.length) / tier.patterns.length);
+        console.log(`[PATTERN-TIER] ${tier.name} tier: need ${compoundSlotsToFill - exercises.length} more exercises, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
+        
+        for (const pattern of tier.patterns) {
+          if (exercises.length >= compoundSlotsToFill) break;
           
-          if (ex.liftType === 'compound') {
-            if (primarySlotsRemaining > 0) {
-              exerciseRole = 'primary-compound';
-              primarySlotsRemaining--;
-            } else if (secondarySlotsRemaining > 0) {
-              exerciseRole = 'secondary-compound';
-              secondarySlotsRemaining--;
+          // Use pre-filtered exercises from pattern map (optimization)
+          const patternExercises = exercisesByPattern[pattern] || [];
+          const selected = selectExercisesByPattern(patternExercises, pattern, exercisesPerPattern, usedExerciseIds);
+          
+          for (const ex of selected) {
+            if (exercises.length >= compoundSlotsToFill) break;
+            
+            // Determine exercise role based on REMAINING SLOTS (respects time-based allocation)
+            let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio';
+            
+            if (ex.liftType === 'compound') {
+              if (primarySlotsRemaining > 0) {
+                exerciseRole = 'primary-compound';
+                primarySlotsRemaining--;
+              } else if (secondarySlotsRemaining > 0) {
+                exerciseRole = 'secondary-compound';
+                secondarySlotsRemaining--;
+              } else {
+                // No slots remaining, skip this exercise
+                continue;
+              }
+            } else if (ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry') {
+              exerciseRole = 'core-accessory';
             } else {
-              // No slots remaining, skip this exercise
-              continue;
+              exerciseRole = 'isolation';
             }
-          } else if (ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry') {
-            exerciseRole = 'core-accessory';
-          } else {
-            exerciseRole = 'isolation';
-          }
-          
-          const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
-          exercises.push({
-            exerciseName: ex.name,
-            equipment: ex.equipment?.[0] || "bodyweight",
-            ...params,
-          });
-          movementFocus.push(pattern);
-          
-          // Track compound exercises for superset logic
-          if (ex.liftType === 'compound') {
-            compoundExercises.push({ exercise: ex, pattern });
+            
+            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
+            exercises.push({
+              exerciseName: ex.name,
+              equipment: ex.equipment?.[0] || "bodyweight",
+              ...params,
+            });
+            movementFocus.push(pattern);
+            
+            // Track compound exercises for superset logic
+            if (ex.liftType === 'compound') {
+              compoundExercises.push({ exercise: ex, pattern });
+            }
           }
         }
-        
-        // Stop when we reach the compound slot count (isolation slots reserved for supersets)
-        if (exercises.length >= compoundSlotsToFill) break;
       }
+      
+      console.log(`[PATTERN-TIER] Final: ${exercises.length}/${compoundSlotsToFill} exercises selected`);
       
       // Strategic superset logic: Add isolation exercises for weak patterns
       // Capacity was pre-reserved above, now fill those slots with isolation work
@@ -813,36 +834,42 @@ export async function generateWorkoutProgram(
       }
       
       // Backfill unused reserved slots with additional exercises (compound or isolation)
-      // This runs regardless of whether compounds were found, ensuring we always reach mainCount
+      // Use the same tiered pattern approach: Primary → Secondary → Fallback
       if (reservedSupersetSlots > 0 && exercises.length < mainCount) {
         const exercisesNeeded = mainCount - exercises.length;
-        console.log(`[SUPERSET] Backfilling ${exercisesNeeded} slots to reach mainCount`);
+        console.log(`[BACKFILL] Need ${exercisesNeeded} more exercises to reach mainCount`);
         
-        for (const pattern of strengthPatterns) {
+        // Use same tiered pattern approach for backfilling
+        for (const tier of patternTiers) {
           if (exercises.length >= mainCount) break;
           
-          const patternExercises = exercisesByPattern[pattern] || [];
-          const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
-          
-          for (const ex of available) {
+          for (const pattern of tier.patterns) {
             if (exercises.length >= mainCount) break;
             
-            // Backfill exercises are treated as secondary/accessory work
-            const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
-              : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
-              ? 'core-accessory'
-              : 'isolation';
+            const patternExercises = exercisesByPattern[pattern] || [];
+            const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
             
-            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
-            exercises.push({
-              exerciseName: ex.name,
-              equipment: ex.equipment?.[0] || "bodyweight",
-              ...params,
-            });
-            movementFocus.push(pattern);
-            usedExerciseIds.add(ex.id);
+            for (const ex of available) {
+              if (exercises.length >= mainCount) break;
+              
+              // Backfill exercises are treated as secondary/accessory work
+              const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
+                : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
+                ? 'core-accessory'
+                : 'isolation';
+              
+              const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
+              exercises.push({
+                exerciseName: ex.name,
+                equipment: ex.equipment?.[0] || "bodyweight",
+                ...params,
+              });
+              movementFocus.push(pattern);
+              usedExerciseIds.add(ex.id);
+            }
           }
         }
+        console.log(`[BACKFILL] After backfill: ${exercises.length}/${mainCount} exercises`);
       }
       
       // Movement-specific warmup selection based on actual workout patterns
