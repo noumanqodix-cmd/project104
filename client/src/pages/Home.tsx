@@ -273,7 +273,7 @@ export default function Home() {
 
   // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
   // Prioritize incomplete sessions over completed ones
-  const today = new Date();
+  const today = getTodayEDT();
   
   const todaySessions = sessions
     ?.filter((s: any) => {

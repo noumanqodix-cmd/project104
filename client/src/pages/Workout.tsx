@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import WorkoutSession, { WorkoutSummary } from "@/components/WorkoutSession";
 import CardioWorkoutSession, { CardioSummary } from "@/components/CardioWorkoutSession";
 import type { WorkoutSession as WorkoutSessionType, User, WorkoutProgram, FitnessAssessment } from "@shared/schema";
-import { parseLocalDate, isSameCalendarDay } from "@shared/dateUtils";
+import { parseLocalDate, isSameCalendarDay, getTodayEDT } from "@shared/dateUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 
@@ -25,7 +25,7 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
   const sessions = homeData?.sessions;
 
   // Find TODAY's session - show it whether completed or not
-  const today = new Date();
+  const today = getTodayEDT();
   
   const todaySession = sessions?.find((s: any) => {
     if (!s.scheduledDate || s.status === 'archived') return false;
