@@ -22,6 +22,12 @@ async function generateWorkoutSchedule(programId: string, userId: string, progra
     // Use the provided start date from the frontend (already in user's local timezone)
     const today = parseLocalDate(startDateString);
     
+    // CRITICAL: Clean up any existing future sessions before creating new ones
+    // This prevents duplicate key violations when regenerating programs
+    console.log(`[SESSION-CLEANUP] Cleaning up existing sessions from ${startDateString} before creating new ones`);
+    const cleanupResult = await storage.cleanupSessionsForRegeneration(userId, startDateString);
+    console.log(`[SESSION-CLEANUP] Archived ${cleanupResult.archived} completed sessions, deleted ${cleanupResult.deleted} incomplete sessions`);
+    
     // Create a map of dayOfWeek to programWorkout for quick lookup
     const workoutsByDay = new Map<number, ProgramWorkout>();
     programWorkouts.forEach(pw => {
