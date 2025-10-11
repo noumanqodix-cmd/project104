@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Play, Repeat, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Play, Repeat, ChevronLeft, ChevronRight, Zap, AlertTriangle } from "lucide-react";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import { formatExerciseName } from "@/lib/utils";
 import type { WorkoutProgram, ProgramWorkout, ProgramExercise, Exercise } from "@shared/schema";
@@ -99,6 +99,11 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
   const getDayName = (dayOfWeek: number) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[dayOfWeek % 7];
+  };
+
+  const isOlympicLift = (name: string) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.includes('clean') || lowerName.includes('snatch') || lowerName.includes('jerk');
   };
 
   if (isLoading) {
@@ -240,6 +245,15 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                     </Button>
                   </div>
 
+                  {isOlympicLift(ex.exercise.name) && (
+                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-md flex items-start gap-2" data-testid="olympic-lift-warning">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-amber-900 dark:text-amber-100">
+                        <strong>Olympic Lift:</strong> This exercise requires proper technique training. Focus on form over weight. Consider getting coaching before attempting.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Sets</p>
@@ -286,14 +300,24 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
             <div className="space-y-4">
               {mainExercises.map((ex) => (
                 <Card key={ex.id} className="p-6">
-                  {ex.supersetGroup && (
-                    <div className="mb-3 flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        Superset {ex.supersetGroup}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        Exercise {ex.supersetOrder} of 2
-                      </span>
+                  {(ex.supersetGroup || ex.exercise.isPower === 1) && (
+                    <div className="mb-3 flex items-center gap-2 flex-wrap">
+                      {ex.exercise.isPower === 1 && (
+                        <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Power
+                        </Badge>
+                      )}
+                      {ex.supersetGroup && (
+                        <>
+                          <Badge variant="secondary" className="text-xs">
+                            Superset {ex.supersetGroup}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Exercise {ex.supersetOrder} of 2
+                          </span>
+                        </>
+                      )}
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-4">
@@ -326,6 +350,15 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                       Swap
                     </Button>
                   </div>
+
+                  {isOlympicLift(ex.exercise.name) && (
+                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-md flex items-start gap-2" data-testid="olympic-lift-warning">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-amber-900 dark:text-amber-100">
+                        <strong>Olympic Lift:</strong> This exercise requires proper technique training. Focus on form over weight. Consider getting coaching before attempting.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>

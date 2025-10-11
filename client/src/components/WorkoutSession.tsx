@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle } from "lucide-react";
+import { Heart, Play, Pause, PlayCircle, Repeat, TrendingUp, AlertCircle, Zap, AlertTriangle } from "lucide-react";
 import RestTimerOverlay from "@/components/RestTimerOverlay";
 import ExerciseSwapDialog from "@/components/ExerciseSwapDialog";
 import HIITIntervalTimer from "@/components/HIITIntervalTimer";
@@ -295,6 +295,11 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       pe.supersetGroup === current.supersetGroup &&
       pe.supersetOrder !== current.supersetOrder
     );
+  };
+
+  const isOlympicLift = (name: string) => {
+    const lowerName = name.toLowerCase();
+    return lowerName.includes('clean') || lowerName.includes('snatch') || lowerName.includes('jerk');
   };
 
   const isFirstExerciseInSuperset = () => {
@@ -773,16 +778,26 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         </Card>
 
         <Card className="p-6">
-          {isInSuperset() && (
-            <div className="mb-3 flex items-center gap-2">
-              <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-md">
-                <span className="text-sm font-semibold text-primary" data-testid="superset-label">
-                  Superset {getCurrentProgramExercise()?.supersetGroup}
-                </span>
-              </div>
-              <span className="text-sm text-muted-foreground" data-testid="superset-position">
-                Exercise {isFirstExerciseInSuperset() ? '1' : '2'} of 2
-              </span>
+          {(isInSuperset() || getCurrentProgramExercise()?.exercise?.isPower === 1) && (
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              {getCurrentProgramExercise()?.exercise?.isPower === 1 && (
+                <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700" data-testid="power-badge">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Power
+                </Badge>
+              )}
+              {isInSuperset() && (
+                <>
+                  <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-md">
+                    <span className="text-sm font-semibold text-primary" data-testid="superset-label">
+                      Superset {getCurrentProgramExercise()?.supersetGroup}
+                    </span>
+                  </div>
+                  <span className="text-sm text-muted-foreground" data-testid="superset-position">
+                    Exercise {isFirstExerciseInSuperset() ? '1' : '2'} of 2
+                  </span>
+                </>
+              )}
             </div>
           )}
           <div className="flex items-start justify-between mb-4">
@@ -820,6 +835,15 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
               Swap
             </Button>
           </div>
+
+          {isOlympicLift(currentProgramExercise?.exercise?.name || currentExercise.name) && (
+            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-md flex items-start gap-2" data-testid="olympic-lift-warning">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-900 dark:text-amber-100">
+                <strong>Olympic Lift:</strong> This exercise requires proper technique training. Focus on form over weight. Consider getting coaching before attempting.
+              </p>
+            </div>
+          )}
           
           <div className="aspect-video bg-muted rounded-lg mb-6 flex items-center justify-center">
             <Button variant="outline" size="lg" data-testid="button-play-video">
