@@ -297,9 +297,17 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     );
   };
 
-  const isOlympicLift = (name: string) => {
-    const lowerName = name.toLowerCase();
-    return lowerName.includes('clean') || lowerName.includes('snatch') || lowerName.includes('jerk');
+  const isOlympicLift = (exercise: Exercise | undefined, fallbackName?: string) => {
+    // Prefer using the isOlympicLift flag when exercise object is available
+    if (exercise) {
+      return exercise.isOlympicLift === 1;
+    }
+    // Fallback to name-based detection when only name is available
+    if (fallbackName) {
+      const lowerName = fallbackName.toLowerCase();
+      return lowerName.includes('clean') || lowerName.includes('snatch') || lowerName.includes('jerk');
+    }
+    return false;
   };
 
   const isFirstExerciseInSuperset = () => {
@@ -836,7 +844,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             </Button>
           </div>
 
-          {isOlympicLift(currentProgramExercise?.exercise?.name || currentExercise.name) && (
+          {isOlympicLift(currentProgramExercise?.exercise, currentExercise?.name) && (
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-md flex items-start gap-2" data-testid="olympic-lift-warning">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
               <p className="text-sm text-amber-900 dark:text-amber-100">
