@@ -1129,6 +1129,93 @@ export async function generateWorkoutProgram(
         console.log(`[BACKFILL] After backfill: ${exercises.length}/${mainCount} exercises`);
       }
       
+      // TIME VALIDATION & FALLBACK LOGIC
+      // Calculate actual strength block duration and add fallback exercises if below target
+      // Note: At this point, exercises array contains only main strength exercises
+      // Warmups, power, and cardio are added later, so we compare against strengthTimeBudget only
+      let actualStrengthDuration = exercises.reduce((total, ex) => {
+        return total + calculateExerciseTime({
+          sets: ex.sets,
+          repsMin: ex.repsMin,
+          repsMax: ex.repsMax,
+          durationSeconds: ex.durationSeconds,
+          workSeconds: ex.workSeconds,
+          restSeconds: ex.restSeconds,
+        });
+      }, 0);
+      
+      const strengthDurationGap = strengthTimeBudget - actualStrengthDuration;
+      const MIN_GAP_THRESHOLD = 3; // Trigger fallback if strength block is 3+ minutes short
+      
+      if (strengthDurationGap >= MIN_GAP_THRESHOLD) {
+        console.log(`[FALLBACK] Strength duration gap detected: ${actualStrengthDuration.toFixed(1)}min actual vs ${strengthTimeBudget.toFixed(1)}min target (${strengthDurationGap.toFixed(1)}min short)`);
+        
+        // Track which patterns are already used to prioritize under-represented ones
+        const patternUsage = new Map<string, number>();
+        movementFocus.forEach(pattern => {
+          patternUsage.set(pattern, (patternUsage.get(pattern) || 0) + 1);
+        });
+        
+        // Get all available patterns sorted by usage (least used first)
+        const allPatterns = Object.keys(exercisesByPattern).filter(p => exercisesByPattern[p].length > 0);
+        const sortedPatterns = allPatterns.sort((a, b) => 
+          (patternUsage.get(a) || 0) - (patternUsage.get(b) || 0)
+        );
+        
+        console.log(`[FALLBACK] Pattern usage: ${Array.from(patternUsage.entries()).map(([p, count]) => `${p}:${count}`).join(', ')}`);
+        console.log(`[FALLBACK] Will add exercises from least-used patterns: ${sortedPatterns.slice(0, 3).join(', ')}`);
+        
+        // Add exercises until we fill the strength time budget
+        let fallbackAdded = 0;
+        for (const pattern of sortedPatterns) {
+          if (actualStrengthDuration >= strengthTimeBudget - 1) break; // Stop when within 1 minute of strength target
+          
+          const patternExercises = exercisesByPattern[pattern] || [];
+          const available = patternExercises.filter(ex => !usedExerciseIds.has(ex.id));
+          
+          // Prioritize compound exercises for fallback
+          const compounds = available.filter(ex => ex.liftType === 'compound');
+          const toAdd = compounds.length > 0 ? compounds : available;
+          
+          for (const ex of toAdd) {
+            if (actualStrengthDuration >= strengthTimeBudget - 1) break;
+            
+            // Determine exercise role
+            const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
+              : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
+              ? 'core-accessory'
+              : 'isolation';
+            
+            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
+            const exerciseTime = calculateExerciseTime({
+              sets: params.sets,
+              repsMin: params.repsMin,
+              repsMax: params.repsMax,
+              durationSeconds: params.durationSeconds,
+              workSeconds: params.workSeconds,
+              restSeconds: params.restSeconds,
+            });
+            
+            exercises.push({
+              exerciseName: ex.name,
+              equipment: ex.equipment?.[0] || "bodyweight",
+              ...params,
+            });
+            movementFocus.push(pattern);
+            usedExerciseIds.add(ex.id);
+            
+            actualStrengthDuration += exerciseTime;
+            fallbackAdded++;
+            
+            console.log(`[FALLBACK] Added ${ex.name} (${pattern}, ${exerciseTime.toFixed(1)}min) - new strength total: ${actualStrengthDuration.toFixed(1)}min`);
+          }
+        }
+        
+        console.log(`[FALLBACK] Complete: Added ${fallbackAdded} exercises, final strength duration: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min`);
+      } else {
+        console.log(`[TIME-CHECK] Strength duration OK: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min (gap: ${strengthDurationGap.toFixed(1)}min)`);
+      }
+      
       // Movement-specific warmup selection based on actual workout patterns
       // Define warmup mapping based on movement patterns
       const warmupMapping: Record<string, string[]> = {
