@@ -102,6 +102,7 @@ export const exercises = pgTable("exercises", {
   secondaryMuscles: text("secondary_muscles").array(),
   liftType: text("lift_type").notNull().default("compound"),
   isCorrective: integer("is_corrective").notNull().default(0),
+  isPower: integer("is_power").notNull().default(0),
   exerciseType: text("exercise_type").notNull().default("main"),
   trackingType: text("tracking_type").notNull().default("reps"),
   workoutType: text("workout_type").notNull().default("strength"),
