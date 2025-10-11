@@ -3,18 +3,18 @@ import type { User, FitnessAssessment, Exercise } from '../shared/schema';
 import { db } from '../server/db';
 import { exercises as exercisesTable } from '../shared/schema';
 
-// Test user data
+// Test user data - 4-day beginner program to test isolation reuse logic
 const testUser: Partial<User> = {
   id: 'test-user-123',
   username: 'testuser',
   email: 'test@example.com',
   fitnessLevel: 'beginner',
-  equipment: ['dumbbells'],
+  equipment: ['barbell', 'dumbbells', 'pull-up bar', 'bench'],
   goal: 'maintain',
   nutritionGoal: 'maintain',
   daysPerWeek: 4,
   workoutDuration: 60,
-  selectedDays: [1, 2, 4, 5] as any, // Monday, Tuesday, Thursday, Friday
+  selectedDays: [1, 3, 5, 6] as any, // Monday, Wednesday, Friday, Saturday
   height: 70,
   weight: 180,
   age: 30,
