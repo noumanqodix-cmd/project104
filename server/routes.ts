@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions } from "@shared/schema";
+import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions, equipment } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
@@ -975,6 +975,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(exercises);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch exercises" });
+    }
+  });
+
+  // Get all equipment from reference table (auto-populated from exercises database)
+  app.get("/api/equipment", async (req: Request, res: Response) => {
+    try {
+      const allEquipment = await db
+        .select()
+        .from(equipment)
+        .orderBy(equipment.displayOrder);
+      res.json(allEquipment);
+    } catch (error) {
+      console.error("Error fetching equipment:", error);
+      res.status(500).json({ error: "Failed to fetch equipment" });
     }
   });
 

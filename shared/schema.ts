@@ -111,6 +111,23 @@ export const insertExerciseSchema = createInsertSchema(exercises).omit({
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 
+// Equipment reference table - auto-populated from exercises database
+export const equipment = pgTable("equipment", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  category: text("category"), // 'cardio', 'weights', 'bodyweight', 'other'
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+export type Equipment = typeof equipment.$inferSelect;
+
 export const workoutPrograms = pgTable("workout_programs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
