@@ -413,9 +413,20 @@ export class DbStorage implements IStorage {
   }
 
   async cleanupSessionsForRegeneration(userId: string, fromDate: string): Promise<{ archived: number; deleted: number }> {
-    // Two-phase cleanup for program regeneration:
-    // 1. Archive completed sessions to preserve workout history
-    // 2. Delete incomplete sessions to make room for new program
+    // Three-phase cleanup for program regeneration:
+    // 1. DELETE existing archived sessions to avoid unique constraint violations
+    // 2. Archive completed sessions to preserve workout history
+    // 3. Delete incomplete sessions to make room for new program
+    
+    // First, delete any already-archived sessions from this date onwards
+    // This prevents duplicate key errors when archiving
+    await db.delete(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        gte(workoutSessions.scheduledDate, fromDate),
+        eq(workoutSessions.isArchived, 1)
+      ));
+    
     const archived = await this.archiveCompletedSessions(userId, fromDate);
     const deleted = await this.deleteIncompleteSessions(userId, fromDate);
     
