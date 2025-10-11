@@ -5,6 +5,14 @@ import {
   getMovementDifficultiesMap, 
   isExerciseAllowed 
 } from "@shared/utils";
+import { 
+  EXPERIENCE_LEVELS, 
+  NUTRITION_GOALS, 
+  MOVEMENT_PATTERNS, 
+  CARDIO_TYPES,
+  type ExperienceLevel, 
+  type NutritionGoal 
+} from "@shared/constants";
 
 export interface ProgramGenerationInput {
   user: User;
