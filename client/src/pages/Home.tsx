@@ -161,6 +161,30 @@ export default function Home() {
     },
   });
 
+  const skipMissedWorkoutsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/workout-sessions/skip-missed", {
+        currentDate: formatLocalDate(getTodayEDT()),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
+      setShowMissedWorkoutDialog(false);
+      toast({
+        title: "Workouts Skipped",
+        description: "Missed workouts have been marked as skipped.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Skip",
+        description: error.message || "Failed to skip missed workouts",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
@@ -777,7 +801,8 @@ export default function Home() {
         missedCount={missedWorkoutData.count}
         dateRange={missedWorkoutData.dateRange}
         onReset={() => resetProgramMutation.mutate()}
-        isProcessing={resetProgramMutation.isPending}
+        onSkip={() => skipMissedWorkoutsMutation.mutate()}
+        isProcessing={resetProgramMutation.isPending || skipMissedWorkoutsMutation.isPending}
       />
 
       {/* 4-Week Program Completion Dialog */}

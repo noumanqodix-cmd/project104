@@ -2089,6 +2089,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Skip missed workouts - mark all missed sessions as skipped
+  app.post("/api/workout-sessions/skip-missed", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentDateString = req.body.currentDate || formatLocalDate(new Date());
+      const today = parseLocalDate(currentDateString);
+
+      // Get all sessions for this user
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Find missed workouts: scheduled before today, still pending, not archived
+      const missedWorkouts = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false;
+        if (session.completed === 1 || session.status === 'skipped') return false;
+        
+        const sessionDate = parseLocalDate(session.scheduledDate);
+        return isBeforeCalendarDay(sessionDate, today);
+      });
+
+      if (missedWorkouts.length === 0) {
+        return res.json({ message: "No missed workouts to skip", skippedCount: 0 });
+      }
+
+      // Mark all missed workouts as skipped
+      const updates = missedWorkouts.map((workout: any) => 
+        storage.updateWorkoutSession(workout.id, {
+          status: 'skipped'
+        })
+      );
+
+      await Promise.all(updates);
+
+      console.log(`[SKIP] Marked ${missedWorkouts.length} missed workouts as skipped for user ${userId}`);
+      res.json({ 
+        message: `Skipped ${missedWorkouts.length} missed workouts`,
+        skippedCount: missedWorkouts.length 
+      });
+    } catch (error) {
+      console.error("Skip missed workouts error:", error);
+      res.status(500).json({ error: "Failed to skip missed workouts" });
+    }
+  });
+
   app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;

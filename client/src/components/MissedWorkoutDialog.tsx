@@ -7,13 +7,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Calendar, AlertTriangle } from "lucide-react";
+import { Calendar, AlertTriangle, X } from "lucide-react";
 
 interface MissedWorkoutDialogProps {
   open: boolean;
   missedCount: number;
   dateRange: string;
   onReset: () => void;
+  onSkip: () => void;
   isProcessing?: boolean;
 }
 
@@ -22,6 +23,7 @@ export default function MissedWorkoutDialog({
   missedCount,
   dateRange,
   onReset,
+  onSkip,
   isProcessing = false
 }: MissedWorkoutDialogProps) {
   return (
@@ -43,9 +45,9 @@ export default function MissedWorkoutDialog({
           </div>
         </AlertDialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 py-4">
           <p className="text-sm text-muted-foreground">
-            Life happens! We'll reschedule your missed workouts starting from today.
+            Life happens! Choose how you'd like to handle your missed workouts:
           </p>
 
           <div className="rounded-lg border p-4 space-y-2">
@@ -58,9 +60,19 @@ export default function MissedWorkoutDialog({
               This keeps your program sequence intact.
             </p>
           </div>
+
+          <div className="rounded-lg border p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <X className="h-5 w-5 text-muted-foreground" />
+              <h4 className="font-semibold">Skip Missed Sessions</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Mark missed workouts as skipped and continue with your current schedule.
+            </p>
+          </div>
         </div>
 
-        <AlertDialogFooter>
+        <AlertDialogFooter className="flex-col sm:flex-col gap-2">
           <Button
             onClick={onReset}
             disabled={isProcessing}
@@ -69,6 +81,16 @@ export default function MissedWorkoutDialog({
           >
             <Calendar className="h-4 w-4 mr-2" />
             {isProcessing ? "Resetting..." : "Reset Program"}
+          </Button>
+          <Button
+            onClick={onSkip}
+            disabled={isProcessing}
+            variant="outline"
+            className="w-full"
+            data-testid="button-skip-missed"
+          >
+            <X className="h-4 w-4 mr-2" />
+            {isProcessing ? "Skipping..." : "Skip Missed Sessions"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
