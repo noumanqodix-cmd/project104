@@ -439,38 +439,39 @@ export async function generateWorkoutProgram(
 
   // REQUIRED WEEKLY MOVEMENTS - Ensures foundational exercises appear every week
   // Beginners use simpler equipment, Intermediate/Advanced use barbell-focused lifts
+  // Names must match EXACTLY with exercise database entries
   const requiredMovements = {
     beginner: [
       { name: "Goblet Squat", pattern: "squat" },
-      { name: "Glute Bridge", pattern: "hinge" },
-      { name: "DB Overhead Press", pattern: "push" },
+      { name: "Lying Hip Bridge", pattern: "hinge" },  // Database name for glute bridge
+      { name: "Overhead Press", pattern: "push" },  // Covers DB OHP
       { name: "Push-Up", pattern: "push" },
-      { name: "Band Pull-Up", pattern: "pull" },
-      { name: "Inverted Row", pattern: "pull" },
-      { name: "Split Squat", pattern: "lunge" },
-      { name: "Farmer Carry", pattern: "carry" }
+      { name: "Pull-Up", pattern: "pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
+      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
+      { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Step-Up Jumps"] },  // Beginner-friendly lunges
+      { name: "Farmer's Carry", pattern: "carry" }  // Note apostrophe in database
       // Core: Any core exercise is acceptable (tracked by pattern)
     ],
     intermediate: [
       { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
       { name: "Deadlift", pattern: "hinge" },
-      { name: "Barbell Overhead Press", pattern: "push" },
+      { name: "Overhead Press", pattern: "push" },  // Barbell OHP
       { name: "Bench Press", pattern: "push" },
       { name: "Pull-Up", pattern: "pull" },
-      { name: "Barbell Row", pattern: "pull" },
+      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
-      { name: "Suitcase Carry", pattern: "carry" }
+      { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
       // Core: Any core exercise is acceptable (tracked by pattern)
     ],
     advanced: [
       { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
       { name: "Deadlift", pattern: "hinge" },
-      { name: "Barbell Overhead Press", pattern: "push" },
+      { name: "Overhead Press", pattern: "push" },
       { name: "Bench Press", pattern: "push" },
       { name: "Pull-Up", pattern: "pull" },
-      { name: "Barbell Row", pattern: "pull" },
+      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
-      { name: "Suitcase Carry", pattern: "carry" }
+      { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
       // Core: Any core exercise is acceptable (tracked by pattern)
     ]
   };
@@ -801,6 +802,7 @@ export async function generateWorkoutProgram(
       
       // REQUIRED MOVEMENT SELECTION FIRST
       // Before tiered selection, prioritize required movements that haven't been used this week
+      // Search in FULL exercise list, not pre-filtered (required movements override difficulty filters)
       console.log(`[REQUIRED-CHECK] Week tracker before day ${workoutIndex}: ${Array.from(weeklyMovementTracker).join(', ')}, Core used: ${hasUsedCoreMovement.used}`);
       
       for (const requiredMov of levelRequirements) {
@@ -813,21 +815,32 @@ export async function generateWorkoutProgram(
         const relevantPatterns = [...primaryPatterns, ...secondaryPatterns];
         if (!relevantPatterns.includes(requiredMov.pattern)) continue;
         
-        // Find the required exercise in available exercises
-        const patternExercises = exercisesByPattern[requiredMov.pattern] || [];
+        // Find the required exercise with flexible difficulty matching
+        // Allow exercises up to ONE difficulty level above user's level for required movements
+        // Beginner: can use beginner or intermediate (not advanced)
+        // Intermediate: can use all levels
+        // Advanced: can use all levels
+        const allowedDifficulties = fitnessLevel === 'beginner' 
+          ? ['beginner', 'intermediate']
+          : ['beginner', 'intermediate', 'advanced'];
+        
+        const allPatternExercises = availableExercises.filter(ex =>
+          ex.movementPattern === requiredMov.pattern &&
+          ex.exerciseType === "main" &&
+          ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+          allowedDifficulties.includes(ex.difficulty) &&
+          !usedExerciseIds.has(ex.id)
+        );
+        
         let foundExercise: Exercise | undefined;
         
         // Try to find exact match or alternative
-        foundExercise = patternExercises.find(ex => 
-          ex.name === requiredMov.name && !usedExerciseIds.has(ex.id)
-        );
+        foundExercise = allPatternExercises.find(ex => ex.name === requiredMov.name);
         
         // Try alternatives if main exercise not found
         if (!foundExercise && 'alternatives' in requiredMov && requiredMov.alternatives) {
           for (const altName of requiredMov.alternatives) {
-            foundExercise = patternExercises.find(ex => 
-              ex.name === altName && !usedExerciseIds.has(ex.id)
-            );
+            foundExercise = allPatternExercises.find(ex => ex.name === altName);
             if (foundExercise) break;
           }
         }
