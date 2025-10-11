@@ -12,6 +12,7 @@ interface FitnessTestFormProps {
 
 export interface FitnessTestResults {
   pushups: number;
+  pikePushups: number;
   pullups: number;
   squats: number;
   walkingLunges: number;
@@ -22,6 +23,7 @@ export interface FitnessTestResults {
 
 const exercises = [
   { id: "pushups", label: "Push-ups", unit: "reps" },
+  { id: "pikePushups", label: "Pike Push-ups", unit: "reps" },
   { id: "pullups", label: "Pull-ups", unit: "reps" },
   { id: "squats", label: "Air Squats", unit: "reps" },
   { id: "walkingLunges", label: "Walking Lunges", unit: "reps" },
@@ -85,6 +87,7 @@ export default function FitnessTestForm({ onComplete, onBack }: FitnessTestFormP
     // Set beginner-level default values for "Don't Know"
     const beginnerDefaults: Record<string, number> = {
       pushups: 5,
+      pikePushups: 3,
       pullups: 0,
       squats: 10,
       walkingLunges: 10,

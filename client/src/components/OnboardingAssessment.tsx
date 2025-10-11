@@ -118,6 +118,7 @@ export default function OnboardingAssessment() {
         // Fitness test data
         fitnessTest: {
           pushups: results.pushups,
+          pikePushups: results.pikePushups,
           pullups: results.pullups,
           squats: results.squats,
           walkingLunges: results.walkingLunges,
