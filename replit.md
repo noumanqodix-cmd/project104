@@ -6,6 +6,34 @@ FitForge is a mobile-first fitness application designed for personalized workout
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Data Model Refactoring (October 2025)
+**Phase 1: Shared Constants**
+- Created `shared/constants.ts` as single source of truth for enums and reference data
+- Defined constants for nutrition goals, experience levels, movement patterns, session durations, cardio types, etc.
+- Backend already imports and uses these constants; frontend refactoring pending
+
+**Phase 2: Equipment Reference Table**
+- Created equipment reference table with 18 unique items extracted from exercises database
+- Equipment categorized: bodyweight (2), weights (4), cardio (6), other (6)
+- Implemented `/api/equipment` endpoint returning categorized equipment ordered by displayOrder
+- Created equipment icon mapping utility (`client/src/lib/equipmentIcons.ts`)
+- Updated EquipmentSelector and QuestionnaireFlow to fetch from API instead of using hardcoded arrays
+- Equipment data now managed centrally in database with automatic population from exercises
+
+**Phase 3: Olympic Lift Flag System**
+- Added `isOlympicLift` boolean field to exercises table schema (integer, default 0)
+- Updated 8 Olympic lift exercises in database (Clean, Snatch, Jerk variations) with isOlympicLift=1
+- Replaced name-based Olympic lift detection with exercise.isOlympicLift flag
+- Updated WorkoutSession.tsx and WorkoutProgramView.tsx to use flag with safe fallback to name-based detection
+- Olympic lift warnings now use database flag instead of string matching
+
+**Pending Frontend Refactoring (Phase 4)**
+- Multiple frontend components still use hardcoded values instead of shared constants
+- Components identified for update: QuestionnaireFlow, NutritionAssessment, AvailabilityForm, WeightsTestForm, and others
+- Experience levels, nutrition goals, session durations, and other constants need to be imported from `shared/constants.ts`
+
 ## System Architecture
 
 ### UI/UX Decisions
