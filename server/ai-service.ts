@@ -442,14 +442,14 @@ export async function generateWorkoutProgram(
   // Names must match EXACTLY with exercise database entries
   const requiredMovements = {
     beginner: [
-      { name: "Goblet Squat", pattern: "squat" },
-      { name: "Lying Hip Bridge", pattern: "hinge" },  // Database name for glute bridge
-      { name: "Overhead Press", pattern: "push" },  // Covers DB OHP
-      { name: "Push-Up", pattern: "push" },
+      { name: "Goblet Squat", pattern: "squat", alternatives: ["Squat", "Bodyweight Jump Squats"] },  // Bodyweight alternatives
+      { name: "Lying Hip Bridge", pattern: "hinge" },  // Bodyweight exercise, no alternative needed
+      { name: "Overhead Press", pattern: "push", alternatives: ["Pike Push-Up"] },  // Bodyweight shoulder press alternative
+      { name: "Push-Up", pattern: "push" },  // Already bodyweight
       { name: "Pull-Up", pattern: "pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
       { name: "Bent-Over Row", pattern: "pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
-      { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Step-Up Jumps"] },  // Beginner-friendly lunges
-      { name: "Farmer's Carry", pattern: "carry" }  // Note apostrophe in database
+      { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Lateral Lunge"] },  // All use bodyweight
+      { name: "Farmer's Carry", pattern: "carry" }  // Requires equipment (dumbbells/kettlebells/medicine ball)
       // Core: Any core exercise is acceptable (tracked by pattern)
     ],
     intermediate: [
@@ -872,6 +872,7 @@ export async function generateWorkoutProgram(
         
         if (foundExercise) {
           // Determine exercise role
+          // REQUIRED MOVEMENTS: Always added regardless of slot limits
           let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory' | 'warmup' | 'cardio';
           
           if (foundExercise.liftType === 'compound') {
@@ -882,7 +883,8 @@ export async function generateWorkoutProgram(
               exerciseRole = 'secondary-compound';
               secondarySlotsRemaining--;
             } else {
-              continue;
+              // Still add required movement even if slots full, use secondary role
+              exerciseRole = 'secondary-compound';
             }
           } else if (foundExercise.movementPattern === 'core' || foundExercise.movementPattern === 'rotation' || foundExercise.movementPattern === 'carry') {
             exerciseRole = 'core-accessory';
