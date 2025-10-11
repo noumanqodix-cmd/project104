@@ -56,7 +56,7 @@ function generateWorkoutName(movementFocus: string[], workoutType: "strength" | 
   }
   
   // Categorize patterns
-  const upperPush = uniquePatterns.filter(p => p === "push").length > 0;
+  const upperPush = uniquePatterns.filter(p => ["horizontal_push", "vertical_push"].includes(p)).length > 0;
   const upperPull = uniquePatterns.filter(p => p === "pull").length > 0;
   const lowerBody = uniquePatterns.filter(p => ["squat", "lunge", "hinge"].includes(p)).length > 0;
   const core = uniquePatterns.filter(p => ["core", "rotation"].includes(p)).length > 0;
@@ -156,9 +156,14 @@ function identifyWeakMovementPatterns(assessment: FitnessAssessment, user: User)
   
   const threshold = thresholds[experienceLevel as 'intermediate' | 'advanced'] || thresholds.intermediate;
   
-  // Check push strength (chest, shoulders, triceps)
+  // Check horizontal push strength (chest pressing)
   if (assessment.pushups !== null && assessment.pushups !== undefined && assessment.pushups < threshold.pushups) {
-    weakPatterns.push('push');
+    weakPatterns.push('horizontal_push');
+  }
+  
+  // Check vertical push strength (shoulder pressing)
+  if (assessment.pikePushups !== null && assessment.pikePushups !== undefined && assessment.pikePushups < (threshold.pushups * 0.75)) {
+    weakPatterns.push('vertical_push');
   }
   
   // Check pull strength (back, biceps)
@@ -444,8 +449,8 @@ export async function generateWorkoutProgram(
     beginner: [
       { name: "Goblet Squat", pattern: "squat", alternatives: ["Squat", "Bodyweight Jump Squats"] },  // Bodyweight alternatives
       { name: "Lying Hip Bridge", pattern: "hinge" },  // Bodyweight exercise, no alternative needed
-      { name: "Overhead Press", pattern: "push", alternatives: ["Pike Push-Up"] },  // Bodyweight shoulder press alternative
-      { name: "Push-Up", pattern: "push" },  // Already bodyweight
+      { name: "Overhead Press", pattern: "vertical_push", alternatives: ["Pike Push-Up"] },  // Bodyweight shoulder press alternative
+      { name: "Push-Up", pattern: "horizontal_push" },  // Already bodyweight
       { name: "Pull-Up", pattern: "pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
       { name: "Bent-Over Row", pattern: "pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
       { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Lateral Lunge"] },  // All use bodyweight
@@ -455,8 +460,8 @@ export async function generateWorkoutProgram(
     intermediate: [
       { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
       { name: "Deadlift", pattern: "hinge" },
-      { name: "Overhead Press", pattern: "push" },  // Barbell OHP
-      { name: "Bench Press", pattern: "push" },
+      { name: "Overhead Press", pattern: "vertical_push" },  // Barbell OHP
+      { name: "Bench Press", pattern: "horizontal_push" },
       { name: "Pull-Up", pattern: "pull" },
       { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
@@ -466,8 +471,8 @@ export async function generateWorkoutProgram(
     advanced: [
       { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
       { name: "Deadlift", pattern: "hinge" },
-      { name: "Overhead Press", pattern: "push" },
-      { name: "Bench Press", pattern: "push" },
+      { name: "Overhead Press", pattern: "vertical_push" },
+      { name: "Bench Press", pattern: "horizontal_push" },
       { name: "Pull-Up", pattern: "pull" },
       { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
@@ -491,7 +496,8 @@ export async function generateWorkoutProgram(
   
   console.log(`[TEMPLATE-BASED] Generating program for ${fitnessLevel} level user with ${daysPerWeek} days/week and ${workoutDuration} min sessions`);
   console.log(`[DIFFICULTY] Movement pattern difficulties:`, {
-    push: movementDifficulties.push,
+    horizontal_push: movementDifficulties.horizontal_push,
+    vertical_push: movementDifficulties.vertical_push,
     pull: movementDifficulties.pull,
     squat: movementDifficulties.squat,
     lunge: movementDifficulties.lunge,
@@ -499,6 +505,7 @@ export async function generateWorkoutProgram(
     core: movementDifficulties.core,
     carry: movementDifficulties.carry,
     cardio: movementDifficulties.cardio,
+    rotation: movementDifficulties.rotation,
   });
 
   // OPTIMIZATION: Pre-filter exercises by equipment and difficulty ONCE before loop
@@ -569,24 +576,24 @@ export async function generateWorkoutProgram(
   
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
-      // 3-day: Pull+Hinge → Push+Squat → Balanced Mix
+      // 3-day: Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull Mix
       1: { primary: ['pull', 'hinge'], secondary: ['core', 'carry'] },
-      2: { primary: ['push', 'squat'], secondary: ['core', 'rotation'] },
-      3: { primary: ['pull', 'push'], secondary: ['lunge', 'hinge', 'core'] }
+      2: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
+      3: { primary: ['pull', 'vertical_push'], secondary: ['lunge', 'hinge', 'core'] }
     },
     4: {
-      // 4-day: Upper Pull → Lower → Upper Push → Lower (alternating emphasis)
-      1: { primary: ['pull', 'push'], secondary: ['core', 'rotation'] },
+      // 4-day: Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower (alternating emphasis)
+      1: { primary: ['pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
       2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
-      3: { primary: ['push', 'pull'], secondary: ['core', 'carry'] },
+      3: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
       4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
     },
     5: {
-      // 5-day: Push → Pull → Legs → Upper → Lower (classic split)
-      1: { primary: ['push'], secondary: ['rotation', 'core'] },
+      // 5-day: Horizontal Push → Pull → Legs → Vertical Push+Pull → Lower (classic split)
+      1: { primary: ['horizontal_push'], secondary: ['rotation', 'core'] },
       2: { primary: ['pull'], secondary: ['carry', 'core'] },
       3: { primary: ['squat', 'lunge'], secondary: ['hinge', 'core'] },
-      4: { primary: ['push', 'pull'], secondary: ['core'] },
+      4: { primary: ['vertical_push', 'pull'], secondary: ['core'] },
       5: { primary: ['hinge', 'squat'], secondary: ['lunge', 'core'] }
     }
   };
@@ -773,7 +780,7 @@ export async function generateWorkoutProgram(
       // First select from priority patterns, then fill remaining time from other patterns
       const primaryPatterns = dayPlan?.primary || [];
       const secondaryPatterns = dayPlan?.secondary || [];
-      const allPatterns = ['push', 'pull', 'squat', 'lunge', 'hinge', 'core', 'rotation', 'carry'];
+      const allPatterns = ['horizontal_push', 'vertical_push', 'pull', 'squat', 'lunge', 'hinge', 'core', 'rotation', 'carry'];
       const usedPatterns = new Set([...primaryPatterns, ...secondaryPatterns]);
       const fallbackPatterns = allPatterns.filter(p => !usedPatterns.has(p));
       
