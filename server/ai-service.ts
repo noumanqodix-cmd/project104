@@ -604,19 +604,43 @@ export async function generateWorkoutProgram(
   // Calculate cardio finisher time based on goal
   const cardioFinisherTime = cardioConfig.duration;
   
+  // POWER EXERCISE TIME CALCULATION
+  // Power exercises have longer rest periods based on fitness level
+  const powerExerciseTime = calculateExerciseTime({
+    sets: fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 5,
+    repsMin: fitnessLevel === "advanced" ? 1 : 2,
+    repsMax: fitnessLevel === "beginner" ? 3 : 3,
+    restSeconds: fitnessLevel === "beginner" ? 180 : fitnessLevel === "intermediate" ? 240 : 300
+  });
+  
   // PRECISE TIME-AWARE ALLOCATION
-  // Account for the fact that first 2 main exercises are ALWAYS primary compounds (13.5min each)
+  // New flow: warmup → power → strength → hypertrophy → cardio
   let timeRemaining = workoutDuration;
   
-  // Step 1: Allocate warmups (minimum 2, scale up for longer sessions)
-  let warmupCount = 2;
-  if (workoutDuration >= 60) {
-    warmupCount = 3;
-  }
+  // Step 1: DYNAMIC WARMUP ALLOCATION
+  // Keep warmups shorter for standard durations to make room for power
+  let warmupCount = workoutDuration >= 75 ? 3 : workoutDuration >= 45 ? 2 : 1;
   timeRemaining -= warmupCount * warmupTimePerExercise;
   console.log(`[TIME-ALLOC] After ${warmupCount} warmups: ${timeRemaining.toFixed(1)}min remaining`);
   
-  // Step 2: Dynamically allocate primaries, secondaries, and cardio based on nutrition goal
+  // Step 2: POWER EXERCISE ALLOCATION
+  // Always include 1-2 power exercises after warmup
+  let powerCount = 0;
+  if (timeRemaining >= powerExerciseTime * 2) {
+    powerCount = 2;
+    timeRemaining -= powerExerciseTime * 2;
+    console.log(`[TIME-ALLOC] After 2 power exercises: ${timeRemaining.toFixed(1)}min remaining`);
+  } else if (timeRemaining >= powerExerciseTime) {
+    powerCount = 1;
+    timeRemaining -= powerExerciseTime;
+    console.log(`[TIME-ALLOC] After 1 power exercise: ${timeRemaining.toFixed(1)}min remaining`);
+  } else {
+    console.log(`[TIME-ALLOC] Skipping power (insufficient time), ${timeRemaining.toFixed(1)}min remaining`);
+  }
+  
+  // Step 3: Dynamically allocate primaries, secondaries, and cardio based on nutrition goal
+  // For 30-45 min workouts, we'll use supersets to maximize efficiency
+  const useSupersets = workoutDuration <= 45;
   let primaryCount = 0;
   let secondaryCount = 0;
   let cardioCount = 0;
@@ -706,11 +730,12 @@ export async function generateWorkoutProgram(
   const mainCount = primaryCount + secondaryCount;
   
   const estimatedTotal = (warmupCount * warmupTimePerExercise) + 
+                         (powerCount * powerExerciseTime) +
                          (primaryCount * primaryCompoundTime) +
                          (secondaryCount * secondaryCompoundTime) +
                          (cardioCount * cardioFinisherTime);
   
-  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${primaryCount} primary compounds, ${secondaryCount} secondary compounds, ${cardioCount} cardio finisher. Estimated total: ${estimatedTotal.toFixed(1)}min`);
+  console.log(`[EXERCISE-CALC] For ${workoutDuration}min session: ${warmupCount} warmups, ${powerCount} power, ${primaryCount} primary compounds, ${secondaryCount} secondary compounds, ${cardioCount} cardio finisher. Estimated total: ${estimatedTotal.toFixed(1)}min. Supersets: ${useSupersets ? 'YES' : 'NO'}`);
   
   // Template-based workout generation - Generate ALL 7 days for entire program duration
   const workouts: GeneratedWorkout[] = [];
@@ -833,65 +858,59 @@ export async function generateWorkoutProgram(
       
       console.log(`[PATTERN-TIER] Final: ${exercises.length}/${compoundSlotsToFill} exercises selected`);
       
-      // Strategic superset logic: Add isolation exercises for weak patterns
-      // Capacity was pre-reserved above, now fill those slots with isolation work
-      if (shouldAddSupersets && reservedSupersetSlots > 0 && compoundExercises.length > 0) {
-        const weakPatterns = identifyWeakMovementPatterns(latestAssessment, user);
-        let supersetsAdded = 0;
-        const supersetGroups = ['A', 'B', 'C'];
+      // SUPERSET PAIRING FOR 30-45 MIN WORKOUTS
+      // Pair antagonistic or non-competing exercises to maximize time efficiency
+      if (useSupersets && exercises.length >= 2) {
+        console.log(`[SUPERSET] Short workout (${workoutDuration}min) - pairing exercises for efficiency`);
         
-        for (const weakPattern of weakPatterns) {
-          if (supersetsAdded >= reservedSupersetSlots) break;
+        // Define antagonistic pattern pairs (can be done back-to-back with minimal fatigue)
+        const antagonisticPairs: Record<string, string[]> = {
+          push: ['pull', 'hinge'],
+          pull: ['push', 'squat'],
+          squat: ['hinge', 'pull'],
+          hinge: ['squat', 'push'],
+          lunge: ['core', 'rotation'],
+          core: ['lunge', 'carry'],
+          rotation: ['lunge', 'carry']
+        };
+        
+        const supersetGroups = ['A', 'B', 'C', 'D', 'E', 'F'];
+        let supersetIndex = 0;
+        const paired = new Set<number>();
+        
+        // Try to pair each exercise with an antagonistic one
+        for (let i = 0; i < exercises.length - 1; i++) {
+          if (paired.has(i) || exercises[i].isWarmup || exercises[i].supersetGroup) continue;
           
-          // Find a compound exercise with this pattern
-          const compoundIndex = compoundExercises.findIndex(ce => ce.pattern === weakPattern);
-          if (compoundIndex === -1) continue;
+          const ex1 = exercises[i];
+          const ex1Pattern = movementFocus[i];
+          const compatiblePatterns = antagonisticPairs[ex1Pattern] || [];
           
-          // Find matching isolation exercise
-          const isolationEx = findIsolationExercise(
-            weakPattern,
-            availableExercises,
-            usedExerciseIds,
-            user.equipment || []
-          );
-          
-          if (isolationEx) {
-            // Mark the compound exercise with superset group
-            const compoundExInList = exercises.find(
-              e => e.exerciseName === compoundExercises[compoundIndex].exercise.name && !e.isWarmup
-            );
-            if (compoundExInList) {
-              const supersetGroup = supersetGroups[supersetsAdded];
-              compoundExInList.supersetGroup = supersetGroup;
-              compoundExInList.supersetOrder = 1;
+          // Find a compatible partner
+          for (let j = i + 1; j < exercises.length; j++) {
+            if (paired.has(j) || exercises[j].isWarmup || exercises[j].supersetGroup) continue;
+            
+            const ex2Pattern = movementFocus[j];
+            
+            if (compatiblePatterns.includes(ex2Pattern)) {
+              // Pair these exercises!
+              const group = supersetGroups[supersetIndex];
+              ex1.supersetGroup = group;
+              ex1.supersetOrder = 1;
+              exercises[j].supersetGroup = group;
+              exercises[j].supersetOrder = 2;
               
-              // Add isolation exercise with same superset group (only if within budget)
-              const isolationParams = assignTrainingParameters(
-                isolationEx,
-                fitnessLevel,
-                selectedTemplate,
-                latestAssessment,
-                user,
-                'isolation', // Superset isolation exercises
-                supersetGroup,
-                2
-              );
+              paired.add(i);
+              paired.add(j);
+              supersetIndex++;
               
-              exercises.push({
-                exerciseName: isolationEx.name,
-                equipment: isolationEx.equipment?.[0] || "bodyweight",
-                ...isolationParams,
-              });
-              movementFocus.push(weakPattern);
-              usedExerciseIds.add(isolationEx.id);
-              supersetsAdded++;
-              
-              console.log(`[SUPERSET] Added ${supersetGroup}: ${compoundExInList.exerciseName} + ${isolationEx.name} for weak ${weakPattern}`);
+              console.log(`[SUPERSET] Paired ${group}: ${ex1.exerciseName} (${ex1Pattern}) + ${exercises[j].exerciseName} (${ex2Pattern})`);
+              break;
             }
           }
         }
         
-        console.log(`[SUPERSET] Added ${supersetsAdded} supersets, total strength exercises: ${exercises.length}/${mainCount}`);
+        console.log(`[SUPERSET] Created ${supersetIndex} superset pairs for time efficiency`);
       }
       
       // Backfill unused reserved slots with additional exercises (compound or isolation)
@@ -996,6 +1015,48 @@ export async function generateWorkoutProgram(
       exercises.unshift(...warmupExercises_toAdd);
       
       console.log(`[WARMUP] Selected warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
+      
+      // POWER EXERCISE SELECTION
+      // Filter power exercises by primary patterns for this day and user's difficulty level
+      if (powerCount > 0) {
+        const powerExercisesFiltered = availableExercises.filter(ex => 
+          ex.isPower === 1 &&
+          ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
+          isExerciseAllowed(ex, movementDifficulties, fitnessLevel) &&
+          !usedExerciseIds.has(ex.id)
+        );
+        
+        // Select power exercises from PRIMARY patterns first (follows tiered approach)
+        const selectedPowerExercises: Exercise[] = [];
+        
+        for (const tier of [primaryPatterns, secondaryPatterns, fallbackPatterns]) {
+          if (selectedPowerExercises.length >= powerCount) break;
+          
+          const tierPowerExercises = powerExercisesFiltered.filter(ex => tier.includes(ex.movementPattern));
+          
+          for (const powerEx of tierPowerExercises) {
+            if (selectedPowerExercises.length >= powerCount) break;
+            selectedPowerExercises.push(powerEx);
+            usedExerciseIds.add(powerEx.id);
+          }
+        }
+        
+        // Add selected power exercises after warmups (splice after warmup count)
+        const powerExercisesToAdd: GeneratedExercise[] = [];
+        for (const powerEx of selectedPowerExercises) {
+          const params = assignTrainingParameters(powerEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'power');
+          powerExercisesToAdd.push({
+            exerciseName: powerEx.name,
+            equipment: powerEx.equipment?.[0] || "bodyweight",
+            ...params,
+          });
+        }
+        
+        // Insert power exercises right after warmups
+        exercises.splice(warmupCount, 0, ...powerExercisesToAdd);
+        
+        console.log(`[POWER] Selected ${selectedPowerExercises.length} power exercises: ${selectedPowerExercises.map(p => p.name).join(', ')}`);
+      }
       
       // Add cardio exercises based on calculated time requirements and goal-specific type rotation
       // Use calculated cardioCount from above (based on workout duration)
