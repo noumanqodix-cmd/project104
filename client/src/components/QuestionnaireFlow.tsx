@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { toggleEquipment } from "@/lib/equipmentUtils";
 import { 
   ArrowLeft, 
   Dumbbell, 
@@ -92,20 +93,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
   ];
 
   const handleEquipmentToggle = (equipmentId: string) => {
-    setEquipment(prev => {
-      if (equipmentId === "bodyweight") {
-        // If bodyweight only is selected, clear all other equipment
-        return prev.includes("bodyweight") ? [] : ["bodyweight"];
-      } else {
-        // Remove bodyweight if other equipment is selected
-        const filtered = prev.filter(e => e !== "bodyweight");
-        if (filtered.includes(equipmentId)) {
-          return filtered.filter(e => e !== equipmentId);
-        } else {
-          return [...filtered, equipmentId];
-        }
-      }
-    });
+    setEquipment(prev => toggleEquipment(prev, equipmentId));
   };
 
   const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();

@@ -55,6 +55,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
 import ThemeToggle from "@/components/ThemeToggle";
+import { toggleEquipment as toggleEquipmentUtil } from "@/lib/equipmentUtils";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -328,11 +329,7 @@ export default function Settings() {
   };
 
   const toggleEquipment = (equipment: string) => {
-    setSelectedEquipment(prev => 
-      prev.includes(equipment) 
-        ? prev.filter(e => e !== equipment)
-        : [...prev, equipment]
-    );
+    setSelectedEquipment(prev => toggleEquipmentUtil(prev, equipment));
   };
 
   const handleDayToggle = (dayValue: number) => {
@@ -702,7 +699,10 @@ export default function Settings() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="days-per-week">Days Per Week</Label>
-                <Select value={daysPerWeek.toString()} onValueChange={(val) => setDaysPerWeek(parseInt(val))}>
+                <Select value={daysPerWeek.toString()} onValueChange={(val) => {
+                  setDaysPerWeek(parseInt(val));
+                  setSelectedDays([]); // Reset selected days when changing days per week
+                }}>
                   <SelectTrigger id="days-per-week" data-testid="select-days-per-week">
                     <SelectValue />
                   </SelectTrigger>
@@ -724,7 +724,6 @@ export default function Settings() {
                     <SelectItem value="30">30 minutes</SelectItem>
                     <SelectItem value="45">45 minutes</SelectItem>
                     <SelectItem value="60">60 minutes</SelectItem>
-                    <SelectItem value="75">75 minutes</SelectItem>
                     <SelectItem value="90">90 minutes</SelectItem>
                   </SelectContent>
                 </Select>
