@@ -611,22 +611,66 @@ export async function generateWorkoutProgram(
     timeRemaining -= primaryCompoundTime * 2;
     console.log(`[TIME-ALLOC] After 2 primary compounds: ${timeRemaining.toFixed(1)}min remaining`);
     
-    // Check if we should reserve cardio before filling with secondaries
-    // Use goal-specific minimum secondaries requirement
-    const minRequiredForCardio = (cardioConfig.minSecondaries * secondaryCompoundTime) + cardioFinisherTime;
+    // SMART CARDIO ALLOCATION
+    // Try different combinations to find optimal fill while respecting goal priorities
     
-    if (templateWantsCardio && timeRemaining >= minRequiredForCardio) {
-      // Have room for minimum secondaries AND cardio - reserve cardio now
-      cardioCount = 1;
-      timeRemaining -= cardioFinisherTime;
-      console.log(`[TIME-ALLOC] Reserved ${cardioFinisherTime}min cardio finisher (${nutritionGoal} goal): ${timeRemaining.toFixed(1)}min remaining for secondaries`);
-    }
-    
-    // Fill remaining time with secondary compounds
-    secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
-    if (secondaryCount > 0) {
+    if (templateWantsCardio) {
+      // Option 1: minSecondaries + cardio (ideal per goal)
+      const option1Time = (cardioConfig.minSecondaries * secondaryCompoundTime) + cardioFinisherTime;
+      const option1Fits = timeRemaining >= option1Time;
+      
+      // Option 2: cardio with fewer secondaries (0 or more)
+      const option2Secondaries = Math.max(0, Math.floor((timeRemaining - cardioFinisherTime) / secondaryCompoundTime));
+      const option2Time = (option2Secondaries * secondaryCompoundTime) + cardioFinisherTime;
+      const option2Fits = timeRemaining >= cardioFinisherTime;
+      
+      // Option 3: no cardio, max secondaries
+      const option3Secondaries = Math.floor(timeRemaining / secondaryCompoundTime);
+      const option3Time = option3Secondaries * secondaryCompoundTime;
+      
+      // Decision logic based on goal priorities and fit
+      if (option1Fits) {
+        // Ideal: meet minSecondaries requirement with cardio
+        cardioCount = 1;
+        secondaryCount = cardioConfig.minSecondaries;
+        timeRemaining -= option1Time;
+        console.log(`[TIME-ALLOC] Ideal allocation: ${cardioFinisherTime}min cardio + ${secondaryCount} secondaries (${nutritionGoal} goal), ${timeRemaining.toFixed(1)}min remaining`);
+      } else if (option2Fits) {
+        // Can't fit ideal - compare option2 (cardio + few secondaries) vs option3 (more secondaries, no cardio)
+        // Decision depends on goal priorities and time utilization
+        
+        const option2UsesMoreTime = option2Time > option3Time;
+        const option2HasEnoughSecondaries = option2Secondaries >= (cardioConfig.minSecondaries - 1); // Within 1 of ideal
+        
+        // GAIN goal: prioritize hypertrophy (secondaries) over cardio
+        // LOSE/MAINTAIN: prioritize better time usage and include cardio when close to ideal
+        const shouldUseOption2 = (nutritionGoal === 'lose' && option2UsesMoreTime) || 
+                                  (nutritionGoal === 'maintain' && (option2HasEnoughSecondaries || option2UsesMoreTime)) ||
+                                  (nutritionGoal === 'gain' && option2Secondaries >= cardioConfig.minSecondaries);
+        
+        if (shouldUseOption2) {
+          cardioCount = 1;
+          secondaryCount = option2Secondaries;
+          timeRemaining -= option2Time;
+          console.log(`[TIME-ALLOC] Compromise: ${cardioFinisherTime}min cardio + ${secondaryCount} secondaries (${nutritionGoal} priority), ${timeRemaining.toFixed(1)}min remaining`);
+        } else {
+          cardioCount = 0;
+          secondaryCount = option3Secondaries;
+          timeRemaining -= option3Time;
+          console.log(`[TIME-ALLOC] Prioritizing strength: ${secondaryCount} secondaries, no cardio (${nutritionGoal} goal), ${timeRemaining.toFixed(1)}min remaining`);
+        }
+      } else {
+        // Can't fit cardio at all
+        cardioCount = 0;
+        secondaryCount = option3Secondaries;
+        timeRemaining -= option3Time;
+        console.log(`[TIME-ALLOC] No room for cardio: ${secondaryCount} secondaries only, ${timeRemaining.toFixed(1)}min remaining`);
+      }
+    } else {
+      // Template doesn't want cardio, use all time for secondaries
+      secondaryCount = Math.floor(timeRemaining / secondaryCompoundTime);
       timeRemaining -= secondaryCount * secondaryCompoundTime;
-      console.log(`[TIME-ALLOC] After ${secondaryCount} secondary compounds: ${timeRemaining.toFixed(1)}min remaining`);
+      console.log(`[TIME-ALLOC] No cardio requested: ${secondaryCount} secondaries, ${timeRemaining.toFixed(1)}min remaining`);
     }
   } else if (timeRemaining >= primaryCompoundTime) {
     // Only room for 1 primary compound
