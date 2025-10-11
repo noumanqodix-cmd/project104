@@ -21,6 +21,11 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 - Optimized recent sets and similar exercises endpoints using JOIN queries.
 - Historical performance data display during active workouts.
 
+**Data Integrity**:
+- Unique constraint on workout_sessions (userId, scheduledDate, isArchived) enforces one-session-per-day rule at database level.
+- Cardio conversion endpoint automatically removes duplicate sessions before updating to maintain data integrity.
+- Admin cleanup endpoint available for maintaining database consistency.
+
 **Login Flow**:
 - Users are redirected to home if an active program exists, otherwise to onboarding.
 
