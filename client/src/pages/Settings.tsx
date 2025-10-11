@@ -538,6 +538,9 @@ export default function Settings() {
               <Label>Heart Rate Training Zones</Label>
               {user?.dateOfBirth ? (() => {
                 const userAge = calculateAge(new Date(user.dateOfBirth));
+                if (!userAge) {
+                  return <p className="text-muted-foreground">Date of birth invalid</p>;
+                }
                 const maxHR = 220 - userAge;
                 return (
                   <div className="space-y-2">
