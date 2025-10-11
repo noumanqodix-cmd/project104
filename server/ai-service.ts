@@ -803,17 +803,31 @@ export async function generateWorkoutProgram(
       // REQUIRED MOVEMENT SELECTION FIRST
       // Before tiered selection, prioritize required movements that haven't been used this week
       // Search in FULL exercise list, not pre-filtered (required movements override difficulty filters)
-      console.log(`[REQUIRED-CHECK] Week tracker before day ${workoutIndex}: ${Array.from(weeklyMovementTracker).join(', ')}, Core used: ${hasUsedCoreMovement.used}`);
+      console.log(`[REQUIRED-CHECK] Day ${workoutIndex} - Week tracker: ${Array.from(weeklyMovementTracker).join(', ')}, Core used: ${hasUsedCoreMovement.used}`);
+      console.log(`[REQUIRED-CHECK] Day ${workoutIndex} - Relevant patterns: Primary ${primaryPatterns.join(', ')}, Secondary ${secondaryPatterns.join(', ')}`);
+      console.log(`[REQUIRED-CHECK] Day ${workoutIndex} - Compound slots to fill: ${compoundSlotsToFill}`);
+      
+      // Track compound exercises separately (core/accessory don't count toward compound slots)
+      let compoundExercisesAdded = 0;
       
       for (const requiredMov of levelRequirements) {
-        if (exercises.length >= compoundSlotsToFill) break;
+        if (compoundExercisesAdded >= compoundSlotsToFill) {
+          console.log(`[REQUIRED-SKIP] ${requiredMov.name} - already filled ${compoundExercisesAdded}/${compoundSlotsToFill} compound slots`);
+          break;
+        }
         
         // Skip if already used this week
-        if (weeklyMovementTracker.has(requiredMov.name)) continue;
+        if (weeklyMovementTracker.has(requiredMov.name)) {
+          console.log(`[REQUIRED-SKIP] ${requiredMov.name} - already used this week`);
+          continue;
+        }
         
         // Check if this pattern is relevant to today's workout (primary or secondary patterns)
         const relevantPatterns = [...primaryPatterns, ...secondaryPatterns];
-        if (!relevantPatterns.includes(requiredMov.pattern)) continue;
+        if (!relevantPatterns.includes(requiredMov.pattern)) {
+          console.log(`[REQUIRED-SKIP] ${requiredMov.name} - pattern ${requiredMov.pattern} not relevant today`);
+          continue;
+        }
         
         // Find the required exercise with flexible difficulty matching
         // Allow exercises up to ONE difficulty level above user's level for required movements
@@ -824,6 +838,8 @@ export async function generateWorkoutProgram(
           ? ['beginner', 'intermediate']
           : ['beginner', 'intermediate', 'advanced'];
         
+        console.log(`[REQUIRED-SEARCH] ${requiredMov.name} - pattern ${requiredMov.pattern}, allowed difficulties: ${allowedDifficulties.join(', ')}`);
+        
         const allPatternExercises = availableExercises.filter(ex =>
           ex.movementPattern === requiredMov.pattern &&
           ex.exerciseType === "main" &&
@@ -831,6 +847,8 @@ export async function generateWorkoutProgram(
           allowedDifficulties.includes(ex.difficulty) &&
           !usedExerciseIds.has(ex.id)
         );
+        
+        console.log(`[REQUIRED-SEARCH] ${requiredMov.name} - found ${allPatternExercises.length} matching exercises`);
         
         let foundExercise: Exercise | undefined;
         
@@ -841,8 +859,15 @@ export async function generateWorkoutProgram(
         if (!foundExercise && 'alternatives' in requiredMov && requiredMov.alternatives) {
           for (const altName of requiredMov.alternatives) {
             foundExercise = allPatternExercises.find(ex => ex.name === altName);
-            if (foundExercise) break;
+            if (foundExercise) {
+              console.log(`[REQUIRED-FOUND] ${requiredMov.name} - using alternative: ${foundExercise.name}`);
+              break;
+            }
           }
+        } else if (foundExercise) {
+          console.log(`[REQUIRED-FOUND] ${requiredMov.name} - found exact match`);
+        } else {
+          console.log(`[REQUIRED-NOT-FOUND] ${requiredMov.name} - no matches in ${allPatternExercises.length} available`);
         }
         
         if (foundExercise) {
@@ -875,13 +900,14 @@ export async function generateWorkoutProgram(
           
           if (foundExercise.liftType === 'compound') {
             compoundExercises.push({ exercise: foundExercise, pattern: requiredMov.pattern });
+            compoundExercisesAdded++;  // Count compounds toward slot limit
           }
           
           // Mark as used in weekly tracker
           weeklyMovementTracker.add(requiredMov.name);
           usedExerciseIds.add(foundExercise.id);
           
-          console.log(`[REQUIRED-ADDED] ✓ ${foundExercise.name} (${requiredMov.pattern}) - Required movement added on day ${workoutIndex}`);
+          console.log(`[REQUIRED-ADDED] ✓ ${foundExercise.name} (${requiredMov.pattern}) - Required movement added on day ${workoutIndex}, Compounds: ${compoundExercisesAdded}/${compoundSlotsToFill}`);
         }
       }
       
