@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { fitnessAssessments } from "@shared/schema";
+import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
@@ -945,7 +945,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`  Found ${duplicateGroups.length} dates with duplicate sessions`);
       
       let deletedCount = 0;
-      const { workoutSessions } = await import("@shared/schema");
       
       // For each duplicate group, keep the most recent one, delete the rest
       for (const [key, sessions] of duplicateGroups) {
@@ -1886,7 +1885,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duplicatesToDelete = sessionsOnDate.filter((s: any) => s.id !== sessionToConvert.id);
       if (duplicatesToDelete.length > 0) {
         console.warn(`[CARDIO] Cleaning up ${duplicatesToDelete.length} duplicate sessions for date ${scheduledDate}. IDs:`, duplicatesToDelete.map((s: any) => s.id));
-        const { workoutSessions } = await import("@shared/schema");
         for (const session of duplicatesToDelete) {
           await db.delete(workoutSessions).where(eq(workoutSessions.id, session.id));
         }
@@ -1917,23 +1915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
       }
 
-      // Replace the rest session with cardio by updating it in place
-      // This ensures only one session per day exists
-      console.log('[CARDIO] About to update session with:', { sessionType: "workout", workoutType: "cardio", workoutName, notes, status: "scheduled" });
-      
-      const updatedSession = await storage.updateWorkoutSession(sessionToConvert.id, {
-        sessionType: "workout",
-        workoutType: "cardio",
-        workoutName,
-        notes,
-        status: "scheduled"
-      });
-
-      if (!updatedSession) {
-        return res.status(500).json({ error: "Failed to update session to cardio" });
-      }
-
-      // Generate cardio exercises based on selected type
+      // Get user data for exercise selection
       const user = await storage.getUser(userId);
       const latestAssessment = await storage.getLatestFitnessAssessment(userId);
       
@@ -1944,8 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fitnessLevel = latestAssessment?.experienceLevel || user.fitnessLevel || 'beginner';
       
       // Fetch cardio exercises from database
-      const { exercises as exercisesTable } = await import("@shared/schema");
-      const allExercises = await db.select().from(exercisesTable);
+      const allExercises = await db.select().from(exercises);
       const cardioExercises = allExercises.filter(ex => 
         ex.movementPattern === "cardio" &&
         ex.equipment?.some(eq => user.equipment?.includes(eq) || eq === "bodyweight")
@@ -1975,8 +1956,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ) || cardioExercises[0];
       }
 
+      // Create a programWorkout for this cardio session
+      const programWorkout = await db.insert(programWorkouts).values({
+        programId: activeProgram.id,
+        dayOfWeek: new Date(scheduledDate).getDay() || 7,
+        workoutName,
+        movementFocus: ['cardio'],
+        workoutType: 'cardio'
+      }).returning();
+
+      if (!programWorkout[0]) {
+        return res.status(500).json({ error: "Failed to create program workout" });
+      }
+
+      // Create exercise parameters and link to programWorkout
       if (selectedExercise) {
-        // Create exercise parameters based on type
         let sets, workSeconds, restSeconds, durationSeconds;
         
         if (cardioType === 'hiit' && selectedExercise.trackingType === 'duration') {
@@ -1993,18 +1987,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           restSeconds = 0;
         }
 
-        // Create program exercise
-        const { programExercises } = await import("@shared/schema");
+        // Create program exercise linked to the programWorkout
         await db.insert(programExercises).values({
-          workoutSessionId: updatedSession.id,
+          workoutId: programWorkout[0].id,
           exerciseId: selectedExercise.id,
           sets,
           durationSeconds,
           workSeconds: cardioType === 'hiit' ? workSeconds : undefined,
           restSeconds,
           orderIndex: 1,
-          selectedEquipment: selectedExercise.equipment[0] || 'bodyweight',
-          trackingType: selectedExercise.trackingType || 'duration'
+          equipment: selectedExercise.equipment[0] || 'bodyweight'
         });
 
         console.log('[CARDIO] Created cardio exercise:', { 
@@ -2013,6 +2005,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sets, 
           duration: cardioType === 'hiit' ? `${sets} x ${workSeconds}s work / ${restSeconds}s rest` : `${duration} min`
         });
+      }
+
+      // Update the session to link to the programWorkout
+      console.log('[CARDIO] About to update session with:', { sessionType: "workout", workoutType: "cardio", workoutName, notes, status: "scheduled", programWorkoutId: programWorkout[0].id });
+      
+      const updatedSession = await storage.updateWorkoutSession(sessionToConvert.id, {
+        sessionType: "workout",
+        workoutType: "cardio",
+        workoutName,
+        notes,
+        status: "scheduled",
+        programWorkoutId: programWorkout[0].id
+      });
+
+      if (!updatedSession) {
+        return res.status(500).json({ error: "Failed to update session to cardio" });
       }
 
       console.log('[CARDIO] Successfully converted rest session to', cardioType, 'cardio. Updated session:', { id: updatedSession.id, workoutName: updatedSession.workoutName, workoutType: updatedSession.workoutType });
@@ -2498,14 +2506,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Database-level filtering: fetch only exercises matching movement pattern and difficulty
       const { sql: sqlFunc } = await import("drizzle-orm");
-      const { exercises: exercisesTable } = await import("@shared/schema");
-      const { db } = await import("./db");
       
       const candidateExercises = await db.select()
-        .from(exercisesTable)
+        .from(exercises)
         .where(
-          sqlFunc`${exercisesTable.movementPattern} = ${movementPattern} 
-              AND ${exercisesTable.difficulty} = ANY(ARRAY[${sqlFunc.join(allowedDifficulties.map(d => sqlFunc`${d}`), sqlFunc`, `)}]::text[])`
+          sqlFunc`${exercises.movementPattern} = ${movementPattern} 
+              AND ${exercises.difficulty} = ANY(ARRAY[${sqlFunc.join(allowedDifficulties.map(d => sqlFunc`${d}`), sqlFunc`, `)}]::text[])`
         );
       
       // Client-side filtering: only filter by muscle groups now
