@@ -384,12 +384,14 @@ export class DbStorage implements IStorage {
   async archiveCompletedSessions(userId: string, fromDate: string): Promise<number> {
     // Archive only COMPLETED sessions from the specified date onwards
     // This preserves historical workout data while cleaning up for program regeneration
+    // Skip sessions that are already archived to avoid duplicate key constraint violation
     const result = await db.update(workoutSessions)
       .set({ isArchived: 1 })
       .where(and(
         eq(workoutSessions.userId, userId),
         gte(workoutSessions.scheduledDate, fromDate),
-        eq(workoutSessions.completed, 1)
+        eq(workoutSessions.completed, 1),
+        eq(workoutSessions.isArchived, 0) // Only archive non-archived sessions
       ))
       .returning();
     

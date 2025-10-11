@@ -1933,6 +1933,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to update session to cardio" });
       }
 
+      // Generate cardio exercises based on selected type
+      const user = await storage.getUser(userId);
+      const latestAssessment = await storage.getLatestFitnessAssessment(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const fitnessLevel = latestAssessment?.experienceLevel || user.fitnessLevel || 'beginner';
+      
+      // Fetch cardio exercises from database
+      const { exercises as exercisesTable } = await import("@shared/schema");
+      const allExercises = await db.select().from(exercisesTable);
+      const cardioExercises = allExercises.filter(ex => 
+        ex.movementPattern === "cardio" &&
+        ex.equipment?.some(eq => user.equipment?.includes(eq) || eq === "bodyweight")
+      );
+
+      // Filter by cardio type
+      let selectedExercise: any;
+      if (cardioType === 'hiit') {
+        // HIIT: prefer exercises with duration tracking (intervals)
+        selectedExercise = cardioExercises.find(ex => 
+          ex.trackingType === "duration" || 
+          ex.name.toLowerCase().includes("hiit") ||
+          ex.name.toLowerCase().includes("sprint")
+        ) || cardioExercises[0];
+      } else if (cardioType === 'steady-state') {
+        // Steady-state: prefer jogging, rowing, cycling
+        selectedExercise = cardioExercises.find(ex =>
+          ex.name.toLowerCase().includes("jog") ||
+          ex.name.toLowerCase().includes("row") ||
+          ex.name.toLowerCase().includes("cycle")
+        ) || cardioExercises[0];
+      } else {
+        // Zone 2: prefer low-intensity options
+        selectedExercise = cardioExercises.find(ex =>
+          ex.name.toLowerCase().includes("walk") ||
+          ex.name.toLowerCase().includes("zone")
+        ) || cardioExercises[0];
+      }
+
+      if (selectedExercise) {
+        // Create exercise parameters based on type
+        let sets, workSeconds, restSeconds, durationSeconds;
+        
+        if (cardioType === 'hiit' && selectedExercise.trackingType === 'duration') {
+          // HIIT intervals
+          workSeconds = fitnessLevel === 'beginner' ? 20 : fitnessLevel === 'intermediate' ? 30 : 40;
+          restSeconds = fitnessLevel === 'beginner' ? 40 : fitnessLevel === 'intermediate' ? 30 : 20;
+          const intervalDuration = workSeconds + restSeconds;
+          sets = Math.floor((duration * 60) / intervalDuration);
+          durationSeconds = workSeconds;
+        } else {
+          // Continuous cardio
+          sets = 1;
+          durationSeconds = duration * 60;
+          restSeconds = 0;
+        }
+
+        // Create program exercise
+        const { programExercises } = await import("@shared/schema");
+        await db.insert(programExercises).values({
+          workoutSessionId: updatedSession.id,
+          exerciseId: selectedExercise.id,
+          sets,
+          durationSeconds,
+          workSeconds: cardioType === 'hiit' ? workSeconds : undefined,
+          restSeconds,
+          orderIndex: 1,
+          selectedEquipment: selectedExercise.equipment[0] || 'bodyweight',
+          trackingType: selectedExercise.trackingType || 'duration'
+        });
+
+        console.log('[CARDIO] Created cardio exercise:', { 
+          name: selectedExercise.name, 
+          type: cardioType, 
+          sets, 
+          duration: cardioType === 'hiit' ? `${sets} x ${workSeconds}s work / ${restSeconds}s rest` : `${duration} min`
+        });
+      }
+
       console.log('[CARDIO] Successfully converted rest session to', cardioType, 'cardio. Updated session:', { id: updatedSession.id, workoutName: updatedSession.workoutName, workoutType: updatedSession.workoutType });
       res.json(updatedSession);
     } catch (error) {
