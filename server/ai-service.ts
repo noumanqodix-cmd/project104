@@ -420,19 +420,25 @@ function assignTrainingParameters(
     }
   }
   
-  // Assign tempo based on exercise role
+  // Assign tempo - use exercise's recommended tempo if available, otherwise use role-based tempo
   let tempo: string;
-  switch (exerciseRole) {
-    case 'primary-compound':
-      tempo = '2-1-1-0'; // Controlled eccentric, pause, explosive concentric
-      break;
-    case 'secondary-compound':
-    case 'isolation':
-    case 'core-accessory':
-      tempo = '2-0-2-0'; // Controlled tempo for hypertrophy
-      break;
-    default:
-      tempo = '2-0-2-0'; // Default hypertrophy tempo
+  if (exercise.recommendedTempo) {
+    // Use exercise-specific tempo if defined in database
+    tempo = exercise.recommendedTempo;
+  } else {
+    // Fall back to role-based tempo
+    switch (exerciseRole) {
+      case 'primary-compound':
+        tempo = '2-1-1-0'; // Controlled eccentric, pause, explosive concentric
+        break;
+      case 'secondary-compound':
+      case 'isolation':
+      case 'core-accessory':
+        tempo = '2-0-2-0'; // Controlled tempo for hypertrophy
+        break;
+      default:
+        tempo = '2-0-2-0'; // Default hypertrophy tempo
+    }
   }
 
   return {

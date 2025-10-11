@@ -94,6 +94,7 @@ export const exercises = pgTable("exercises", {
   exerciseType: text("exercise_type").notNull().default("main"),
   trackingType: text("tracking_type").notNull().default("reps"),
   workoutType: text("workout_type").notNull().default("strength"),
+  recommendedTempo: text("recommended_tempo"),
   videoUrl: text("video_url"),
   formTips: text("form_tips").array(),
 });
