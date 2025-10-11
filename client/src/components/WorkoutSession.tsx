@@ -189,7 +189,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
             weight: '0',
             recommendedWeight: pe.recommendedWeight || undefined,
-            tempo: '2-0-2-0',
+            tempo: pe.tempo || '2-0-2-0',
             rpe: pe.targetRPE || undefined,
             rir: pe.targetRIR || undefined,
             formVideoUrl: pe.exercise.videoUrl || '#',

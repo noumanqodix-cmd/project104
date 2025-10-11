@@ -37,6 +37,7 @@ export interface GeneratedExercise {
   durationSeconds?: number;
   workSeconds?: number;  // For HIIT exercises: work interval duration
   restSeconds: number;
+  tempo?: string;  // Tempo notation (e.g., '2-0-2-0', '1-0-X-0', 'Hold')
   targetRPE?: number;  // Rate of Perceived Exertion (1-10)
   targetRIR?: number;  // Reps in Reserve (0-5)
   notes?: string;
@@ -261,6 +262,7 @@ function assignTrainingParameters(
   recommendedWeight?: number;
   durationSeconds?: number;
   workSeconds?: number;
+  tempo?: string;
   supersetGroup?: string;
   supersetOrder?: number;
 } {
@@ -277,6 +279,7 @@ function assignTrainingParameters(
     
     return {
       ...params,
+      tempo: '1-0-X-0', // Explosive concentric, controlled eccentric
       targetRPE: 9, // Max effort, explosive intent
       targetRIR: 0, // All-out power development
     };
@@ -289,6 +292,7 @@ function assignTrainingParameters(
       repsMin: 10,
       repsMax: 15,
       restSeconds: 30,
+      tempo: '1-0-1-0', // Faster tempo for warmups
     };
   }
   
@@ -331,6 +335,7 @@ function assignTrainingParameters(
       sets,
       durationSeconds: duration,
       restSeconds: 60, // Core work gets 60s rest
+      tempo: 'Hold', // Duration-based holds
       targetRPE: template.intensityGuidelines.strengthRPE[0],
       targetRIR: template.intensityGuidelines.strengthRIR[1],
     };
@@ -415,11 +420,27 @@ function assignTrainingParameters(
     }
   }
   
+  // Assign tempo based on exercise role
+  let tempo: string;
+  switch (exerciseRole) {
+    case 'primary-compound':
+      tempo = '2-1-1-0'; // Controlled eccentric, pause, explosive concentric
+      break;
+    case 'secondary-compound':
+    case 'isolation':
+    case 'core-accessory':
+      tempo = '2-0-2-0'; // Controlled tempo for hypertrophy
+      break;
+    default:
+      tempo = '2-0-2-0'; // Default hypertrophy tempo
+  }
+
   return {
     sets,
     repsMin,
     repsMax,
     restSeconds,
+    tempo,
     targetRPE: template.intensityGuidelines.strengthRPE[fitnessLevel === "beginner" ? 0 : 1],
     targetRIR: template.intensityGuidelines.strengthRIR[fitnessLevel === "beginner" ? 1 : 0],
     recommendedWeight,

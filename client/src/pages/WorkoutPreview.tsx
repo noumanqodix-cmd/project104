@@ -106,7 +106,7 @@ export default function WorkoutPreview() {
             sets: pe.sets,
             reps: pe.repsMin && pe.repsMax ? `${pe.repsMin}-${pe.repsMax}` : pe.repsMin?.toString() || '10',
             weight: '0',
-            tempo: '2-0-2-0',
+            tempo: pe.tempo || '2-0-2-0',
             rpe: pe.targetRPE || undefined,
             formVideoUrl: pe.exercise.videoUrl || '#',
             lastRir: undefined,
