@@ -282,8 +282,17 @@ export default function Home() {
       return isSameCalendarDay(sessionDate, today);
     }) || [];
   
+  // Prefer workout sessions over rest sessions when there are multiple for the same day
+  // This ensures newly added cardio sessions are displayed instead of old rest sessions
+  const sortedTodaySessions = todaySessions.sort((a: any, b: any) => {
+    // Workout sessions (including cardio) come before rest sessions
+    if (a.sessionType === 'workout' && b.sessionType === 'rest') return -1;
+    if (a.sessionType === 'rest' && b.sessionType === 'workout') return 1;
+    return 0;
+  });
+  
   // Always show today's session - whether incomplete or complete
-  const todaySession = todaySessions[0] || null;
+  const todaySession = sortedTodaySessions[0] || null;
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;

@@ -1786,22 +1786,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find the existing session on this date (exclude archived and skipped sessions)
       const existingSessions = await storage.getUserSessions(userId);
-      const sessionOnDate = existingSessions.find((s: any) => {
+      const sessionsOnDate = existingSessions.filter((s: any) => {
         if (!s.scheduledDate || s.status === 'archived' || s.status === 'skipped') return false;
         const existingDate = parseLocalDate(s.scheduledDate);
         return formatLocalDate(existingDate) === formatLocalDate(sessionScheduledDate);
       });
 
-      console.log('[CARDIO] Date:', scheduledDate, 'Type:', cardioType, 'Session found:', sessionOnDate ? { id: sessionOnDate.id, type: sessionOnDate.sessionType, workoutName: sessionOnDate.workoutName } : 'none');
-
-      if (!sessionOnDate) {
+      console.log('[CARDIO] Date:', scheduledDate, 'Type:', cardioType, 'Sessions found for this date:', sessionsOnDate.length, sessionsOnDate.map((s: any) => ({ id: s.id, type: s.sessionType, name: s.workoutName })));
+      
+      // Filter to only REST sessions (sessionType === 'rest')
+      const restSessions = sessionsOnDate.filter((s: any) => s.sessionType === 'rest');
+      
+      if (restSessions.length === 0) {
+        // No rest sessions found - this date might already have cardio or a workout
+        if (sessionsOnDate.length > 0) {
+          console.log('[CARDIO] No rest sessions found, but found workout sessions');
+          return res.status(400).json({ error: "This is already a workout day. You can only add cardio to rest days." });
+        }
+        console.log('[CARDIO] No sessions found for this date');
         return res.status(404).json({ error: "No session found for this date" });
       }
-
-      if (sessionOnDate.sessionType === 'workout') {
-        console.log('[CARDIO] Session is already a workout (not a rest day)');
-        return res.status(400).json({ error: "This is a workout day, not a rest day. You can only add cardio to rest days." });
+      
+      if (restSessions.length > 1) {
+        console.warn('[CARDIO] WARNING: Multiple rest sessions found for the same date! Using the first one. IDs:', restSessions.map((s: any) => s.id));
       }
+      
+      const sessionOnDate = restSessions[0];
 
       // Configure cardio based on selected type
       let workoutName: string;
@@ -1829,6 +1839,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Replace the rest session with cardio by updating it in place
       // This ensures only one session per day exists
+      console.log('[CARDIO] About to update session with:', { sessionType: "workout", workoutType: "cardio", workoutName, notes, status: "scheduled" });
+      
       const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
         sessionType: "workout",
         workoutType: "cardio",
@@ -1841,7 +1853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to update session to cardio" });
       }
 
-      console.log('[CARDIO] Successfully converted rest session to', cardioType, 'cardio:', updatedSession.id);
+      console.log('[CARDIO] Successfully converted rest session to', cardioType, 'cardio. Updated session:', { id: updatedSession.id, workoutName: updatedSession.workoutName, workoutType: updatedSession.workoutType });
       res.json(updatedSession);
     } catch (error) {
       console.error("Convert to cardio session error:", error);
