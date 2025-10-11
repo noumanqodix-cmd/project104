@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp, date, json, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, timestamp, date, json, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -203,7 +203,10 @@ export const workoutSessions = pgTable("workout_sessions", {
   caloriesBurned: integer("calories_burned"),
   notes: text("notes"),
   isArchived: integer("is_archived").notNull().default(0),
-});
+}, (table) => ({
+  // Ensure only one active session per user per date (prevents duplicates)
+  uniqueUserDateSession: uniqueIndex("unique_user_date_session").on(table.userId, table.scheduledDate, table.isArchived),
+}));
 
 export const workoutSets = pgTable("workout_sets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

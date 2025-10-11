@@ -906,6 +906,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to cleanup duplicate workout sessions (for testing environment)
+  app.post("/api/admin/cleanup-duplicate-sessions", async (req: Request, res: Response) => {
+    try {
+      console.log("🔧 ADMIN: Starting duplicate session cleanup...");
+      
+      // Get all active (non-archived) sessions
+      const allSessions = await db.query.workoutSessions.findMany({
+        where: (sessions, { eq }) => eq(sessions.isArchived, 0),
+        orderBy: (sessions, { desc }) => [desc(sessions.sessionDate)],
+      });
+      
+      console.log(`  Found ${allSessions.length} total active sessions`);
+      
+      // Group sessions by userId + scheduledDate
+      const sessionGroups = new Map<string, any[]>();
+      
+      for (const session of allSessions) {
+        if (!session.scheduledDate) continue; // Skip sessions without scheduled dates
+        
+        const key = `${session.userId}|${session.scheduledDate}`;
+        if (!sessionGroups.has(key)) {
+          sessionGroups.set(key, []);
+        }
+        sessionGroups.get(key)!.push(session);
+      }
+      
+      // Find duplicates (groups with more than one session)
+      const duplicateGroups = Array.from(sessionGroups.entries())
+        .filter(([_, sessions]) => sessions.length > 1);
+      
+      console.log(`  Found ${duplicateGroups.length} dates with duplicate sessions`);
+      
+      let deletedCount = 0;
+      const { workoutSessions } = await import("@shared/schema");
+      
+      // For each duplicate group, keep the most recent one, delete the rest
+      for (const [key, sessions] of duplicateGroups) {
+        // Sort by sessionDate (most recent first)
+        sessions.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
+        
+        const [toKeep, ...toDelete] = sessions;
+        
+        console.log(`  ${key}: Keeping session ${toKeep.id} (${toKeep.workoutName}), deleting ${toDelete.length} duplicates`);
+        
+        // Delete all but the first (most recent) session
+        for (const session of toDelete) {
+          await db.delete(workoutSessions).where(eq(workoutSessions.id, session.id));
+          deletedCount++;
+        }
+      }
+      
+      console.log(`✅ Cleanup complete: Deleted ${deletedCount} duplicate sessions`);
+      
+      res.json({
+        success: true,
+        duplicateGroups: duplicateGroups.length,
+        deletedSessions: deletedCount,
+        message: `Successfully removed ${deletedCount} duplicate sessions from ${duplicateGroups.length} dates`
+      });
+    } catch (error) {
+      console.error("❌ Duplicate session cleanup error:", error);
+      res.status(500).json({ error: `Failed to cleanup duplicate sessions: ${error}` });
+    }
+  });
+
   app.get("/api/exercises", async (req: Request, res: Response) => {
     try {
       const exercises = await storage.getAllExercises();
@@ -1807,11 +1872,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "No session found for this date" });
       }
       
-      if (restSessions.length > 1) {
-        console.warn('[CARDIO] WARNING: Multiple rest sessions found for the same date! Using the first one. IDs:', restSessions.map((s: any) => s.id));
-      }
+      // Select the rest session to convert (most recent one)
+      const sessionToConvert = restSessions[0];
       
-      const sessionOnDate = restSessions[0];
+      // Delete ALL other sessions for this date except the one we're converting
+      // This ensures only one session exists per date (enforced by unique constraint)
+      const duplicatesToDelete = sessionsOnDate.filter((s: any) => s.id !== sessionToConvert.id);
+      if (duplicatesToDelete.length > 0) {
+        console.warn(`[CARDIO] Cleaning up ${duplicatesToDelete.length} duplicate sessions for date ${scheduledDate}. IDs:`, duplicatesToDelete.map((s: any) => s.id));
+        const { workoutSessions } = await import("@shared/schema");
+        for (const session of duplicatesToDelete) {
+          await db.delete(workoutSessions).where(eq(workoutSessions.id, session.id));
+        }
+        console.log(`[CARDIO] Successfully deleted ${duplicatesToDelete.length} duplicate sessions`);
+      }
 
       // Configure cardio based on selected type
       let workoutName: string;
@@ -1841,7 +1915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // This ensures only one session per day exists
       console.log('[CARDIO] About to update session with:', { sessionType: "workout", workoutType: "cardio", workoutName, notes, status: "scheduled" });
       
-      const updatedSession = await storage.updateWorkoutSession(sessionOnDate.id, {
+      const updatedSession = await storage.updateWorkoutSession(sessionToConvert.id, {
         sessionType: "workout",
         workoutType: "cardio",
         workoutName,
