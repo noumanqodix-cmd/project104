@@ -69,6 +69,16 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   barbellRow1rm: real("barbell_row_1rm"),
   dumbbellLunge1rm: real("dumbbell_lunge_1rm"),
   farmersCarry1rm: real("farmers_carry_1rm"),
+  // Manual level overrides for each movement pattern
+  horizontalPushOverride: text("horizontal_push_override"),
+  verticalPushOverride: text("vertical_push_override"),
+  pullOverride: text("pull_override"),
+  lowerBodyOverride: text("lower_body_override"),
+  hingeOverride: text("hinge_override"),
+  coreOverride: text("core_override"),
+  rotationOverride: text("rotation_override"),
+  carryOverride: text("carry_override"),
+  cardioOverride: text("cardio_override"),
 });
 
 export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessments).omit({

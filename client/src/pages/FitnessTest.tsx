@@ -12,6 +12,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Map movement pattern to override field name
+const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
+  const fieldMap: Record<keyof MovementPatternLevels, string> = {
+    horizontal_push: 'horizontalPushOverride',
+    vertical_push: 'verticalPushOverride',
+    pull: 'pullOverride',
+    squat: 'lowerBodyOverride',
+    lunge: 'lowerBodyOverride',
+    hinge: 'hingeOverride',
+    core: 'coreOverride',
+    rotation: 'rotationOverride',
+    carry: 'carryOverride',
+    cardio: 'cardioOverride',
+  };
+  return fieldMap[pattern];
+};
+
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -34,8 +51,8 @@ export default function FitnessTest() {
   });
 
   const overrideMutation = useMutation({
-    mutationFn: (data: { assessmentId: string; pattern: string; level: string }) => {
-      const overrideField = `${data.pattern}Override`;
+    mutationFn: (data: { assessmentId: string; pattern: keyof MovementPatternLevels; level: string }) => {
+      const overrideField = getOverrideFieldName(data.pattern);
       return apiRequest('PATCH', `/api/fitness-assessments/${data.assessmentId}/override`, { [overrideField]: data.level });
     },
     onSuccess: () => {
@@ -270,32 +287,67 @@ export default function FitnessTest() {
       testId: string;
     }> = [
       { 
-        levelKey: 'push', 
-        targetKey: 'push',
-        label: 'Push', 
-        description: 'Push-ups, Bench Press, Overhead Press',
-        testId: 'push'
+        levelKey: 'horizontal_push', 
+        targetKey: 'horizontal_push',
+        label: 'Chest (Horizontal Push)', 
+        description: 'Push-ups, Bench Press',
+        testId: 'horizontal-push'
+      },
+      { 
+        levelKey: 'vertical_push', 
+        targetKey: 'vertical_push',
+        label: 'Shoulders (Vertical Push)', 
+        description: 'Pike Push-ups, Overhead Press',
+        testId: 'vertical-push'
       },
       { 
         levelKey: 'pull',
         targetKey: 'pull',
-        label: 'Pull', 
+        label: 'Back (Pull)', 
         description: 'Pull-ups, Barbell Row',
         testId: 'pull'
       },
       { 
         levelKey: 'squat',
         targetKey: 'lowerBody',
-        label: 'Lower Body', 
-        description: 'Squats, Squat 1RM',
-        testId: 'lowerBody'
+        label: 'Squat', 
+        description: 'Bodyweight Squats, Squat 1RM',
+        testId: 'squat'
+      },
+      { 
+        levelKey: 'lunge',
+        targetKey: 'lowerBody',
+        label: 'Lunge', 
+        description: 'Walking Lunges, Dumbbell Lunge 1RM',
+        testId: 'lunge'
       },
       { 
         levelKey: 'hinge',
         targetKey: 'hinge',
-        label: 'Hinge', 
-        description: 'Deadlifts, Squat stability',
+        label: 'Hinge (Deadlift)', 
+        description: 'Single-Leg RDL, Deadlift 1RM',
         testId: 'hinge'
+      },
+      { 
+        levelKey: 'core',
+        targetKey: 'lowerBody',
+        label: 'Core', 
+        description: 'Plank Hold, Ab exercises',
+        testId: 'core'
+      },
+      { 
+        levelKey: 'rotation',
+        targetKey: 'lowerBody',
+        label: 'Rotation', 
+        description: 'Russian Twists, Med Ball Slams',
+        testId: 'rotation'
+      },
+      { 
+        levelKey: 'carry',
+        targetKey: 'lowerBody',
+        label: 'Carry', 
+        description: 'Farmer Walk, Farmer Carry 1RM',
+        testId: 'carry'
       },
       { 
         levelKey: 'cardio',
@@ -322,20 +374,6 @@ export default function FitnessTest() {
           nextLevel,
         });
       }
-    };
-
-    const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
-      const fieldMap: Record<keyof MovementPatternLevels, string> = {
-        push: 'pushOverride',
-        pull: 'pullOverride',
-        squat: 'lowerBodyOverride',
-        lunge: 'lowerBodyOverride',
-        hinge: 'hingeOverride',
-        core: 'coreOverride',
-        carry: 'carryOverride',
-        cardio: 'cardioOverride',
-      };
-      return fieldMap[pattern];
     };
 
     const isOverridden = (pattern: keyof MovementPatternLevels): boolean => {
@@ -663,7 +701,7 @@ export default function FitnessTest() {
                     const patternKey = overrideDialog.pattern;
                     const targetKey: keyof typeof targets = 
                       patternKey === 'squat' || patternKey === 'lunge' ? 'lowerBody' :
-                      patternKey === 'core' || patternKey === 'carry' ? 'push' :
+                      patternKey === 'core' || patternKey === 'rotation' || patternKey === 'carry' ? 'lowerBody' :
                       patternKey as keyof typeof targets;
                     const target = targets[targetKey];
                     return (

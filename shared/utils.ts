@@ -55,6 +55,9 @@ interface AssessmentData {
   pullOverride?: string | null;
   lowerBodyOverride?: string | null;
   hingeOverride?: string | null;
+  coreOverride?: string | null;
+  rotationOverride?: string | null;
+  carryOverride?: string | null;
   cardioOverride?: string | null;
 }
 
@@ -337,10 +340,10 @@ export function calculateMovementPatternLevels(
     squat: getMaxLevel(squatLevel, assessment.lowerBodyOverride),
     lunge: getMaxLevel(lungeLevel, assessment.lowerBodyOverride),
     hinge: getMaxLevel(hingeLevel, assessment.hingeOverride),
-    core: getMaxLevel(coreLevel, undefined),
-    carry: getMaxLevel(carryLevel, undefined),
+    core: getMaxLevel(coreLevel, assessment.coreOverride),
+    carry: getMaxLevel(carryLevel, assessment.carryOverride),
     cardio: getMaxLevel(cardioLevel, assessment.cardioOverride),
-    rotation: getMaxLevel(rotationLevel, undefined),
+    rotation: getMaxLevel(rotationLevel, assessment.rotationOverride),
   };
 }
 
