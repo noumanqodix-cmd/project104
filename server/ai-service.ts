@@ -319,7 +319,8 @@ function assignTrainingParameters(
   
   // Duration-based exercises (planks, holds, etc.) - treat as core/accessory
   if (exercise.trackingType === "duration" || exercise.name.toLowerCase().includes("plank") || exercise.name.toLowerCase().includes("hold")) {
-    const duration = fitnessLevel === "beginner" ? 30 : fitnessLevel === "intermediate" ? 45 : 60;
+    // Fallback duration based on fitness level (supports 30/45/60/90)
+    const duration = fitnessLevel === "beginner" ? 30 : fitnessLevel === "intermediate" ? 45 : fitnessLevel === "advanced" ? 90 : 60;
     const sets = fitnessLevel === "beginner" ? 2 : 3;
     return {
       sets,
@@ -427,7 +428,12 @@ export async function generateWorkoutProgram(
 ): Promise<GeneratedProgram> {
   const { user, latestAssessment, availableExercises } = input;
 
-  const daysPerWeek = Math.min(7, Math.max(1, user.daysPerWeek || 3));
+  // Strictly enforce 3-5 days per week (only supported values)
+  let daysPerWeek = user.daysPerWeek || 3;
+  if (![3, 4, 5].includes(daysPerWeek)) {
+    console.warn(`[VALIDATION] Invalid daysPerWeek ${daysPerWeek}, defaulting to 3`);
+    daysPerWeek = 3;
+  }
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
   const workoutDuration = user.workoutDuration || 60; // Default to 60 minutes
 
@@ -493,14 +499,11 @@ export async function generateWorkoutProgram(
   });
 
   //  Determine scheduled days for the week
+  // Only support 3, 4, or 5 days per week for optimal programming
   const daySchedules: { [key: number]: number[] } = {
-    1: [1],             // Monday only
-    2: [1, 4],          // Monday, Thursday
     3: [1, 3, 5],       // Monday, Wednesday, Friday
     4: [1, 2, 4, 5],    // Monday, Tuesday, Thursday, Friday
     5: [1, 2, 3, 4, 5], // Monday-Friday
-    6: [1, 2, 3, 4, 5, 6], // Monday-Saturday
-    7: [1, 2, 3, 4, 5, 6, 7], // Every day
   };
 
   const scheduledDays = user.selectedDays && user.selectedDays.length === daysPerWeek 
