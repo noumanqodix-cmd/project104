@@ -1,3 +1,26 @@
+// ==========================================
+// FITNESS CALCULATION UTILITIES
+// ==========================================
+// This file contains helper functions for fitness level calculations
+// Used by both frontend (UI display) and backend (workout generation)
+//
+// KEY FUNCTIONS:
+// 1. calculateAge() - Age calculation from DOB
+// 2. calculateMovementPatternLevels() - Determines difficulty level for each movement pattern
+// 3. getProgressionTargets() - Shows next fitness milestones to achieve
+// 4. getAllowedDifficulties() - Filters exercises by user's level
+// 5. sortExercisesByDifficultyPriority() - Prioritizes hardest allowed exercises
+//
+// MOVEMENT PATTERN LEVELS:
+// - Each of 10 movement patterns is independently assessed (beginner/intermediate/advanced)
+// - Based on bodyweight test results (push-ups, squats, etc.) or weighted 1RMs
+// - Weighted tests override bodyweight if available (e.g., bench press > push-ups)
+// - Manual overrides can increase (never decrease) calculated levels
+// ==========================================
+
+// ==========================================
+// AGE CALCULATION
+// ==========================================
 // Calculate age from date of birth
 export function calculateAge(dateOfBirth: Date | string | null | undefined): number | null {
   if (!dateOfBirth) return null;
@@ -140,6 +163,16 @@ export function getProgressionTargets(userWeight?: number, unitPreference?: stri
   };
 }
 
+// ==========================================
+// MOVEMENT PATTERN LEVEL CALCULATION
+// ==========================================
+// Determines beginner/intermediate/advanced level for EACH movement pattern independently
+// LOGIC:
+// 1. Start with bodyweight test results (push-ups, squats, mile time, etc.)
+// 2. If weighted tests available (1RMs), they override bodyweight results
+// 3. Manual overrides can only increase levels (never decrease for safety)
+// Example: If user does 12 push-ups → intermediate. But bench press 150lbs → advanced. Result = advanced.
+// ==========================================
 export function calculateMovementPatternLevels(
   assessment: AssessmentData,
   user: UserData
@@ -347,6 +380,13 @@ export function calculateMovementPatternLevels(
   };
 }
 
+// ==========================================
+// DIFFICULTY FILTERING HELPERS
+// ==========================================
+// These functions determine which exercise difficulties are safe/appropriate for user's level
+// SAFETY RULE: Beginner users get beginner + intermediate (for variety), never advanced
+// ==========================================
+
 // Convert movement pattern level to allowed difficulty array
 export function getAllowedDifficulties(level: MovementPatternLevel): string[] {
   if (level === 'beginner') return ['beginner', 'intermediate']; // Allow intermediate for exercise variety
@@ -392,6 +432,14 @@ export function isExerciseAllowed(
   return allowedForPattern.includes(difficulty);
 }
 
+// ==========================================
+// EXERCISE SORTING BY DIFFICULTY
+// ==========================================
+// Sorts exercises by difficulty priority (hardest allowed first)
+// IMPORTANT: Only sorts within ALLOWED difficulties for that movement pattern
+// Example: Beginner user can't get advanced exercises, even if they exist
+// Result: Intermediate exercises come first, then beginner exercises
+// ==========================================
 // Sort exercises by difficulty (hardest first) based on user's level for the pattern
 // RESPECTS movement-specific allowed difficulties - only prioritizes within allowed range
 export function sortExercisesByDifficultyPriority<T extends { movementPattern?: string; difficulty: string }>(
