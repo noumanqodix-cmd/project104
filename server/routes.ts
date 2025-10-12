@@ -1,3 +1,36 @@
+// ==========================================
+// API ROUTES - Server Endpoints for FitForge
+// ==========================================
+// This file defines all API endpoints that the frontend can call
+// Think of it as the "menu" of actions the app can perform
+//
+// PRIMARY USER-FACING CATEGORIES:
+// 1. Authentication - Login, get user info, update profile
+// 2. Onboarding - Complete setup, generate first program
+// 3. Programs - Create, retrieve, regenerate workout programs
+// 4. Workouts - Get daily workouts, mark complete, track progress
+// 5. Exercises - Exercise library, swaps, progressions
+// 6. Fitness Tests - Save assessments, track progress
+// 7. Calorie Tracking - Calculate and log calories burned
+// 8. Settings - Update preferences, nutrition goals, program regeneration
+//
+// ADDITIONAL ENDPOINTS (Advanced/Admin):
+// - Exercise generation (AI-powered exercise library creation)
+// - Analytics and reporting
+// - Timer utilities for HIIT/interval training
+// - Database utilities and admin operations
+//
+// HOW IT WORKS:
+// Frontend calls → API endpoint → Database operation → Response to frontend
+// Example: "GET /api/auth/user" → Fetch user from DB → Return user data
+//
+// AUTHENTICATION:
+// Most endpoints require authentication (isAuthenticated middleware)
+// This ensures users can only access their own data
+//
+// NOTE: This is a large file (~2600 lines). Look for section headers (====) to navigate
+// ==========================================
+
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -13,13 +46,39 @@ import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import { parseLocalDate, formatLocalDate, isSameCalendarDay, isBeforeCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
 
-// Guard against duplicate route registration (e.g., from HMR)
+// Guard against duplicate route registration (prevents errors during hot reload)
 let routesRegistered = false;
 
-// Helper function to generate workout schedule for entire program duration
+// ==========================================
+// HELPER: Generate Workout Schedule
+// ==========================================
+// Creates individual workout sessions for the entire program duration
+// This pre-generates all sessions so users can see their full schedule
+//
+// HOW IT WORKS:
+// - Loops through all days in the program duration (durationWeeks × 7 days)
+// - For each day, checks if there's a matching programWorkout template
+// - If match found, creates a session for that specific date
+// - Sessions include both workout days AND rest days (if in programWorkouts)
+//
+// EXAMPLE:
+// durationWeeks=8, programWorkouts includes Mon/Wed/Fri/Sat workouts + Tue/Thu/Sun rest
+// = Loops 56 days, creates sessions for all programWorkout days
+//
+// INPUT:
+//   - programId: Which program these sessions belong to
+//   - userId: Who owns these sessions
+//   - programWorkouts: Template workouts (Mon workout, Wed workout, etc.)
+//   - durationWeeks: Program duration in weeks (passed explicitly by caller)
+//   - startDateString: Start date in YYYY-MM-DD format
+//
+// OUTPUT: Number of sessions created
+//
+// IMPORTANT: Cleans up existing future sessions before creating new ones
+// This prevents duplicate sessions if user regenerates their program
 async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number, startDateString: string) {
   try {
-    // Use the provided start date from the frontend (already in user's local timezone)
+    // Parse the provided start date (YYYY-MM-DD string from caller)
     const today = parseLocalDate(startDateString);
     
     // CRITICAL: Clean up any existing future sessions before creating new ones
@@ -93,10 +152,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   console.log("[ROUTES] Registering routes for the first time");
   
-  // Setup Replit Auth
+  // Setup Replit Auth (required for all protected endpoints)
   await setupAuth(app);
 
-  // Auth routes
+  // ==========================================
+  // AUTHENTICATION ROUTES
+  // ==========================================
+  // Endpoints for user authentication and profile management
+  
+  // GET /api/auth/user - Get current user's profile
+  // Returns: User object with all profile data (name, settings, metrics, etc.)
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -147,7 +212,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // New endpoint for comprehensive onboarding assessment
+  // ==========================================
+  // ONBOARDING ROUTES
+  // ==========================================
+  // Endpoints for new user setup and initial program generation
+  
+  // POST /api/onboarding-assessment/complete - Complete onboarding with all collected data
+  // Receives: User profile, nutrition data, fitness test results (optional)
+  // Returns: Success status
+  // Side effect: Automatically generates first workout program
   app.post("/api/onboarding-assessment/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;

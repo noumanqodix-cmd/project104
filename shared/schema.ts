@@ -1,20 +1,56 @@
+// ==========================================
+// DATABASE SCHEMA - All Tables and Data Structures
+// ==========================================
+// This file defines the structure of every database table in FitForge
+// Think of it as the blueprint for how data is organized and stored
+//
+// MAIN TABLES:
+// 1. sessions - User login sessions (Replit Auth)
+// 2. users - User profiles (height, weight, preferences, goals)
+// 3. fitnessAssessments - Fitness test results (push-ups, 1RMs, etc.)
+// 4. exercises - Exercise library (196 exercises with details)
+// 5. equipment - Equipment reference (auto-populated from exercises)
+// 6. workoutPrograms - Generated workout plans (8-week programs)
+// 7. programWorkouts - Individual workouts within a program (Mon workout, Wed workout, etc.)
+// 8. programExercises - Exercises within each workout (sets, reps, weight)
+// 9. workoutSessions - Scheduled daily workouts (pre-generated for 8 weeks)
+// 10. workoutSets - Individual set completions (what user actually did)
+//
+// HOW THEY RELATE:
+// User → creates → FitnessAssessment → generates → WorkoutProgram
+// WorkoutProgram → contains → ProgramWorkouts → contains → ProgramExercises
+// ProgramWorkouts → scheduled as → WorkoutSessions → tracked via → WorkoutSets
+//
+// VALIDATION:
+// Each table has an "insert schema" (using Zod) that validates data before saving
+// This prevents bad data from entering the database
+// ==========================================
+
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, real, timestamp, date, json, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
+// ==========================================
+// AUTHENTICATION TABLES
+// ==========================================
+
+// TABLE: sessions
+// Stores user login sessions for Replit Auth
+// Sessions expire after a certain time for security
 export const sessions = pgTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: json("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: varchar("sid").primaryKey(),           // Session ID (unique identifier)
+    sess: json("sess").notNull(),              // Session data (user info, etc.)
+    expire: timestamp("expire").notNull(),      // When this session expires
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => [index("IDX_session_expire").on(table.expire)],  // Index for faster session cleanup
 );
 
-// User storage table for Replit Auth
+// TABLE: users
+// Core user profile data - stores everything about a user
+// Updated during onboarding and via Settings page
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -49,6 +85,9 @@ export const upsertUserSchema = createInsertSchema(users).pick({
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// TABLE: fitnessAssessments
+// Stores fitness test results from both onboarding and retakes
+// Used to calculate movement pattern levels and generate workout programs
 export const fitnessAssessments = pgTable("fitness_assessments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -89,6 +128,14 @@ export const insertFitnessAssessmentSchema = createInsertSchema(fitnessAssessmen
 export type InsertFitnessAssessment = z.infer<typeof insertFitnessAssessmentSchema>;
 export type FitnessAssessment = typeof fitnessAssessments.$inferSelect;
 
+// ==========================================
+// EXERCISE LIBRARY TABLES
+// ==========================================
+
+// TABLE: exercises
+// Master exercise library with 196 exercises
+// Each exercise has equipment, difficulty, movement pattern, and category
+// Categories: warmup | power | compound | isolation | core | cardio
 export const exercises = pgTable("exercises", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -134,6 +181,14 @@ export const insertEquipmentSchema = createInsertSchema(equipment).omit({
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
 export type Equipment = typeof equipment.$inferSelect;
 
+// ==========================================
+// PROGRAM STRUCTURE TABLES
+// ==========================================
+// These tables store the AI-generated 8-week workout programs
+
+// TABLE: workoutPrograms
+// The top-level program container - one per user at a time
+// Links to the fitness assessment that generated it
 export const workoutPrograms = pgTable("workout_programs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -148,6 +203,9 @@ export const workoutPrograms = pgTable("workout_programs", {
   archivedReason: text("archived_reason"),
 });
 
+// TABLE: programWorkouts
+// Individual workouts within a program (one per training day)
+// Example: Mon=Upper Power, Wed=Lower Strength, Fri=Full Body
 export const programWorkouts = pgTable("program_workouts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   programId: varchar("program_id").notNull(),
@@ -157,6 +215,9 @@ export const programWorkouts = pgTable("program_workouts", {
   workoutType: text("workout_type"),
 });
 
+// TABLE: programExercises
+// Exercises within each workout with sets/reps/weights
+// Example: Bench Press - 4 sets of 8-12 reps at 135 lbs
 export const programExercises = pgTable("program_exercises", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workoutId: varchar("workout_id").notNull(),
@@ -200,6 +261,14 @@ export type ProgramWorkout = typeof programWorkouts.$inferSelect;
 export type InsertProgramExercise = z.infer<typeof insertProgramExerciseSchema>;
 export type ProgramExercise = typeof programExercises.$inferSelect;
 
+// ==========================================
+// WORKOUT TRACKING TABLES
+// ==========================================
+// These tables track actual workouts completed by users
+
+// TABLE: workoutSessions
+// Pre-scheduled daily workouts (generated for 8 weeks at program creation)
+// User marks complete after finishing workout
 export const workoutSessions = pgTable("workout_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
@@ -221,6 +290,9 @@ export const workoutSessions = pgTable("workout_sessions", {
   uniqueUserDateSession: uniqueIndex("unique_user_date_session").on(table.userId, table.scheduledDate, table.isArchived),
 }));
 
+// TABLE: workoutSets
+// Individual set completions during a workout
+// Tracks actual performance: weight lifted, reps completed, RIR (Reps In Reserve)
 export const workoutSets = pgTable("workout_sets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: varchar("session_id").notNull(),
