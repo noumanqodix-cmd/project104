@@ -412,9 +412,9 @@ function assignTrainingParameters(
   // Power exercises - explosive movements with max intent
   if (exerciseRole === 'power' || exercise.exerciseCategory === 'power') {
     const powerParams = {
-      beginner: { sets: 2, repsMin: 3, repsMax: 3, restSeconds: 60 },     // 2x3 @ 60s rest
-      intermediate: { sets: 2, repsMin: 2, repsMax: 3, restSeconds: 60 }, // 2x2-3 @ 60s rest  
-      advanced: { sets: 2, repsMin: 1, repsMax: 2, restSeconds: 60 }      // 2x1-2 @ 60s rest
+      beginner: { sets: 3, repsMin: 3, repsMax: 3, restSeconds: 60 },     // 3x3 @ 60s rest
+      intermediate: { sets: 4, repsMin: 2, repsMax: 3, restSeconds: 60 }, // 4x2-3 @ 60s rest  
+      advanced: { sets: 5, repsMin: 1, repsMax: 2, restSeconds: 60 }      // 5x1-2 @ 60s rest
     };
     
     const params = powerParams[fitnessLevel as keyof typeof powerParams] || powerParams.beginner;
