@@ -639,6 +639,8 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleEndEarly = () => {
+    console.log('[WORKOUT] End Early clicked, sessionId:', sessionId);
+    
     if (!sessionId) {
       toast({
         title: "Cannot End Workout",
@@ -664,7 +666,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       );
     }
 
-    onComplete({
+    const summaryData = {
       duration: workoutTime,
       exercises: exercises.length,
       totalVolume: Math.round(completedVolume),
@@ -673,7 +675,10 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       completedExercises: currentExerciseIndex,
       programWorkoutId: currentWorkoutId,
       sessionId: sessionId,
-    });
+    };
+    
+    console.log('[WORKOUT] Calling onComplete with summary:', summaryData);
+    onComplete(summaryData);
   };
 
   if (loadingProgram || loadingDetails) {

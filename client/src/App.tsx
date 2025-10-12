@@ -4,6 +4,8 @@ import { QueryClientProvider, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import WelcomePage from "./components/WelcomePage";
 import QuestionnaireFlow from "./components/QuestionnaireFlow";
@@ -393,40 +395,56 @@ function AppRoutes() {
           <Route path="/workout">
             <WorkoutPage
               onComplete={(summary) => {
+                console.log('[APP] Workout onComplete called with summary:', summary);
                 setWorkoutSummaryData(summary);
+                console.log('[APP] Navigating to /summary');
                 setLocation("/summary");
               }}
             />
           </Route>
 
           <Route path="/summary">
-            <WorkoutSummary
-              {...workoutSummaryData}
-              onFinish={async (difficulty) => {
-                if (workoutSummaryData) {
-                  if (!workoutSummaryData.sessionId) {
-                    toast({
-                      title: "Cannot Save Workout",
-                      description: "Workout session not properly initialized. Progress was not saved.",
-                      variant: "destructive",
+            {workoutSummaryData ? (
+              <WorkoutSummary
+                {...workoutSummaryData}
+                onFinish={async (difficulty) => {
+                  if (workoutSummaryData) {
+                    if (!workoutSummaryData.sessionId) {
+                      toast({
+                        title: "Cannot Save Workout",
+                        description: "Workout session not properly initialized. Progress was not saved.",
+                        variant: "destructive",
+                      });
+                      setLocation("/home");
+                      return;
+                    }
+                    
+                    await saveWorkoutMutation.mutateAsync({
+                      sessionId: workoutSummaryData.sessionId,
+                      completed: 1,
+                      status: workoutSummaryData.incomplete ? "incomplete" : "completed",
+                      durationMinutes: Math.floor(workoutSummaryData.duration / 60),
+                      notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
+                      sessionDate: new Date(), // User's local time
                     });
-                    setLocation("/home");
-                    return;
                   }
                   
-                  await saveWorkoutMutation.mutateAsync({
-                    sessionId: workoutSummaryData.sessionId,
-                    completed: 1,
-                    status: workoutSummaryData.incomplete ? "incomplete" : "completed",
-                    durationMinutes: Math.floor(workoutSummaryData.duration / 60),
-                    notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
-                    sessionDate: new Date(), // User's local time
-                  });
-                }
-                
-                setLocation("/home");
-              }}
-            />
+                  setLocation("/home");
+                }}
+              />
+            ) : (
+              <div className="min-h-screen bg-background flex items-center justify-center p-6">
+                <Card className="p-8 max-w-md text-center">
+                  <h2 className="text-2xl font-bold mb-2">No Workout Data</h2>
+                  <p className="text-muted-foreground mb-4">
+                    Workout summary data is missing. Returning to home.
+                  </p>
+                  <Button onClick={() => setLocation("/home")} data-testid="button-back-home">
+                    Back to Home
+                  </Button>
+                </Card>
+              </div>
+            )}
           </Route>
 
           <Route path="/workout-history">
