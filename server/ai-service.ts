@@ -124,6 +124,10 @@ function selectExercisesByPattern(
   // First, add compound exercises
   for (const ex of compound) {
     if (selected.length >= count) break;
+    
+    // Re-check constraint (muscle tracking may have updated since initial filter)
+    if (!canUseExerciseFn(ex)) continue;
+    
     selected.push(ex);
     // Track immediately when selected
     if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles);
@@ -132,6 +136,10 @@ function selectExercisesByPattern(
   // Then add isolation if needed
   for (const ex of isolation) {
     if (selected.length >= count) break;
+    
+    // Re-check constraint (muscle tracking may have updated since initial filter)
+    if (!canUseExerciseFn(ex)) continue;
+    
     selected.push(ex);
     // Track immediately when selected
     if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles);
