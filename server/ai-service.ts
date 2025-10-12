@@ -1,112 +1,203 @@
+// ==========================================
+// WORKOUT PROGRAM GENERATOR - THE "BRAIN" OF FITFORGE
+// ==========================================
+// This file contains the core algorithm that creates personalized workout programs
+// It's like having a personal trainer that knows your fitness level, available equipment,
+// and goals - then builds you a complete 8-week training plan
+//
+// WHAT IT DOES:
+// 1. Takes your profile (fitness level, equipment, schedule, goals)
+// 2. Analyzes your fitness test results to understand your strengths/weaknesses
+// 3. Selects appropriate exercises from a database of 196+ movements
+// 4. Creates balanced workouts following professional programming principles
+// 5. Ensures variety, progression, and proper recovery
+//
+// KEY PRINCIPLES:
+// - CNS-Ordered Progression: Exercises ordered by nervous system demand (explosive → compound → isolation → core)
+// - Pattern Balance: All 10 movement patterns trained each week (push, pull, squat, hinge, etc.)
+// - Smart Reuse: Compound exercises don't repeat within a week; accessories can repeat after 2 days
+// - Time Precision: Workouts precisely match your selected duration (30/45/60/90 min)
+// - Progressive Overload: Difficulty increases as you get stronger
+// ==========================================
+
+// Import data types (think of these as "blueprints" for our data)
 import type { User, FitnessAssessment, Exercise } from "@shared/schema";
+
+// Import the template selection system (chooses strength/cardio/hybrid focus)
 import { selectProgramTemplate, type ProgramTemplate } from "./programTemplates";
+
+// Import helper functions that calculate difficulty levels and validate exercises
 import { 
-  calculateMovementPatternLevels, 
-  getMovementDifficultiesMap, 
-  isExerciseAllowed,
-  sortExercisesByDifficultyPriority
+  calculateMovementPatternLevels,  // Converts test results to skill levels per movement
+  getMovementDifficultiesMap,      // Maps skill levels to exercise difficulties
+  isExerciseAllowed,               // Checks if user has equipment & skill for an exercise
+  sortExercisesByDifficultyPriority // Prioritizes exercises by difficulty rating
 } from "@shared/utils";
+
+// Import constant values used throughout the app
 import { 
-  EXPERIENCE_LEVELS, 
-  NUTRITION_GOALS, 
-  MOVEMENT_PATTERNS, 
-  CARDIO_TYPES,
+  EXPERIENCE_LEVELS,  // beginner, intermediate, advanced
+  NUTRITION_GOALS,    // gain, maintain, lose
+  MOVEMENT_PATTERNS,  // The 10 foundational movement patterns
+  CARDIO_TYPES,       // HIIT, steady state, zone 2
   type ExperienceLevel, 
   type NutritionGoal 
 } from "@shared/constants";
 
+// ==========================================
+// DATA STRUCTURES (TypeScript Interfaces)
+// ==========================================
+// These define the "shape" of data we work with - like forms that data must fill out
+
+// INPUT: What we need to generate a program
 export interface ProgramGenerationInput {
-  user: User;
-  latestAssessment: FitnessAssessment;
-  availableExercises: Exercise[];
+  user: User;                           // User's profile (name, goals, equipment, schedule)
+  latestAssessment: FitnessAssessment;  // Most recent fitness test results
+  availableExercises: Exercise[];       // Full exercise database filtered by user's equipment
 }
 
+// OUTPUT: The complete program we create
 export interface GeneratedProgram {
-  programType: string;
-  weeklyStructure: string;
-  durationWeeks: number;
-  workouts: GeneratedWorkout[];
+  programType: string;       // e.g., "Strength Primary" or "Cardio Primary"
+  weeklyStructure: string;   // e.g., "3 Day Split" or "5 Day Full Body"
+  durationWeeks: number;     // Always 8 weeks
+  workouts: GeneratedWorkout[];  // Array of all individual workouts
 }
 
+// Each workout in the program
 export interface GeneratedWorkout {
-  dayOfWeek: number;
-  workoutName: string;
+  dayOfWeek: number;         // 0=Sunday, 1=Monday, etc.
+  workoutName: string;       // Descriptive name like "Monday - Upper Body Push"
   workoutType: "strength" | "cardio" | "hiit" | "mobility" | null;
-  movementFocus: string[];
-  exercises: GeneratedExercise[];
+  movementFocus: string[];   // Which movement patterns this workout trains
+  exercises: GeneratedExercise[];  // List of exercises in this workout
 }
 
+// Each exercise within a workout
 export interface GeneratedExercise {
-  exerciseName: string;
-  equipment: string;  // Specific equipment to use for this exercise (from user's available equipment)
-  sets: number;
-  repsMin?: number;
-  repsMax?: number;
-  recommendedWeight?: number;  // Recommended starting weight in user's unit preference
-  durationSeconds?: number;
-  workSeconds?: number;  // For HIIT exercises: work interval duration
-  restSeconds: number;
-  tempo?: string;  // Tempo notation (e.g., '2-0-2-0', '1-0-X-0', 'Hold')
-  targetRPE?: number;  // Rate of Perceived Exertion (1-10)
-  targetRIR?: number;  // Reps in Reserve (0-5)
-  notes?: string;
-  isWarmup?: boolean;  // Flag to identify warmup exercises
-  supersetGroup?: string;  // "A", "B", "C" for superset grouping
-  supersetOrder?: number;  // 1 or 2 to indicate order in superset
-  sourceExerciseCategory?: string;  // Source category for CNS reordering: warmup | power | compound | isolation | core | cardio
-  sourceMovementPattern?: string;  // Source movement pattern for CNS reordering
+  exerciseName: string;      // Name of the exercise (e.g., "Barbell Squat")
+  equipment: string;         // Specific equipment to use (from user's available equipment)
+  
+  // VOLUME (How much work to do)
+  sets: number;              // Number of sets (e.g., 3 sets)
+  repsMin?: number;          // Minimum reps per set (e.g., 8)
+  repsMax?: number;          // Maximum reps per set (e.g., 12) → creates a range like "8-12 reps"
+  durationSeconds?: number;  // For timed exercises like planks (e.g., 60 seconds)
+  
+  // INTENSITY (How hard to work)
+  recommendedWeight?: number;  // Starting weight in user's units (lbs or kg)
+  targetRPE?: number;          // Rate of Perceived Exertion: 1-10 scale (10 = maximum effort)
+  targetRIR?: number;          // Reps in Reserve: how many more reps you could do (0-5)
+  
+  // TIMING & TECHNIQUE
+  restSeconds: number;         // Rest between sets (e.g., 90 seconds)
+  workSeconds?: number;        // For HIIT: active work interval (e.g., 30 seconds on)
+  tempo?: string;              // Lifting speed notation (e.g., '2-0-2-0' = 2sec down, 0 pause, 2sec up, 0 pause)
+  
+  // ORGANIZATION
+  notes?: string;              // Special instructions or safety tips
+  isWarmup?: boolean;          // True if this is a warmup exercise
+  supersetGroup?: string;      // "A", "B", "C" - exercises with same letter done back-to-back
+  supersetOrder?: number;      // 1 or 2 - order within the superset pair
+  
+  // METADATA (Used for proper exercise ordering)
+  sourceExerciseCategory?: string;  // warmup | power | compound | isolation | core | cardio
+  sourceMovementPattern?: string;   // Which movement pattern this trains (squat, hinge, push, etc.)
 }
 
-// Helper function to generate descriptive workout names based on movement patterns
+// ==========================================
+// HELPER FUNCTION: Generate Workout Names
+// ==========================================
+// Creates descriptive workout names based on which movement patterns are included
+// Example: If workout has squat + hinge + pull patterns → "Monday - Full Body Strength"
+//
+// INPUT: 
+//   - movementFocus: Array of movement patterns in this workout (e.g., ["squat", "hinge", "pull"])
+//   - workoutType: Type of workout (strength, cardio, hiit, mobility)
+//   - dayName: Day of week (e.g., "Monday")
+// OUTPUT: Descriptive name string (e.g., "Monday - Upper Body Push")
 function generateWorkoutName(movementFocus: string[], workoutType: "strength" | "cardio" | "hiit" | "mobility" | null, dayName: string): string {
-  // Filter out duplicate patterns
+  
+  // Remove duplicates from the movement list (in case squat appears twice)
   const uniquePatterns = Array.from(new Set(movementFocus));
   
-  // Handle cardio/HIIT workouts
+  // Special case: Cardio/HIIT workouts get a simple name
   if (workoutType === "cardio" || workoutType === "hiit") {
     return `${dayName} - Cardio & Conditioning`;
   }
   
-  // Categorize patterns
+  // Categorize the movements into body regions
+  // Check if workout includes upper body pushing (chest, shoulders)
   const upperPush = uniquePatterns.filter(p => ["horizontal_push", "vertical_push"].includes(p)).length > 0;
+  
+  // Check if workout includes upper body pulling (back, biceps)
   const upperPull = uniquePatterns.filter(p => p === "pull").length > 0;
+  
+  // Check if workout includes lower body movements (legs, glutes)
   const lowerBody = uniquePatterns.filter(p => ["squat", "lunge", "hinge"].includes(p)).length > 0;
+  
+  // Check if workout includes core/rotation exercises
   const core = uniquePatterns.filter(p => ["core", "rotation"].includes(p)).length > 0;
+  
+  // Check if cardio is mixed in with strength work
   const cardioIncluded = uniquePatterns.filter(p => p === "cardio").length > 0;
   
-  // Generate descriptive name based on focus
+  // Generate descriptive name based on which body regions are trained
+  // Priority order: Full body → Upper body → Lower body → Specific focus
+  
+  // Full body workout (all 3 regions: push + pull + legs)
   if (upperPush && upperPull && lowerBody) {
     return `${dayName} - Full Body Strength`;
   }
   
+  // Upper body push only (chest, shoulders, triceps)
   if (upperPush && !upperPull && !lowerBody) {
     return core ? `${dayName} - Push & Core` : `${dayName} - Upper Body Push`;
   }
   
+  // Upper body pull only (back, biceps)
   if (upperPull && !upperPush && !lowerBody) {
     return core ? `${dayName} - Pull & Core` : `${dayName} - Upper Body Pull`;
   }
   
+  // Upper body combined (push + pull, no legs)
   if (upperPush && upperPull && !lowerBody) {
     return `${dayName} - Upper Body Power`;
   }
   
+  // Lower body only (quads, glutes, hamstrings)
   if (lowerBody && !upperPush && !upperPull) {
     return core ? `${dayName} - Lower Body & Core` : `${dayName} - Lower Body Strength`;
   }
   
+  // Mixed lower + upper (full body with cardio)
   if (lowerBody && (upperPush || upperPull)) {
     if (cardioIncluded) {
-      return `${dayName} - Total Body Conditioning`;
+      return `${dayName} - Total Body Conditioning`;  // Includes cardio finisher
     }
     return `${dayName} - Full Body Power`;
   }
   
-  // Default fallback
+  // Safety fallback (should rarely hit this)
   return `${dayName} - Strength Training`;
 }
 
-// Helper function to select exercises based on movement pattern
+// ==========================================
+// HELPER FUNCTION: Select Exercises by Movement Pattern
+// ==========================================
+// Picks exercises for a specific movement pattern (e.g., "squat" or "pull")
+// Prioritizes compound exercises over isolation for better efficiency
+//
+// EXAMPLE: Need 2 squat exercises → First picks "Back Squat" (compound), then "Leg Press" (compound)
+//          If we run out of compounds, picks "Leg Extension" (isolation)
+//
+// INPUT:
+//   - exercises: Full list of available exercises
+//   - pattern: Movement pattern to filter by (e.g., "squat", "hinge", "pull")
+//   - count: How many exercises we need
+//   - canUseExerciseFn: Function that checks if exercise is allowed (equipment, difficulty, muscle recovery)
+//   - onSelectFn: Optional callback to track selected exercises (prevents reuse)
+// OUTPUT: Array of selected exercises (may be less than count if not enough available)
 function selectExercisesByPattern(
   exercises: Exercise[],
   pattern: string,
@@ -114,87 +205,115 @@ function selectExercisesByPattern(
   canUseExerciseFn: (exercise: Exercise) => boolean,
   onSelectFn?: (exerciseId: string, primaryMuscles?: string[], exercisePattern?: string, exerciseCategory?: string) => void
 ): Exercise[] {
+  
+  // STEP 1: Filter to only exercises that match the pattern AND pass our checks
+  // Example: If pattern is "squat", only get squat exercises user can do
   const available = exercises.filter(
     ex => ex.movementPattern === pattern && canUseExerciseFn(ex)
   );
   
-  // Prioritize compound exercises
+  // STEP 2: Separate compounds from isolations
+  // Compounds work multiple muscles (more bang for your buck)
   const compound = available.filter(ex => ex.exerciseCategory === 'compound');
+  // Isolations work single muscles (used for targeted work)
   const isolation = available.filter(ex => ex.exerciseCategory === 'isolation');
   
   const selected: Exercise[] = [];
   
-  // First, add compound exercises
+  // STEP 3: Prioritize compound exercises first
+  // Why? They're more efficient - one compound exercise does the work of 2-3 isolations
   for (const ex of compound) {
-    if (selected.length >= count) break;
+    if (selected.length >= count) break;  // Stop when we have enough
     
-    // Re-check constraint (muscle tracking may have updated since initial filter)
+    // Double-check: Muscle tracking may have changed since initial filter
+    // Example: If biceps were just used, this prevents another bicep exercise
     if (!canUseExerciseFn(ex)) continue;
     
-    selected.push(ex);
-    // Track immediately when selected
+    selected.push(ex);  // Add to our workout
+    
+    // Track immediately to prevent this exercise from being used again too soon
     if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles, ex.movementPattern, ex.exerciseCategory);
   }
   
-  // Then add isolation if needed
+  // STEP 4: Fill remaining slots with isolation exercises if needed
+  // Only happens if we need more exercises and ran out of compounds
   for (const ex of isolation) {
     if (selected.length >= count) break;
     
-    // Re-check constraint (muscle tracking may have updated since initial filter)
+    // Same double-check as compounds
     if (!canUseExerciseFn(ex)) continue;
     
     selected.push(ex);
-    // Track immediately when selected
+    // Track to prevent reuse
     if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles, ex.movementPattern, ex.exerciseCategory);
   }
   
-  return selected;
+  return selected;  // Return our final exercise list
 }
 
-// Helper function to identify weak movement patterns from fitness assessment
+// ==========================================
+// HELPER FUNCTION: Identify Weak Movement Patterns
+// ==========================================
+// Analyzes fitness test results to find which movements need extra work
+// Weak patterns may get superset training for efficiency (intermediate/advanced only)
+//
+// EXAMPLE: If you only did 25 push-ups but need 30 → "horizontal_push" is weak
+//          This might trigger superset training to bring it up faster
+//
+// INPUT:
+//   - assessment: Fitness test results (push-ups, pull-ups, squats, etc.)
+//   - user: User profile (for experience level)
+// OUTPUT: Array of weak movement pattern names (e.g., ["horizontal_push", "squat"])
 function identifyWeakMovementPatterns(assessment: FitnessAssessment, user: User): string[] {
   const weakPatterns: string[] = [];
   const experienceLevel = assessment.experienceLevel || user.fitnessLevel || "beginner";
   
-  // Beginners don't get supersets - they need full recovery
+  // IMPORTANT: Beginners don't get supersets
+  // Why? They need full recovery between sets to build proper form and work capacity
+  // Supersets (back-to-back exercises) are for intermediate+ lifters only
   if (experienceLevel === "beginner") {
-    return [];
+    return [];  // No weak patterns identified = no supersets
   }
   
-  // Define thresholds based on experience level
+  // Performance thresholds for each experience level
+  // If you score below these, that movement is considered "weak"
   const thresholds = {
     intermediate: {
-      pushups: 30,
-      pullups: 8,
-      squats: 50,
-      plankHold: 60,
+      pushups: 30,      // Need 30+ push-ups to be "strong" at horizontal push
+      pullups: 8,       // Need 8+ pull-ups to be "strong" at pulling
+      squats: 50,       // Need 50+ air squats to be "strong" at squatting
+      plankHold: 60,    // Need 60+ seconds plank to be "strong" at core
     },
     advanced: {
-      pushups: 50,
+      pushups: 50,      // Advanced lifters need higher standards
       pullups: 15,
       squats: 75,
       plankHold: 90,
     },
   };
   
+  // Get the appropriate threshold for this user's level
   const threshold = thresholds[experienceLevel as 'intermediate' | 'advanced'] || thresholds.intermediate;
   
-  // Check horizontal push strength (chest pressing)
+  // Check each movement pattern against thresholds
+  
+  // Horizontal Push (chest, triceps) - measured by push-ups
   if (assessment.pushups !== null && assessment.pushups !== undefined && assessment.pushups < threshold.pushups) {
     weakPatterns.push('horizontal_push');
   }
   
-  // Check vertical push strength (shoulder pressing)
+  // Vertical Push (shoulders) - measured by pike push-ups
+  // Note: Pike push-ups are harder, so threshold is 75% of regular push-ups
   if (assessment.pikePushups !== null && assessment.pikePushups !== undefined && assessment.pikePushups < (threshold.pushups * 0.75)) {
     weakPatterns.push('vertical_push');
   }
   
-  // Check pull strength (back, biceps)
+  // Pull (back, biceps) - measured by pull-ups
   if (assessment.pullups !== null && assessment.pullups !== undefined && assessment.pullups < threshold.pullups) {
     weakPatterns.push('pull');
   }
   
-  // Check lower body strength (quads, glutes, hamstrings)
+  // Squat (quads, glutes) - measured by air squats
   if (assessment.squats !== null && assessment.squats !== undefined && assessment.squats < threshold.squats) {
     weakPatterns.push('squat');
   }
@@ -477,23 +596,70 @@ function assignTrainingParameters(
   };
 }
 
+// ==========================================
+// MAIN FUNCTION: Generate Complete Workout Program
+// ==========================================
+// This is the entry point that creates your entire 8-week personalized workout plan
+// Think of this as the conductor of an orchestra - it coordinates all the helper functions
+// to create a balanced, progressive training program
+//
+// THE BIG PICTURE:
+// 1. Validate user inputs (training days, duration, fitness level)
+// 2. Determine which exercises are foundational for this user's level
+// 3. Calculate difficulty ratings for each movement pattern
+// 4. Select appropriate program template (strength/cardio/hybrid focus)
+// 5. Generate individual workouts following CNS-ordered progression
+// 6. Ensure variety and proper recovery between sessions
+//
+// INPUT: User profile + fitness assessment + available exercises
+// OUTPUT: Complete 8-week program with daily workouts
+//
+// EXAMPLE FLOW:
+// User: Intermediate, 4 days/week, 60 min workouts, has barbell
+// → Selects "Strength Primary" template
+// → Creates Mon/Wed/Fri/Sat workouts
+// → Each workout: warmup → power → compounds → isolations → core → cardio
+// → Total program: 32 workouts (4 per week × 8 weeks)
 export async function generateWorkoutProgram(
   input: ProgramGenerationInput
 ): Promise<GeneratedProgram> {
+  
+  // ==========================================
+  // STEP 1: EXTRACT AND VALIDATE USER DATA
+  // ==========================================
   const { user, latestAssessment, availableExercises } = input;
 
-  // Strictly enforce 3-5 days per week (only supported values)
+  // Validate training frequency (only 3, 4, or 5 days supported)
+  // Why these numbers? Research shows 3-5 days optimal for consistent progress
+  // Less than 3 = not enough stimulus | More than 5 = recovery issues
   let daysPerWeek = user.daysPerWeek || 3;
   if (![3, 4, 5].includes(daysPerWeek)) {
     console.warn(`[VALIDATION] Invalid daysPerWeek ${daysPerWeek}, defaulting to 3`);
-    daysPerWeek = 3;
+    daysPerWeek = 3;  // Safe default for beginners
   }
+  
+  // Determine fitness level (beginner, intermediate, or advanced)
+  // This affects exercise selection, volume, and intensity
   const fitnessLevel = latestAssessment.experienceLevel || user.fitnessLevel || "beginner";
-  const workoutDuration = user.workoutDuration || 60; // Default to 60 minutes
+  
+  // Get preferred workout duration (30, 45, 60, or 90 minutes)
+  // This determines how many exercises we can fit in
+  const workoutDuration = user.workoutDuration || 60; // Default to 1 hour
 
-  // REQUIRED WEEKLY MOVEMENTS - Ensures foundational exercises appear every week
-  // Beginners use simpler equipment, Intermediate/Advanced use barbell-focused lifts
-  // Names must match EXACTLY with exercise database entries
+  // ==========================================
+  // STEP 2: DEFINE REQUIRED WEEKLY MOVEMENTS
+  // ==========================================
+  // Every week MUST include these foundational exercises for balanced development
+  // This prevents muscle imbalances and ensures all major movement patterns are trained
+  //
+  // WHY THIS MATTERS:
+  // - Prevents "mirror muscle syndrome" (strong chest, weak back)
+  // - Ensures functional strength (not just beach muscles)
+  // - Reduces injury risk through balanced development
+  //
+  // EQUIPMENT MATCHING:
+  // - Beginners get bodyweight/dumbbell versions (safer, build foundation)
+  // - Intermediate/Advanced get barbell versions (more loading potential)
   const requiredMovements = {
     beginner: [
       { name: "Goblet Squat", pattern: "squat", alternatives: ["Squat", "Bodyweight Jump Squats"] },  // Bodyweight alternatives
