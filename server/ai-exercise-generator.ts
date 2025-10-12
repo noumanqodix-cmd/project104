@@ -132,9 +132,8 @@ export async function generateExercisesForEquipment(
     difficulty: ex.difficulty,
     primaryMuscles: ex.primaryMuscles,
     secondaryMuscles: ex.secondaryMuscles,
-    liftType: ex.liftType,
+    exerciseCategory: ex.liftType === 'compound' ? 'compound' : 'isolation', // Map old liftType to exerciseCategory
     isCorrective: ex.isCorrective,
-    exerciseType: ex.exerciseType,
     formTips: ex.formTips,
     videoUrl: null,
     trackingType: ex.trackingType || "reps",

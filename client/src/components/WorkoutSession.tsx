@@ -786,9 +786,9 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         </Card>
 
         <Card className="p-6">
-          {(isInSuperset() || getCurrentProgramExercise()?.exercise?.isPower === 1) && (
+          {(isInSuperset() || getCurrentProgramExercise()?.exercise?.exerciseCategory === 'power') && (
             <div className="mb-3 flex items-center gap-2 flex-wrap">
-              {getCurrentProgramExercise()?.exercise?.isPower === 1 && (
+              {getCurrentProgramExercise()?.exercise?.exerciseCategory === 'power' && (
                 <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700" data-testid="power-badge">
                   <Zap className="h-3 w-3 mr-1" />
                   Power

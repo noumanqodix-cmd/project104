@@ -68,10 +68,10 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
 
   // Separate warmup and main exercises
   const warmupExercises = currentWorkout?.exercises.filter(
-    ex => ex.exercise?.exerciseType === 'warmup'
+    ex => ex.exercise?.exerciseCategory === 'warmup'
   ) || [];
   const mainExercises = currentWorkout?.exercises.filter(
-    ex => ex.exercise && (ex.exercise.exerciseType === 'main' || !ex.exercise.exerciseType)
+    ex => ex.exercise && ex.exercise.exerciseCategory !== 'warmup'
   ) || [];
 
   const handleSwap = (oldExercise: ProgramExercise & { exercise: Exercise }, newExercise: Exercise & { selectedEquipment?: string }) => {
@@ -299,9 +299,9 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
             <div className="space-y-4">
               {mainExercises.map((ex) => (
                 <Card key={ex.id} className="p-6">
-                  {(ex.supersetGroup || ex.exercise.isPower === 1) && (
+                  {(ex.supersetGroup || ex.exercise.exerciseCategory === 'power') && (
                     <div className="mb-3 flex items-center gap-2 flex-wrap">
-                      {ex.exercise.isPower === 1 && (
+                      {ex.exercise.exerciseCategory === 'power' && (
                         <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700">
                           <Zap className="h-3 w-3 mr-1" />
                           Power
