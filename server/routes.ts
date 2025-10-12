@@ -2708,6 +2708,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // Update user's totalWorkoutsCompleted if workout is being completed for the first time
+      if (validatedData.completed === 1 && oldSession.completed === 0 && session.sessionType === "workout") {
+        const user = await storage.getUser(userId);
+        if (user) {
+          const updatedTotalWorkouts = (user.totalWorkoutsCompleted || 0) + 1;
+          await storage.updateUser(userId, {
+            totalWorkoutsCompleted: updatedTotalWorkouts
+          });
+          console.log(`[WORKOUT] User ${userId} completed workout. Total workouts: ${updatedTotalWorkouts}`);
+        }
+      }
+
       res.json(session);
     } catch (error) {
       console.error("Patch session error:", error);
