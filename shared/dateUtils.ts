@@ -6,19 +6,21 @@
  */
 
 /**
- * TEMPORARY: Get current date in Eastern Daylight Time (EDT, UTC-4) for testing
- * This hardcodes EDT timezone to debug timezone issues
- * @returns Date object representing current time in EDT
+ * Get current date in the user's local timezone, normalized to midnight
+ * @returns Date object representing today's date at midnight in local timezone
+ */
+export function getTodayLocal(): Date {
+  const now = new Date();
+  // Normalize to midnight in local timezone to prevent off-by-one errors
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+/**
+ * @deprecated Use getTodayLocal() instead
+ * Kept for backward compatibility during migration
  */
 export function getTodayEDT(): Date {
-  const now = new Date();
-  // EDT is UTC-4, so we subtract 4 hours from UTC
-  const edtOffset = -4 * 60; // -4 hours in minutes
-  const localOffset = now.getTimezoneOffset(); // Local timezone offset in minutes
-  const totalOffset = edtOffset - localOffset; // Difference to apply
-  
-  const edtDate = new Date(now.getTime() + totalOffset * 60 * 1000);
-  return edtDate;
+  return getTodayLocal();
 }
 
 /**
