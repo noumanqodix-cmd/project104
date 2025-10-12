@@ -1816,6 +1816,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================
+  // ENDPOINT: Check 7-Day Cycle Completion
+  // ==========================================
+  // Detects when all workouts in the current 7-day cycle are complete
+  // Used to trigger cycle completion prompt with options to repeat or create new program
+  //
+  // LOGIC:
+  // 1. Get user's selectedDates array (current cycle's scheduled dates)
+  // 2. Find all workout sessions scheduled on those dates
+  // 3. Check if ALL are completed (excluding rest days/cardio-only days)
+  // 4. Return shouldPrompt: true if cycle is complete
+  //
+  // RESPONSE:
+  // {
+  //   shouldPrompt: boolean,
+  //   cycleNumber: number,
+  //   completedWorkouts: number,
+  //   totalCycleWorkouts: number,
+  //   selectedDates: string[]
+  // }
+  app.get("/api/cycles/completion-check", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get user data to access selectedDates (current cycle)
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.json({ shouldPrompt: false, reason: "no_user" });
+      }
+
+      // Check if user has selectedDates (new cycle system)
+      if (!user.selectedDates || user.selectedDates.length === 0) {
+        return res.json({ shouldPrompt: false, reason: "no_cycle_dates" });
+      }
+
+      // Get all user sessions
+      const allSessions = await storage.getUserSessions(userId);
+
+      // Filter to sessions scheduled on current cycle dates (non-archived)
+      const cycleSessions = allSessions.filter(s => 
+        user.selectedDates?.includes(s.scheduledDate || '') && 
+        s.isArchived === 0
+      );
+
+      // Get only workout sessions (exclude rest days)
+      const workoutSessions = cycleSessions.filter(s => s.sessionType === "workout");
+      
+      // Count completed workout sessions
+      const completedWorkouts = workoutSessions.filter(s => s.completed === 1);
+
+      // Cycle is complete when ALL workout sessions are completed
+      const isCycleComplete = workoutSessions.length > 0 && completedWorkouts.length === workoutSessions.length;
+
+      res.json({
+        shouldPrompt: isCycleComplete,
+        cycleNumber: user.cycleNumber || 1,
+        completedWorkouts: completedWorkouts.length,
+        totalCycleWorkouts: workoutSessions.length,
+        selectedDates: user.selectedDates,
+        reason: isCycleComplete ? "cycle_complete" : "not_yet"
+      });
+    } catch (error) {
+      console.error("Cycle completion check error:", error);
+      res.status(500).json({ error: "Failed to check cycle completion" });
+    }
+  });
+
   app.get("/api/programs/archived", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
