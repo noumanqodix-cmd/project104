@@ -1,3 +1,23 @@
+// ==========================================
+// DATABASE STORAGE LAYER
+// ==========================================
+// This file provides all database operations (CRUD) for FitForge
+// Think of it as the "data access layer" - it's the ONLY place that talks to the database
+//
+// ARCHITECTURE:
+// - IStorage interface: Defines all available database operations
+// - DbStorage class: Implements operations using Drizzle ORM + PostgreSQL
+// - Routes call storage methods (routes.ts → storage.ts → database)
+//
+// MAIN OPERATION GROUPS:
+// 1. User Operations: Get/update user profiles
+// 2. Fitness Assessment Operations: Track test results (bodyweight/weights tests)
+// 3. Exercise Operations: Manage exercise library (196 exercises)
+// 4. Program Operations: Create/manage workout programs (8-week plans)
+// 5. Session Operations: Track daily workout sessions (scheduled + completed)
+// 6. Set Operations: Track individual exercise sets (actual performance)
+// ==========================================
+
 import { 
   type User, 
   type UpsertUser, 
@@ -18,9 +38,12 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
+// ==========================================
+// STORAGE INTERFACE
+// ==========================================
+// Defines all available database operations
+// Any new database operation should be added here first
+// ==========================================
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
@@ -87,7 +110,16 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, inArray, gte, sql } from "drizzle-orm";
 
+// ==========================================
+// DATABASE STORAGE IMPLEMENTATION
+// ==========================================
+// Implements all database operations using Drizzle ORM
+// ==========================================
+
 export class DbStorage implements IStorage {
+  // ==========================================
+  // USER OPERATIONS
+  // ==========================================
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return result[0];
@@ -113,6 +145,12 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  // ==========================================
+  // FITNESS ASSESSMENT OPERATIONS
+  // ==========================================
+  // Tracks bodyweight test results (push-ups, squats, mile time)
+  // and weights test results (1RMs for major lifts)
+  // ==========================================
   async createFitnessAssessment(insertAssessment: InsertFitnessAssessment): Promise<FitnessAssessment> {
     const result = await db.insert(fitnessAssessments).values(insertAssessment).returning();
     return result[0];
@@ -178,6 +216,12 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  // ==========================================
+  // EXERCISE OPERATIONS
+  // ==========================================
+  // Manages the exercise library (196 exercises)
+  // Filters by equipment, movement patterns, difficulty
+  // ==========================================
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
     const result = await db.insert(exercises).values(insertExercise).returning();
     return result[0];
@@ -206,6 +250,12 @@ export class DbStorage implements IStorage {
     await db.delete(exercises).where(eq(exercises.id, id));
   }
 
+  // ==========================================
+  // PROGRAM OPERATIONS
+  // ==========================================
+  // Creates and manages workout programs (8-week plans)
+  // Programs → ProgramWorkouts → ProgramExercises hierarchy
+  // ==========================================
   async createWorkoutProgram(insertProgram: InsertWorkoutProgram): Promise<WorkoutProgram> {
     const result = await db.insert(workoutPrograms).values(insertProgram).returning();
     return result[0];
@@ -271,6 +321,12 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  // ==========================================
+  // WORKOUT SESSION OPERATIONS
+  // ==========================================
+  // Manages daily workout sessions (scheduled & completed)
+  // Includes archival, pagination, calorie tracking
+  // ==========================================
   async createWorkoutSession(insertSession: InsertWorkoutSession): Promise<WorkoutSession> {
     const result = await db.insert(workoutSessions).values(insertSession).returning();
     return result[0];
@@ -502,6 +558,12 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  // ==========================================
+  // WORKOUT SET OPERATIONS
+  // ==========================================
+  // Tracks individual set completions (actual performance)
+  // Records weight, reps, RIR for progressive overload
+  // ==========================================
   async createWorkoutSet(insertSet: InsertWorkoutSet): Promise<WorkoutSet> {
     const result = await db.insert(workoutSets).values(insertSet).returning();
     return result[0];
