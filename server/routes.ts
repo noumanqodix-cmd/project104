@@ -2242,8 +2242,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const dateB = parseLocalDate(b.scheduledDate);
           return dateA.getTime() - dateB.getTime();
         });
+      
+      // DEDUPLICATE: Remove sessions with same programWorkoutId AND same scheduledDate
+      // Keeps multi-week schedule intact (same programWorkoutId can appear on different dates)
+      // This prevents bug where clicking reset multiple times creates duplicates on same date
+      const seenWorkoutDatePairs = new Set<string>();
+      const uniquePendingWorkouts = pendingWorkouts.filter((session: any) => {
+        const key = `${session.programWorkoutId || 'manual'}_${session.scheduledDate}`;
+        if (seenWorkoutDatePairs.has(key)) {
+          return false; // Skip if same workout on same date already exists
+        }
+        seenWorkoutDatePairs.add(key);
+        return true;
+      });
 
-      if (pendingWorkouts.length === 0) {
+      if (uniquePendingWorkouts.length === 0) {
         return res.json({ message: "No pending workouts to reschedule", rescheduledCount: 0 });
       }
 
@@ -2255,7 +2268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let dayOffset = 0;
       const createdSessions = [];
       
-      for (const workout of pendingWorkouts) {
+      for (const workout of uniquePendingWorkouts) {
         const newScheduledDate = new Date(today);
         newScheduledDate.setDate(today.getDate() + dayOffset);
         const newScheduledDateString = formatLocalDate(newScheduledDate);
@@ -2282,10 +2295,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dayOffset++;
       }
 
-      console.log(`[RESET] Rescheduled ${pendingWorkouts.length} workouts starting from ${currentDateString}`);
+      console.log(`[RESET] Rescheduled ${uniquePendingWorkouts.length} unique workouts starting from ${currentDateString}`);
       res.json({ 
-        message: `Rescheduled ${pendingWorkouts.length} workouts`,
-        rescheduledCount: pendingWorkouts.length 
+        message: `Rescheduled ${uniquePendingWorkouts.length} workouts`,
+        rescheduledCount: uniquePendingWorkouts.length 
       });
     } catch (error) {
       console.error("Reset from today error:", error);
