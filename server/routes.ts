@@ -35,7 +35,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions, equipment } from "@shared/schema";
+import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions, equipment, users, workoutPrograms, workoutSets } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
@@ -1127,6 +1127,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Duplicate session cleanup error:", error);
       res.status(500).json({ error: `Failed to cleanup duplicate sessions: ${error}` });
+    }
+  });
+
+  // Admin endpoint to clear all user data (for fresh start with new system)
+  // ⚠️ WARNING: This permanently deletes ALL user data
+  // ✅ PRESERVES: Exercise database and equipment list (core app functionality)
+  // 🔒 PROTECTED: Development mode only + authentication + confirmation key
+  // 📝 USAGE: POST /api/admin/clear-all-user-data with body { "confirm": "DELETE_ALL_USER_DATA" }
+  app.post("/api/admin/clear-all-user-data", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      // Security check 1: Only allow in development environment
+      if (process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ 
+          error: "Forbidden",
+          message: "This endpoint is only available in development mode"
+        });
+      }
+
+      // Security check 2: Require explicit confirmation to prevent accidental deletion
+      const { confirm } = req.body;
+      if (confirm !== "DELETE_ALL_USER_DATA") {
+        return res.status(400).json({ 
+          error: "Missing or invalid confirmation key",
+          message: "To proceed, send request with body: { \"confirm\": \"DELETE_ALL_USER_DATA\" }"
+        });
+      }
+
+      const userId = req.user?.claims?.sub;
+      console.log(`🔧 ADMIN: User ${userId} initiated complete user data wipe`);
+      console.log("⚠️  This will delete ALL users, programs, sessions, and assessments");
+      console.log("✅ Preserving: Exercise database and equipment list");
+      
+      // Track what gets deleted
+      const deletionStats = {
+        workoutSets: 0,
+        workoutSessions: 0,
+        programExercises: 0,
+        programWorkouts: 0,
+        workoutPrograms: 0,
+        fitnessAssessments: 0,
+        users: 0,
+      };
+
+      // STEP 1: Delete workout_sets (child of workout_sessions)
+      console.log("  [1/7] Deleting workout sets...");
+      const sets = await db.select().from(workoutSets);
+      deletionStats.workoutSets = sets.length;
+      if (sets.length > 0) {
+        await db.delete(workoutSets);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.workoutSets} workout sets`);
+
+      // STEP 2: Delete workout_sessions (child of users and program_workouts)
+      console.log("  [2/7] Deleting workout sessions...");
+      const sessions = await db.select().from(workoutSessions);
+      deletionStats.workoutSessions = sessions.length;
+      if (sessions.length > 0) {
+        await db.delete(workoutSessions);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.workoutSessions} workout sessions`);
+
+      // STEP 3: Delete program_exercises (child of program_workouts)
+      console.log("  [3/7] Deleting program exercises...");
+      const programExs = await db.select().from(programExercises);
+      deletionStats.programExercises = programExs.length;
+      if (programExs.length > 0) {
+        await db.delete(programExercises);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.programExercises} program exercises`);
+
+      // STEP 4: Delete program_workouts (child of workout_programs)
+      console.log("  [4/7] Deleting program workouts...");
+      const programWos = await db.select().from(programWorkouts);
+      deletionStats.programWorkouts = programWos.length;
+      if (programWos.length > 0) {
+        await db.delete(programWorkouts);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.programWorkouts} program workouts`);
+
+      // STEP 5: Delete workout_programs (child of users)
+      console.log("  [5/7] Deleting workout programs...");
+      const programs = await db.select().from(workoutPrograms);
+      deletionStats.workoutPrograms = programs.length;
+      if (programs.length > 0) {
+        await db.delete(workoutPrograms);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.workoutPrograms} workout programs`);
+
+      // STEP 6: Delete fitness_assessments (child of users)
+      console.log("  [6/7] Deleting fitness assessments...");
+      const assessments = await db.select().from(fitnessAssessments);
+      deletionStats.fitnessAssessments = assessments.length;
+      if (assessments.length > 0) {
+        await db.delete(fitnessAssessments);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.fitnessAssessments} fitness assessments`);
+
+      // STEP 7: Delete users (parent table)
+      console.log("  [7/7] Deleting users...");
+      const allUsers = await db.select().from(users);
+      deletionStats.users = allUsers.length;
+      if (allUsers.length > 0) {
+        await db.delete(users);
+      }
+      console.log(`    ✓ Deleted ${deletionStats.users} users`);
+
+      // Verify core data is preserved
+      const exerciseCount = await db.select().from(exercises);
+      const equipmentCount = await db.select().from(equipment);
+      
+      console.log("\n✅ User data wipe complete!");
+      console.log(`✅ Preserved: ${exerciseCount.length} exercises, ${equipmentCount.length} equipment types`);
+      console.log("📊 Deletion Summary:");
+      console.log(`   - Users: ${deletionStats.users}`);
+      console.log(`   - Programs: ${deletionStats.workoutPrograms}`);
+      console.log(`   - Sessions: ${deletionStats.workoutSessions}`);
+      console.log(`   - Sets: ${deletionStats.workoutSets}`);
+      console.log(`   - Assessments: ${deletionStats.fitnessAssessments}`);
+      console.log(`   - Total deleted: ${Object.values(deletionStats).reduce((a, b) => a + b, 0)} records`);
+
+      res.json({
+        success: true,
+        deleted: deletionStats,
+        preserved: {
+          exercises: exerciseCount.length,
+          equipment: equipmentCount.length,
+        },
+        message: "All user data successfully deleted. Exercise database and equipment preserved.",
+      });
+    } catch (error) {
+      console.error("❌ User data wipe error:", error);
+      res.status(500).json({ error: `Failed to clear user data: ${error}` });
     }
   });
 
