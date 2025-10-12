@@ -53,7 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatLocalDate, getTodayEDT } from "@shared/dateUtils";
+import { formatLocalDate, getTodayLocal } from "@shared/dateUtils";
 import { calculateAge } from "@shared/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { toggleEquipment as toggleEquipmentUtil } from "@/lib/equipmentUtils";
@@ -329,7 +329,7 @@ export default function Settings() {
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/regenerate", {
-        startDate: formatLocalDate(getTodayEDT()), // TEMP: Hardcoded to EDT for testing
+        startDate: formatLocalDate(getTodayLocal()),
       });
     },
     onSuccess: () => {

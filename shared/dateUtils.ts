@@ -17,7 +17,7 @@ export function getTodayLocal(): Date {
 
 /**
  * @deprecated Use getTodayLocal() instead
- * Kept for backward compatibility during migration
+ * Legacy function - internally calls getTodayLocal() for compatibility
  */
 export function getTodayEDT(): Date {
   return getTodayLocal();

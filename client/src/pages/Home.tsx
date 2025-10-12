@@ -9,7 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User, FitnessAssessment } from "@shared/schema";
 import { useEffect, useState } from "react";
-import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay, getTodayEDT } from "@shared/dateUtils";
+import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay, getTodayLocal } from "@shared/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -115,7 +115,7 @@ export default function Home() {
     mutationFn: async () => {
       // Send current local date to ensure archive logic uses user's timezone
       return await apiRequest("POST", "/api/workout-sessions/archive-old", {
-        currentDate: formatLocalDate(getTodayEDT()),
+        currentDate: formatLocalDate(getTodayLocal()),
       });
     },
     onSuccess: () => {
@@ -126,9 +126,9 @@ export default function Home() {
 
   // Check for missed workouts
   const { data: missedWorkoutsResponse } = useQuery({
-    queryKey: ["/api/workout-sessions/missed", formatLocalDate(getTodayEDT())],
+    queryKey: ["/api/workout-sessions/missed", formatLocalDate(getTodayLocal())],
     queryFn: async () => {
-      const response = await fetch(`/api/workout-sessions/missed?currentDate=${formatLocalDate(getTodayEDT())}`, {
+      const response = await fetch(`/api/workout-sessions/missed?currentDate=${formatLocalDate(getTodayLocal())}`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch missed workouts');
@@ -140,7 +140,7 @@ export default function Home() {
   const resetProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/workout-sessions/reset-from-today", {
-        currentDate: formatLocalDate(getTodayEDT()),
+        currentDate: formatLocalDate(getTodayLocal()),
       });
     },
     onSuccess: () => {
@@ -164,7 +164,7 @@ export default function Home() {
   const skipMissedWorkoutsMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/workout-sessions/skip-missed", {
-        currentDate: formatLocalDate(getTodayEDT()),
+        currentDate: formatLocalDate(getTodayLocal()),
       });
     },
     onSuccess: () => {
@@ -297,7 +297,7 @@ export default function Home() {
 
   // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
   // Prioritize incomplete sessions over completed ones
-  const today = getTodayEDT();
+  const today = getTodayLocal();
   
   const todaySessions = sessions
     ?.filter((s: any) => {
