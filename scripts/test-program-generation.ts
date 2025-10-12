@@ -66,8 +66,8 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
   // Configure test user for this frequency
   const selectedDaysMap = {
     3: [1, 3, 5], // Mon, Wed, Fri
-    4: [1, 3, 5, 6], // Mon, Wed, Fri, Sat
-    5: [1, 2, 3, 5, 6] // Mon, Tue, Wed, Fri, Sat
+    4: [1, 2, 4, 5], // Mon, Tue, Thu, Fri
+    5: [1, 2, 3, 4, 5] // Mon, Tue, Wed, Thu, Fri
   };
   
   const testUser = {
@@ -143,7 +143,14 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
         const restTime = ex.restSeconds * (ex.sets - 1) / 60; // convert to minutes
         const transition = 0.5; // 30 seconds
         exDuration = workTime + restTime + transition;
+      } else if (ex.workSeconds !== undefined) {
+        // HIIT cardio with work/rest intervals
+        const totalWorkTime = (ex.workSeconds / 60) * ex.sets;
+        const totalRestTime = (ex.restSeconds / 60) * (ex.sets - 1);
+        const transition = 0.5;
+        exDuration = totalWorkTime + totalRestTime + transition;
       } else if (ex.durationSeconds !== undefined) {
+        // Duration-based exercises (planks, holds)
         exDuration = (ex.durationSeconds * ex.sets + ex.restSeconds * (ex.sets - 1)) / 60 + 0.5;
       }
       
@@ -169,10 +176,11 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
     console.log(`\n   ⏱️  TOTAL WORKOUT TIME: ~${totalDuration.toFixed(1)} minutes`);
     console.log(`   🎯 TARGET: ${testUser.workoutDuration} minutes`);
     const difference = Math.abs(totalDuration - (testUser.workoutDuration || 60));
+    const isOver = totalDuration > (testUser.workoutDuration || 60);
     if (difference <= 5) {
       console.log(`   ✅ Within target range!`);
     } else {
-      console.log(`   ⚠️  ${difference > 0 ? 'Over' : 'Under'} by ${difference.toFixed(1)} minutes`);
+      console.log(`   ⚠️  ${isOver ? 'Over' : 'Under'} by ${difference.toFixed(1)} minutes`);
     }
   });
 
