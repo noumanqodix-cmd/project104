@@ -111,7 +111,7 @@ function selectExercisesByPattern(
   pattern: string,
   count: number,
   canUseExerciseFn: (exercise: Exercise) => boolean,
-  onSelectFn?: (exerciseId: string, primaryMuscles?: string[]) => void
+  onSelectFn?: (exerciseId: string, primaryMuscles?: string[], exercisePattern?: string, exerciseCategory?: string) => void
 ): Exercise[] {
   const available = exercises.filter(
     ex => ex.movementPattern === pattern && canUseExerciseFn(ex)
@@ -132,7 +132,7 @@ function selectExercisesByPattern(
     
     selected.push(ex);
     // Track immediately when selected
-    if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles);
+    if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles, ex.movementPattern, ex.exerciseCategory);
   }
   
   // Then add isolation if needed
@@ -144,7 +144,7 @@ function selectExercisesByPattern(
     
     selected.push(ex);
     // Track immediately when selected
-    if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles);
+    if (onSelectFn) onSelectFn(ex.id, ex.primaryMuscles, ex.movementPattern, ex.exerciseCategory);
   }
   
   return selected;
@@ -805,6 +805,10 @@ export async function generateWorkoutProgram(
   const exerciseUsageMap = new Map<string, number>(); // exerciseId -> dayOfWeek used
   const firstDayExercises = new Set<string>(); // Track day 1 exercises for cross-week recovery
   
+  // COMPOUND PATTERN TRACKING
+  // Track when each movement pattern was used for compound exercises to prevent back-to-back same-pattern compounds
+  const compoundPatternUsage = new Map<string, number>(); // pattern -> last day used
+  
   // MUSCLE TRACKING FOR RECOVERY
   // Track which muscles were worked heavily on previous training day
   const previousDayMuscles = new Set<string>(); // Primary muscles from previous workout
@@ -852,6 +856,18 @@ export async function generateWorkoutProgram(
         console.log(`[COMPOUND-REUSE] Blocking ${exerciseId} - only ${daysSince} days since last use (need 2+)`);
         return false;
       }
+      
+      // PATTERN-BASED COMPOUND BLOCKING: Prevent back-to-back same-pattern compounds
+      // Check if this pattern was used recently, even if different exercise
+      const lastPatternUse = compoundPatternUsage.get(exercisePattern);
+      if (lastPatternUse !== undefined) {
+        const patternDaysSince = currentDay - lastPatternUse;
+        if (patternDaysSince < 2) {
+          console.log(`[PATTERN-BLOCK] Blocking ${exerciseId} (${exercisePattern}) - pattern used ${patternDaysSince} days ago (need 2+)`);
+          return false;
+        }
+      }
+      
       console.log(`[COMPOUND-REUSE] Allowing ${exerciseId} - ${daysSince} days since last use`);
       return true;
     }
@@ -1088,6 +1104,11 @@ export async function generateWorkoutProgram(
             firstDayExercises.add(foundExercise.id);
           }
           
+          // Track compound pattern usage
+          if (foundExercise.exerciseCategory === 'compound') {
+            compoundPatternUsage.set(foundExercise.movementPattern, dayOfWeek);
+          }
+          
           // Track primary muscles for this workout
           if (foundExercise.primaryMuscles && foundExercise.primaryMuscles.length > 0) {
             foundExercise.primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
@@ -1164,11 +1185,15 @@ export async function generateWorkoutProgram(
             pattern, 
             exercisesPerPattern, 
             (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
-            (exId, primaryMuscles) => {
+            (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
               if (primaryMuscles && primaryMuscles.length > 0) {
                 primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
+              }
+              // Track compound pattern usage
+              if (exerciseCategory === 'compound' && exercisePattern) {
+                compoundPatternUsage.set(exercisePattern, dayOfWeek);
               }
             }
           );
@@ -1240,11 +1265,15 @@ export async function generateWorkoutProgram(
             pattern, 
             exercisesPerPattern, 
             (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
-            (exId, primaryMuscles) => {
+            (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
               if (primaryMuscles && primaryMuscles.length > 0) {
                 primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
+              }
+              // Track compound pattern usage
+              if (exerciseCategory === 'compound' && exercisePattern) {
+                compoundPatternUsage.set(exercisePattern, dayOfWeek);
               }
             }
           );
@@ -1304,11 +1333,15 @@ export async function generateWorkoutProgram(
             pattern, 
             exercisesPerPattern, 
             (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
-            (exId, primaryMuscles) => {
+            (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
               if (primaryMuscles && primaryMuscles.length > 0) {
                 primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
+              }
+              // Track compound pattern usage
+              if (exerciseCategory === 'compound' && exercisePattern) {
+                compoundPatternUsage.set(exercisePattern, dayOfWeek);
               }
             }
           );
@@ -1505,6 +1538,11 @@ export async function generateWorkoutProgram(
             exerciseUsageMap.set(ex.id, dayOfWeek);
             if (workoutIndex === 1) {
               firstDayExercises.add(ex.id);
+            }
+            
+            // Track compound pattern usage
+            if (ex.exerciseCategory === 'compound') {
+              compoundPatternUsage.set(ex.movementPattern, dayOfWeek);
             }
             
             // Track primary muscles
