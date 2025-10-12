@@ -1268,8 +1268,6 @@ export async function generateWorkoutProgram(
       
       // CNS-ORDERED REORDERING: Group exercises by type in proper CNS progression
       // Use source metadata (not name lookup) to avoid misclassification from name variations
-      console.log(`[CNS-REORDER-DEBUG] Before reorder: ${exercises.map((ex: any) => `${ex.exerciseName}(${ex.sourceLiftType}/${ex.sourceMovementPattern})`).join(', ')}`);
-      
       const compoundsCollected = exercises.filter((ex: any) => {
         return ex.sourceLiftType === 'compound';
       });
