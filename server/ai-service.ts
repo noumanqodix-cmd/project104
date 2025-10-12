@@ -882,8 +882,16 @@ export async function generateWorkoutProgram(
     
     if (isScheduledDay) {
       // WORKOUT DAY: Generate actual workout with exercises
-      let exercises: GeneratedExercise[] = []; // Using 'let' to allow CNS reordering later
-      let movementFocus: string[] = []; // Using 'let' to allow CNS reordering later
+      // STAGE-BASED GENERATION: Build workout in priority order without destructive reordering
+      const stageOutputs = {
+        warmups: [] as GeneratedExercise[],
+        power: [] as GeneratedExercise[],
+        compounds: [] as GeneratedExercise[],
+        isolations: [] as GeneratedExercise[],
+        core: [] as GeneratedExercise[],
+        cardio: [] as GeneratedExercise[]
+      };
+      let movementFocus: string[] = [];
       
       // MUSCLE TRACKING: Track primary muscles targeted in this workout
       const usedPrimaryMuscles = new Set<string>();
@@ -1025,20 +1033,32 @@ export async function generateWorkoutProgram(
           }
           
           const params = assignTrainingParameters(foundExercise, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
-          exercises.push({
+          const generatedExercise: GeneratedExercise = {
             exerciseName: foundExercise.name,
             equipment: foundExercise.equipment?.[0] || "bodyweight",
             ...params,
             // METADATA: Track source exercise type for CNS reordering
             sourceExerciseCategory: foundExercise.exerciseCategory,
             sourceMovementPattern: foundExercise.movementPattern,
-          });
-          movementFocus.push(requiredMov.pattern);
+          };
           
+          // STAGE-BASED: Push to appropriate stage array based on exercise category
           if (foundExercise.exerciseCategory === 'compound') {
+            stageOutputs.compounds.push(generatedExercise);
             compoundExercises.push({ exercise: foundExercise, pattern: requiredMov.pattern });
             compoundExercisesAdded++;  // Count compounds toward slot limit
+          } else if (foundExercise.exerciseCategory === 'power') {
+            stageOutputs.power.push(generatedExercise);
+          } else if (foundExercise.exerciseCategory === 'isolation') {
+            stageOutputs.isolations.push(generatedExercise);
+          } else if (foundExercise.exerciseCategory === 'core' || foundExercise.movementPattern === 'core' || foundExercise.movementPattern === 'rotation' || foundExercise.movementPattern === 'carry') {
+            stageOutputs.core.push(generatedExercise);
+          } else if (foundExercise.exerciseCategory === 'warmup') {
+            stageOutputs.warmups.push(generatedExercise);
+          } else if (foundExercise.exerciseCategory === 'cardio') {
+            stageOutputs.cardio.push(generatedExercise);
           }
+          movementFocus.push(requiredMov.pattern);
           
           // Mark as used in tracking systems
           weeklyMovementTracker.add(requiredMov.name);
@@ -1064,15 +1084,16 @@ export async function generateWorkoutProgram(
           canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
-        if (coreEx && exercises.length < compoundSlotsToFill) {
+        if (coreEx) {
           const params = assignTrainingParameters(coreEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
-          exercises.push({
+          const coreExercise: GeneratedExercise = {
             exerciseName: coreEx.name,
             equipment: coreEx.equipment?.[0] || "bodyweight",
             ...params,
             sourceExerciseCategory: coreEx.exerciseCategory,
             sourceMovementPattern: coreEx.movementPattern,
-          });
+          };
+          stageOutputs.core.push(coreExercise);
           movementFocus.push('core');
           exerciseUsageMap.set(coreEx.id, dayOfWeek);
           if (workoutIndex === 1) {
@@ -1089,7 +1110,7 @@ export async function generateWorkoutProgram(
         }
       }
       
-      console.log(`[REQUIRED-CHECK] After required movements: ${exercises.length}/${compoundSlotsToFill} exercises`);
+      console.log(`[REQUIRED-CHECK] After required movements: ${stageOutputs.compounds.length} compounds, ${stageOutputs.core.length} core, ${stageOutputs.power.length} power, ${stageOutputs.isolations.length} isolations`);
       
       // CNS-ORDERED PHASED SELECTION
       // Phase ordering: Compounds → Isolations → Core/Accessory
@@ -1104,13 +1125,14 @@ export async function generateWorkoutProgram(
       // PHASE 1: COMPOUND EXERCISES (Highest CNS demand after power)
       console.log(`[CNS-PHASE-1] Selecting COMPOUND exercises`);
       for (const tier of patternTiers) {
-        if (exercises.length >= compoundSlotsToFill) break;
+        if (stageOutputs.compounds.length >= compoundSlotsToFill) break;
         
-        const exercisesPerPattern = Math.ceil((compoundSlotsToFill - exercises.length) / tier.patterns.length);
-        console.log(`[COMPOUND-TIER] ${tier.name} tier: need ${compoundSlotsToFill - exercises.length} more, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
+        const compoundsNeeded = compoundSlotsToFill - stageOutputs.compounds.length;
+        const exercisesPerPattern = Math.ceil(compoundsNeeded / tier.patterns.length);
+        console.log(`[COMPOUND-TIER] ${tier.name} tier: need ${compoundsNeeded} more, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
         
         for (const pattern of tier.patterns) {
-          if (exercises.length >= compoundSlotsToFill) break;
+          if (stageOutputs.compounds.length >= compoundSlotsToFill) break;
           
           const patternExercises = exercisesByPattern[pattern] || [];
           // Filter for COMPOUNDS only (non-power compounds - power exercises handled separately)
@@ -1120,7 +1142,7 @@ export async function generateWorkoutProgram(
             compoundOnly, 
             pattern, 
             exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.liftType, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
             (exId, primaryMuscles) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
@@ -1131,7 +1153,7 @@ export async function generateWorkoutProgram(
           );
           
           for (const ex of selected) {
-            if (exercises.length >= compoundSlotsToFill) break;
+            if (stageOutputs.compounds.length >= compoundSlotsToFill) break;
             
             // Determine primary vs secondary compound role
             let exerciseRole: 'primary-compound' | 'secondary-compound' | 'isolation' | 'core-accessory';
@@ -1146,34 +1168,45 @@ export async function generateWorkoutProgram(
             }
             
             const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
-            exercises.push({
+            const genEx: GeneratedExercise = {
               exerciseName: ex.name,
               equipment: ex.equipment?.[0] || "bodyweight",
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
-            });
+            };
+            // STAGE-BASED: Push to appropriate array based on category
+            if (ex.exerciseCategory === 'compound') {
+              stageOutputs.compounds.push(genEx);
+            } else if (ex.exerciseCategory === 'isolation') {
+              stageOutputs.isolations.push(genEx);
+            } else if (ex.exerciseCategory === 'core' || ['core', 'rotation', 'carry'].includes(ex.movementPattern)) {
+              stageOutputs.core.push(genEx);
+            }
             movementFocus.push(pattern);
             compoundExercises.push({ exercise: ex, pattern });
           }
         }
       }
       
-      console.log(`[CNS-PHASE-1] Compounds complete: ${exercises.length}/${compoundSlotsToFill} exercises`);
+      console.log(`[CNS-PHASE-1] Compounds complete: ${stageOutputs.compounds.length}/${compoundSlotsToFill} exercises`);
       
-      // PHASE 2: ISOLATION EXERCISES (Moderate CNS demand)
+      // PHASE 2: ISOLATION EXERCISES (Moderate CNS demand - only if time allows)
       console.log(`[CNS-PHASE-2] Selecting ISOLATION exercises`);
+      const totalMainExercises = stageOutputs.compounds.length + stageOutputs.isolations.length;
       const isolationTargetCount = mainCount; // Can add isolations up to main count target
       
       for (const tier of patternTiers) {
-        if (exercises.length >= isolationTargetCount) break;
+        const currentTotal = stageOutputs.compounds.length + stageOutputs.isolations.length;
+        if (currentTotal >= isolationTargetCount) break;
         
-        const exercisesNeeded = isolationTargetCount - exercises.length;
+        const exercisesNeeded = isolationTargetCount - currentTotal;
         const exercisesPerPattern = Math.ceil(exercisesNeeded / tier.patterns.length);
         console.log(`[ISOLATION-TIER] ${tier.name} tier: need ${exercisesNeeded} more, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
         
         for (const pattern of tier.patterns) {
-          if (exercises.length >= isolationTargetCount) break;
+          const currentTotal2 = stageOutputs.compounds.length + stageOutputs.isolations.length;
+          if (currentTotal2 >= isolationTargetCount) break;
           
           const patternExercises = exercisesByPattern[pattern] || [];
           // Filter for ISOLATIONS only (already excludes core via category)
@@ -1185,7 +1218,7 @@ export async function generateWorkoutProgram(
             isolationOnly, 
             pattern, 
             exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.liftType, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
             (exId, primaryMuscles) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
@@ -1196,36 +1229,48 @@ export async function generateWorkoutProgram(
           );
           
           for (const ex of selected) {
-            if (exercises.length >= isolationTargetCount) break;
+            const currentTotal3 = stageOutputs.compounds.length + stageOutputs.isolations.length;
+            if (currentTotal3 >= isolationTargetCount) break;
             
             const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
-            exercises.push({
+            const genEx: GeneratedExercise = {
               exerciseName: ex.name,
               equipment: ex.equipment?.[0] || "bodyweight",
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
-            });
+            };
+            // STAGE-BASED: Push to appropriate array based on category
+            if (ex.exerciseCategory === 'compound') {
+              stageOutputs.compounds.push(genEx);
+            } else if (ex.exerciseCategory === 'isolation') {
+              stageOutputs.isolations.push(genEx);
+            } else if (ex.exerciseCategory === 'core' || ['core', 'rotation', 'carry'].includes(ex.movementPattern)) {
+              stageOutputs.core.push(genEx);
+            }
             movementFocus.push(pattern);
           }
         }
       }
       
-      console.log(`[CNS-PHASE-2] Isolations complete: ${exercises.length} total exercises`);
+      const totalAfterPhase2 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+      console.log(`[CNS-PHASE-2] Isolations complete: ${stageOutputs.isolations.length} isolations, ${totalAfterPhase2} total exercises`);
       
       // PHASE 3: CORE/ACCESSORY EXERCISES (Lower CNS demand, stability focus)
       console.log(`[CNS-PHASE-3] Selecting CORE/ACCESSORY exercises`);
       const coreTargetCount = mainCount + 2; // Can add a few core exercises beyond main count
       
       for (const tier of patternTiers) {
-        if (exercises.length >= coreTargetCount) break;
+        const totalExercises = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+        if (totalExercises >= coreTargetCount) break;
         
-        const exercisesNeeded = coreTargetCount - exercises.length;
+        const exercisesNeeded = coreTargetCount - totalExercises;
         const exercisesPerPattern = Math.ceil(exercisesNeeded / tier.patterns.length);
         console.log(`[CORE-TIER] ${tier.name} tier: need ${exercisesNeeded} more, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
         
         for (const pattern of tier.patterns) {
-          if (exercises.length >= coreTargetCount) break;
+          const totalExercises2 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+          if (totalExercises2 >= coreTargetCount) break;
           
           const patternExercises = exercisesByPattern[pattern] || [];
           // Filter for CORE/ROTATION/CARRY only
@@ -1237,7 +1282,7 @@ export async function generateWorkoutProgram(
             coreOnly, 
             pattern, 
             exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.liftType, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
             (exId, primaryMuscles) => {
               exerciseUsageMap.set(exId, dayOfWeek);
               if (workoutIndex === 1) firstDayExercises.add(exId);
@@ -1248,42 +1293,39 @@ export async function generateWorkoutProgram(
           );
           
           for (const ex of selected) {
-            if (exercises.length >= coreTargetCount) break;
+            const totalExercises3 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+            if (totalExercises3 >= coreTargetCount) break;
             
             const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
-            exercises.push({
+            const genEx: GeneratedExercise = {
               exerciseName: ex.name,
               equipment: ex.equipment?.[0] || "bodyweight",
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
-            });
+            };
+            // STAGE-BASED: Push to appropriate array based on category
+            if (ex.exerciseCategory === 'compound') {
+              stageOutputs.compounds.push(genEx);
+            } else if (ex.exerciseCategory === 'isolation') {
+              stageOutputs.isolations.push(genEx);
+            } else if (ex.exerciseCategory === 'core' || ['core', 'rotation', 'carry'].includes(ex.movementPattern)) {
+              stageOutputs.core.push(genEx);
+            }
             movementFocus.push(pattern);
           }
         }
       }
       
-      console.log(`[CNS-PHASE-3] Core/accessory complete: ${exercises.length} total exercises`);
+      const totalAfterPhase3 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+      console.log(`[CNS-PHASE-3] Core/accessory complete: ${stageOutputs.core.length} core, ${totalAfterPhase3} total exercises`);
       
-      // CNS-ORDERED REORDERING: Group exercises by type in proper CNS progression
-      // Use source metadata (not name lookup) to avoid misclassification from name variations
-      const compoundsCollected = exercises.filter((ex: any) => {
-        return ex.sourceExerciseCategory === 'compound';
-      });
-      const isolationsCollected = exercises.filter((ex: any) => {
-        return ex.sourceExerciseCategory === 'isolation';
-      });
-      const coreCollected = exercises.filter((ex: any) => {
-        return ex.sourceExerciseCategory === 'core';
-      });
-      
-      // Rebuild exercises array in CNS order: compounds → isolations → core
-      exercises = [...compoundsCollected, ...isolationsCollected, ...coreCollected];
-      
-      // Rebuild movementFocus to match new order
-      movementFocus = exercises.map((ex: any) => ex.sourceMovementPattern || 'unknown');
-      
-      console.log(`[CNS-REORDER] Reordered to CNS progression: ${compoundsCollected.length} compounds → ${isolationsCollected.length} isolations → ${coreCollected.length} core`);
+      // TEMPORARY: Build exercises array for superset pairing logic (will rebuild at end)
+      let exercises = [
+        ...stageOutputs.compounds,
+        ...stageOutputs.isolations,
+        ...stageOutputs.core
+      ];
       
       // SUPERSET PAIRING FOR 30-45 MIN WORKOUTS
       // Pair antagonistic or non-competing exercises to maximize time efficiency
@@ -1417,13 +1459,21 @@ export async function generateWorkoutProgram(
               restSeconds: params.restSeconds,
             });
             
-            exercises.push({
+            const genEx: GeneratedExercise = {
               exerciseName: ex.name,
               equipment: ex.equipment?.[0] || "bodyweight",
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
-            });
+            };
+            // STAGE-BASED: Push to appropriate array based on category
+            if (ex.exerciseCategory === 'compound') {
+              stageOutputs.compounds.push(genEx);
+            } else if (ex.exerciseCategory === 'isolation') {
+              stageOutputs.isolations.push(genEx);
+            } else if (ex.exerciseCategory === 'core' || ['core', 'rotation', 'carry'].includes(ex.movementPattern)) {
+              stageOutputs.core.push(genEx);
+            }
             movementFocus.push(pattern);
             exerciseUsageMap.set(ex.id, dayOfWeek);
             if (workoutIndex === 1) {
@@ -1444,21 +1494,8 @@ export async function generateWorkoutProgram(
         
         console.log(`[FALLBACK] Complete: Added ${fallbackAdded} exercises, final strength duration: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min`);
         
-        // REORDER AGAIN after fallback to ensure CNS progression
-        const compoundsAfterFallback = exercises.filter((ex: any) => {
-          return ex.sourceExerciseCategory === 'compound';
-        });
-        const isolationsAfterFallback = exercises.filter((ex: any) => {
-          return ex.sourceExerciseCategory === 'isolation';
-        });
-        const coreAfterFallback = exercises.filter((ex: any) => {
-          return ex.sourceExerciseCategory === 'core';
-        });
-        
-        exercises = [...compoundsAfterFallback, ...isolationsAfterFallback, ...coreAfterFallback];
-        movementFocus = exercises.map((ex: any) => ex.sourceMovementPattern || 'unknown');
-        
-        console.log(`[CNS-REORDER-POST-FALLBACK] Reordered after fallback: ${compoundsAfterFallback.length} compounds → ${isolationsAfterFallback.length} isolations → ${coreAfterFallback.length} core`);
+        // NO CNS REORDERING NEEDED - fallback exercises are already in correct stage arrays
+        // Final workout assembly happens later when we concatenate all stage arrays in CNS order
       } else {
         console.log(`[TIME-CHECK] Strength duration OK: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min (gap: ${strengthDurationGap.toFixed(1)}min)`);
       }
@@ -1576,7 +1613,7 @@ export async function generateWorkoutProgram(
       }
       
       // Insert warmups at the beginning
-      exercises.unshift(...warmupExercises_toAdd);
+      stageOutputs.warmups.push(...warmupExercises_toAdd);
       
       console.log(`[WARMUP] Selected ${selectedWarmups.length} warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
       
@@ -1652,7 +1689,7 @@ export async function generateWorkoutProgram(
         }
         
         // Insert power exercises right after warmups
-        exercises.splice(warmupCount, 0, ...powerExercisesToAdd);
+        stageOutputs.power.push(...powerExercisesToAdd);
         
         console.log(`[POWER] Selected ${selectedPowerExercises.length} power exercises: ${selectedPowerExercises.map(p => p.name).join(', ')}`);
       }
@@ -1710,7 +1747,7 @@ export async function generateWorkoutProgram(
         const selectedCardio: Exercise[] = [];
         for (const cardioEx of cardioPool) {
           if (selectedCardio.length >= cardioCount) break;
-          if (canUseExercise(cardioEx.id, dayOfWeek, cardioEx.movementPattern, cardioEx.liftType, cardioEx.primaryMuscles || [], usedPrimaryMuscles) && 
+          if (canUseExercise(cardioEx.id, dayOfWeek, cardioEx.movementPattern, cardioEx.exerciseCategory, cardioEx.primaryMuscles || [], usedPrimaryMuscles) && 
               canUseOnLastDay(cardioEx.id, isLastScheduledDay)) {
             selectedCardio.push(cardioEx);
             exerciseUsageMap.set(cardioEx.id, dayOfWeek);
@@ -1722,14 +1759,34 @@ export async function generateWorkoutProgram(
         
         for (const cardioEx of selectedCardio) {
           const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioTimeBudget);
-          exercises.push({
+          const cardioExercise: GeneratedExercise = {
             exerciseName: cardioEx.name,
             equipment: cardioEx.equipment?.[0] || "bodyweight",
             ...params,
-          });
+            sourceExerciseCategory: cardioEx.exerciseCategory,
+            sourceMovementPattern: cardioEx.movementPattern,
+          };
+          stageOutputs.cardio.push(cardioExercise);
           movementFocus.push("cardio");
         }
       }
+      
+      // FINAL ASSEMBLY: Build complete workout from ALL stage arrays in CNS order
+      // This happens AFTER warmup/power/cardio are selected
+      // CNS Order: Warmup → Power → Compounds → Isolations → Core → Cardio
+      exercises = [
+        ...stageOutputs.warmups,
+        ...stageOutputs.power,
+        ...stageOutputs.compounds,
+        ...stageOutputs.isolations,
+        ...stageOutputs.core,
+        ...stageOutputs.cardio
+      ];
+      
+      // Rebuild movementFocus to match final order
+      movementFocus = exercises.map((ex: any) => ex.sourceMovementPattern || 'unknown');
+      
+      console.log(`[FINAL-ASSEMBLY] Complete workout: ${stageOutputs.warmups.length}w + ${stageOutputs.power.length}p + ${stageOutputs.compounds.length}c + ${stageOutputs.isolations.length}i + ${stageOutputs.core.length}core + ${stageOutputs.cardio.length}cardio = ${exercises.length} total exercises`);
       
       // Determine workout type based on primary focus
       let workoutType: "strength" | "cardio" | "hiit" | "mobility" | null = "strength";

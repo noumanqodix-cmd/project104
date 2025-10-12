@@ -215,7 +215,29 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   )}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="text-xl font-semibold">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                        {ex.exercise.exerciseCategory && (
+                          <Badge 
+                            variant={
+                              ex.exercise.exerciseCategory === 'warmup' ? 'secondary' :
+                              ex.exercise.exerciseCategory === 'power' ? 'default' :
+                              ex.exercise.exerciseCategory === 'compound' ? 'default' :
+                              ex.exercise.exerciseCategory === 'isolation' ? 'outline' :
+                              ex.exercise.exerciseCategory === 'core' ? 'outline' :
+                              'outline'
+                            }
+                            className={`text-xs ${
+                              ex.exercise.exerciseCategory === 'power' ? 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700' :
+                              ex.exercise.exerciseCategory === 'compound' ? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700' :
+                              ''
+                            }`}
+                            data-testid={`category-badge-${ex.exercise.exerciseCategory}`}
+                          >
+                            {ex.exercise.exerciseCategory}
+                          </Badge>
+                        )}
+                      </div>
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">
@@ -321,7 +343,29 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   )}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-xl font-semibold mb-2">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="text-xl font-semibold">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                        {ex.exercise.exerciseCategory && (
+                          <Badge 
+                            variant={
+                              ex.exercise.exerciseCategory === 'warmup' ? 'secondary' :
+                              ex.exercise.exerciseCategory === 'power' ? 'default' :
+                              ex.exercise.exerciseCategory === 'compound' ? 'default' :
+                              ex.exercise.exerciseCategory === 'isolation' ? 'outline' :
+                              ex.exercise.exerciseCategory === 'core' ? 'outline' :
+                              'outline'
+                            }
+                            className={`text-xs ${
+                              ex.exercise.exerciseCategory === 'power' ? 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700' :
+                              ex.exercise.exerciseCategory === 'compound' ? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700' :
+                              ''
+                            }`}
+                            data-testid={`category-badge-${ex.exercise.exerciseCategory}`}
+                          >
+                            {ex.exercise.exerciseCategory}
+                          </Badge>
+                        )}
+                      </div>
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">

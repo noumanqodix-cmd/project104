@@ -810,7 +810,29 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           )}
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-2">{formatExerciseName(currentProgramExercise?.exercise?.name || currentExercise.name, currentProgramExercise?.equipment)}</h2>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <h2 className="text-2xl font-bold">{formatExerciseName(currentProgramExercise?.exercise?.name || currentExercise.name, currentProgramExercise?.equipment)}</h2>
+                {currentProgramExercise?.exercise?.exerciseCategory && (
+                  <Badge 
+                    variant={
+                      currentProgramExercise.exercise.exerciseCategory === 'warmup' ? 'secondary' :
+                      currentProgramExercise.exercise.exerciseCategory === 'power' ? 'default' :
+                      currentProgramExercise.exercise.exerciseCategory === 'compound' ? 'default' :
+                      currentProgramExercise.exercise.exerciseCategory === 'isolation' ? 'outline' :
+                      currentProgramExercise.exercise.exerciseCategory === 'core' ? 'outline' :
+                      'outline'
+                    }
+                    className={`text-xs ${
+                      currentProgramExercise.exercise.exerciseCategory === 'power' ? 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700' :
+                      currentProgramExercise.exercise.exerciseCategory === 'compound' ? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700' :
+                      ''
+                    }`}
+                    data-testid={`category-badge-${currentProgramExercise.exercise.exerciseCategory}`}
+                  >
+                    {currentProgramExercise.exercise.exerciseCategory}
+                  </Badge>
+                )}
+              </div>
               {currentProgramExercise?.exercise?.primaryMuscles && currentProgramExercise.exercise.primaryMuscles.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex gap-2 flex-wrap">
