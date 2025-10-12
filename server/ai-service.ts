@@ -822,6 +822,19 @@ export async function generateWorkoutProgram(
     primaryMuscles: string[] = [],
     usedPrimaryMuscles: Set<string> = new Set()
   ): boolean => {
+    // PATTERN-BASED COMPOUND BLOCKING: Check pattern usage FIRST for all compounds
+    // Prevents back-to-back same-pattern compounds even if different exercises
+    if (exerciseCategory === 'compound') {
+      const lastPatternUse = compoundPatternUsage.get(exercisePattern);
+      if (lastPatternUse !== undefined) {
+        const patternDaysSince = currentDay - lastPatternUse;
+        if (patternDaysSince < 2) {
+          console.log(`[PATTERN-BLOCK] Blocking ${exerciseId} (${exercisePattern}) - pattern used ${patternDaysSince} days ago (need 2+)`);
+          return false;
+        }
+      }
+    }
+    
     const lastUsedDay = exerciseUsageMap.get(exerciseId);
     
     // Not used yet - check muscle overlap for isolation/core exercises
@@ -855,17 +868,6 @@ export async function generateWorkoutProgram(
       if (daysSince < 2) {
         console.log(`[COMPOUND-REUSE] Blocking ${exerciseId} - only ${daysSince} days since last use (need 2+)`);
         return false;
-      }
-      
-      // PATTERN-BASED COMPOUND BLOCKING: Prevent back-to-back same-pattern compounds
-      // Check if this pattern was used recently, even if different exercise
-      const lastPatternUse = compoundPatternUsage.get(exercisePattern);
-      if (lastPatternUse !== undefined) {
-        const patternDaysSince = currentDay - lastPatternUse;
-        if (patternDaysSince < 2) {
-          console.log(`[PATTERN-BLOCK] Blocking ${exerciseId} (${exercisePattern}) - pattern used ${patternDaysSince} days ago (need 2+)`);
-          return false;
-        }
       }
       
       console.log(`[COMPOUND-REUSE] Allowing ${exerciseId} - ${daysSince} days since last use`);
