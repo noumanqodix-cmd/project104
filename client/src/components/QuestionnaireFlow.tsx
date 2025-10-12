@@ -35,11 +35,10 @@ export interface QuestionnaireData {
   availability: {
     daysPerWeek: number;
     minutesPerSession: number;
-    selectedDays: number[];
   };
 }
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireFlowProps) {
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -48,7 +47,6 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
   const [equipment, setEquipment] = useState<string[]>([]);
   const [daysPerWeek, setDaysPerWeek] = useState<number>(3);
   const [minutesPerSession, setMinutesPerSession] = useState<number>(45);
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
   // Fetch equipment from API
   const { data: equipmentData } = useQuery<Equipment[]>({
@@ -89,18 +87,8 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
 
   const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
 
-  const handleDayToggle = (dayValue: number) => {
-    if (selectedDays.includes(dayValue)) {
-      setSelectedDays(selectedDays.filter(d => d !== dayValue));
-    } else {
-      if (selectedDays.length < daysPerWeek) {
-        setSelectedDays([...selectedDays, dayValue].sort((a, b) => a - b));
-      }
-    }
-  };
-
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       setCurrentStep((currentStep + 1) as Step);
     } else {
       // Final step - submit all data
@@ -111,7 +99,6 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
         availability: {
           daysPerWeek,
           minutesPerSession,
-          selectedDays,
         },
       });
     }
@@ -129,11 +116,10 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
     if (currentStep === 1) return !!experienceLevel;
     if (currentStep === 2) return !!unitPreference;
     if (currentStep === 3) return equipment.length > 0;
-    if (currentStep === 4) return selectedDays.length === daysPerWeek;
     return false;
   };
 
-  const progress = (currentStep / 4) * 100;
+  const progress = (currentStep / 3) * 100;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -153,7 +139,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
 
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-muted-foreground">Step {currentStep} of 4</span>
+            <span className="text-sm text-muted-foreground">Step {currentStep} of 3</span>
             <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -306,113 +292,14 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
           </Card>
         )}
 
-        {/* Step 4: Workout Schedule */}
-        {currentStep === 4 && (
-          <Card className="p-8">
-            <h2 className="text-3xl font-bold mb-3">Workout Schedule</h2>
-            <p className="text-muted-foreground mb-8">How often can you train?</p>
-            
-            <div className="space-y-8">
-              <div>
-                <Label className="text-base font-semibold mb-3 block">Days per week</Label>
-                <RadioGroup
-                  value={String(daysPerWeek)}
-                  onValueChange={(value) => {
-                    setDaysPerWeek(Number(value));
-                    setSelectedDays([]);
-                  }}
-                  className="grid grid-cols-3 gap-3"
-                >
-                  {[3, 4, 5].map((days) => (
-                    <Label
-                      key={days}
-                      htmlFor={`days-${days}`}
-                      className="flex items-center justify-center border rounded-lg p-3 cursor-pointer hover-elevate"
-                      data-testid={`option-days-${days}`}
-                    >
-                      <RadioGroupItem value={String(days)} id={`days-${days}`} className="sr-only" />
-                      <div className="font-semibold">{days} days</div>
-                    </Label>
-                  ))}
-                </RadioGroup>
-              </div>
-
-              <div>
-                <Label className="text-base font-semibold mb-3 block">
-                  Which days of the week? ({selectedDays.length}/{daysPerWeek} selected)
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 1, label: "Monday" },
-                    { value: 2, label: "Tuesday" },
-                    { value: 3, label: "Wednesday" },
-                    { value: 4, label: "Thursday" },
-                    { value: 5, label: "Friday" },
-                    { value: 6, label: "Saturday" },
-                    { value: 7, label: "Sunday" },
-                  ].map((day) => {
-                    const isSelected = selectedDays.includes(day.value);
-                    const isDisabled = !isSelected && selectedDays.length >= daysPerWeek;
-                    
-                    return (
-                      <Label
-                        key={day.value}
-                        htmlFor={`day-${day.value}`}
-                        className={`flex items-center space-x-3 border rounded-lg p-3 cursor-pointer ${
-                          isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover-elevate'
-                        }`}
-                        data-testid={`option-day-${day.label.toLowerCase()}`}
-                      >
-                        <Checkbox
-                          id={`day-${day.value}`}
-                          checked={isSelected}
-                          disabled={isDisabled}
-                          onCheckedChange={() => handleDayToggle(day.value)}
-                          data-testid={`checkbox-${day.label.toLowerCase()}`}
-                        />
-                        <div className="font-medium">{day.label}</div>
-                      </Label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-base font-semibold mb-3 block">
-                  Session duration
-                </Label>
-                <RadioGroup
-                  value={String(minutesPerSession)}
-                  onValueChange={(value) => setMinutesPerSession(Number(value))}
-                  className="grid grid-cols-2 gap-4"
-                >
-                  {[30, 45, 60, 90].map((mins) => (
-                    <Label
-                      key={mins}
-                      htmlFor={`duration-${mins}`}
-                      className="flex items-center justify-center border rounded-lg p-4 cursor-pointer hover-elevate"
-                      data-testid={`option-duration-${mins}`}
-                    >
-                      <RadioGroupItem value={String(mins)} id={`duration-${mins}`} className="sr-only" />
-                      <div className="text-center">
-                        <div className="font-semibold">{mins} min</div>
-                      </div>
-                    </Label>
-                  ))}
-                </RadioGroup>
-              </div>
-            </div>
-          </Card>
-        )}
-
         <div className="mt-6 flex justify-end">
           <Button
             size="lg"
             onClick={handleNext}
             disabled={!canProceed()}
-            data-testid={currentStep === 4 ? "button-complete" : "button-next"}
+            data-testid={currentStep === 3 ? "button-complete" : "button-next"}
           >
-            {currentStep === 4 ? "Complete" : "Next"}
+            {currentStep === 3 ? "Complete" : "Next"}
           </Button>
         </div>
       </div>

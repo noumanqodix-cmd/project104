@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { Check } from "lucide-react";
+import { Check, ArrowLeft } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 interface DayPickerProps {
   daysPerWeek: number; // 3, 4, or 5
   onDatesSelected: (dates: string[]) => void;
   initialSelectedDates?: string[];
+  onBack?: () => void;
+  onConfirm?: () => void;  // Optional confirm button for onboarding flow
 }
 
-export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates }: DayPickerProps) {
+export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, onBack, onConfirm }: DayPickerProps) {
   const [selectedDates, setSelectedDates] = useState<string[]>(initialSelectedDates || []);
 
   // Sync with initialSelectedDates when it changes (e.g., from async data load)
@@ -52,6 +55,19 @@ export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates }
 
   return (
     <div className="space-y-4">
+      {onBack && (
+        <div className="mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <h3 className="text-lg font-semibold" data-testid="text-day-picker-title">
           Select Your Workout Days
@@ -105,12 +121,25 @@ export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates }
         <p className="text-sm" data-testid="text-selection-status">
           {selectedDates.length} of {daysPerWeek} days selected
         </p>
-        {hasCorrectNumber && (
+        {hasCorrectNumber && !onConfirm && (
           <p className="text-sm text-green-600 dark:text-green-400 font-medium" data-testid="text-selection-complete">
             ✓ Selection complete
           </p>
         )}
       </div>
+
+      {onConfirm && (
+        <div className="flex justify-end pt-4">
+          <Button
+            size="lg"
+            onClick={onConfirm}
+            disabled={!hasCorrectNumber}
+            data-testid="button-confirm-dates"
+          >
+            Continue
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
