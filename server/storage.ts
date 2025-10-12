@@ -328,6 +328,12 @@ export class DbStorage implements IStorage {
   // Includes archival, pagination, calorie tracking
   // ==========================================
   async createWorkoutSession(insertSession: InsertWorkoutSession): Promise<WorkoutSession> {
+    // VALIDATION: Prevent NULL scheduledDate to avoid duplicate session bugs
+    // NULL dates bypass the unique constraint (userId, scheduledDate, isArchived)
+    if (!insertSession.scheduledDate) {
+      throw new Error("scheduledDate is required - cannot create session with NULL date");
+    }
+    
     const result = await db.insert(workoutSessions).values(insertSession).returning();
     return result[0];
   }
@@ -336,6 +342,14 @@ export class DbStorage implements IStorage {
     if (insertSessions.length === 0) {
       return [];
     }
+    
+    // VALIDATION: Prevent NULL scheduledDate to avoid duplicate session bugs
+    // NULL dates bypass the unique constraint (userId, scheduledDate, isArchived)
+    const invalidSessions = insertSessions.filter(s => !s.scheduledDate);
+    if (invalidSessions.length > 0) {
+      throw new Error(`Cannot create ${invalidSessions.length} session(s) with NULL scheduledDate`);
+    }
+    
     const result = await db.insert(workoutSessions).values(insertSessions).returning();
     return result;
   }
@@ -491,7 +505,7 @@ export class DbStorage implements IStorage {
   }
 
   async removeDuplicateSessions(userId: string): Promise<number> {
-    // Find and remove duplicate sessions for the same date
+    // Find and remove duplicate sessions for the same date (including NULL dates)
     // Keep the most recent session (by sessionDate timestamp) for each scheduled_date
     
     // Get all non-archived sessions for the user
@@ -502,15 +516,15 @@ export class DbStorage implements IStorage {
       ))
       .orderBy(workoutSessions.scheduledDate, desc(workoutSessions.sessionDate));
     
-    // Group by scheduled_date to find duplicates
+    // Group by scheduled_date to find duplicates (use "NULL" as key for null dates)
     const sessionsByDate = new Map<string, WorkoutSession[]>();
     for (const session of allSessions) {
-      if (!session.scheduledDate) continue;
+      const dateKey = session.scheduledDate || "NULL";
       
-      if (!sessionsByDate.has(session.scheduledDate)) {
-        sessionsByDate.set(session.scheduledDate, []);
+      if (!sessionsByDate.has(dateKey)) {
+        sessionsByDate.set(dateKey, []);
       }
-      sessionsByDate.get(session.scheduledDate)!.push(session);
+      sessionsByDate.get(dateKey)!.push(session);
     }
     
     // Find and delete duplicates (keep most recent)
