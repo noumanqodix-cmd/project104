@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import MissedWorkoutDialog from "@/components/MissedWorkoutDialog";
 
 export default function Home() {
   const { toast } = useToast();
@@ -44,8 +43,6 @@ export default function Home() {
   const [showGenerationModal, setShowGenerationModal] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
-  const [showMissedWorkoutDialog, setShowMissedWorkoutDialog] = useState(false);
-  const [missedWorkoutData, setMissedWorkoutData] = useState<{ count: number; dateRange: string }>({ count: 0, dateRange: '' });
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
   const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
@@ -157,7 +154,7 @@ export default function Home() {
   });
 
   // MUTATION: Reset Program - Reschedules all future workouts starting from today
-  // Used when user has missed workouts and wants to get back on track
+  // Used for automatic missed workout rescheduling
   const resetProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/workout-sessions/reset-from-today", {
@@ -167,18 +164,26 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
-      setShowMissedWorkoutDialog(false);
+      
+      // Show success toast after confirmed reschedule
       toast({
-        title: "Program Reset!",
-        description: "Your workouts have been rescheduled starting from today.",
+        title: "Life Happens!",
+        description: "We've moved your missed workout to today so your entire movement pattern gets worked.",
+        duration: 5000,
       });
+      
+      // Reset mutation state after success to allow future missed workouts to trigger auto-reschedule
+      setTimeout(() => resetProgramMutation.reset(), 100);
     },
     onError: (error: any) => {
       toast({
-        title: "Failed to Reset",
-        description: error.message || "Failed to reset program",
+        title: "Failed to Reschedule",
+        description: error.message || "Failed to reschedule missed workouts. Please reload the page to try again.",
         variant: "destructive",
+        duration: 8000,
       });
+      // Don't reset on error - prevents infinite retry loop
+      // User must reload page to retry after error
     },
   });
 
@@ -192,7 +197,6 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
-      setShowMissedWorkoutDialog(false);
       toast({
         title: "Workouts Skipped",
         description: "Missed workouts have been marked as skipped.",
@@ -252,38 +256,29 @@ export default function Home() {
     }
   }, [user?.id]); // Only run when user changes
 
-  // EFFECT: Show missed workout dialog if uncompleted sessions detected before today
+  // EFFECT: Automatically reschedule missed workouts (no dialog needed)
+  // Life happens! We just move the missed workout to today and shift everything forward
   useEffect(() => {
-    if (missedWorkoutsResponse && missedWorkoutsResponse.count > 0) {
+    if (
+      missedWorkoutsResponse?.count > 0 && 
+      !resetProgramMutation.isPending && 
+      !resetProgramMutation.isSuccess &&
+      !resetProgramMutation.isError
+    ) {
       const missedWorkouts = missedWorkoutsResponse.missedWorkouts;
       if (missedWorkouts.length > 0) {
-        // Calculate date range
-        const sortedDates = missedWorkouts
-          .map((w: any) => parseLocalDate(w.scheduledDate))
-          .sort((a: Date, b: Date) => a.getTime() - b.getTime());
-        
-        const firstDate = sortedDates[0];
-        const lastDate = sortedDates[sortedDates.length - 1];
-        
-        const dateRange = sortedDates.length === 1
-          ? format(firstDate, 'MMM d')
-          : `${format(firstDate, 'MMM d')} - ${format(lastDate, 'MMM d')}`;
-        
-        setMissedWorkoutData({
-          count: missedWorkoutsResponse.count,
-          dateRange,
-        });
-        setShowMissedWorkoutDialog(true);
+        // Automatically reschedule - no user decision needed
+        resetProgramMutation.mutate();
       }
     }
-  }, [missedWorkoutsResponse]);
+  }, [missedWorkoutsResponse?.count]); // Only depends on count - mutation reset on success allows future auto-reschedules
 
   // Check for 4-week program completion
   useEffect(() => {
-    if (completionCheck?.shouldPrompt && !showMissedWorkoutDialog) {
+    if (completionCheck?.shouldPrompt) {
       setShowCompletionDialog(true);
     }
-  }, [completionCheck?.shouldPrompt, showMissedWorkoutDialog]);
+  }, [completionCheck?.shouldPrompt]);
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const totalCompletedSessions = completedSessions.length;
@@ -818,15 +813,6 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <MissedWorkoutDialog
-        open={showMissedWorkoutDialog}
-        missedCount={missedWorkoutData.count}
-        dateRange={missedWorkoutData.dateRange}
-        onReset={() => resetProgramMutation.mutate()}
-        onSkip={() => skipMissedWorkoutsMutation.mutate()}
-        isProcessing={resetProgramMutation.isPending || skipMissedWorkoutsMutation.isPending}
-      />
 
       {/* 4-Week Program Completion Dialog */}
       <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
