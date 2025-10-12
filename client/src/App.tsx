@@ -320,6 +320,9 @@ function AppRoutes() {
       // Invalidate cache and force a fresh fetch (including inactive queries)
       await queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       await queryClient.fetchQuery({ queryKey: ["/api/workout-sessions"] });
+      
+      // Also invalidate cycle completion check so it re-runs to detect cycle completion
+      await queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
     },
   });
 

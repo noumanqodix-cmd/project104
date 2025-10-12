@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Heart, Play, Pause, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { poundsToKg } from "@/lib/calorie-calculator";
 import { calculateAge } from "@shared/utils";
 import {
@@ -106,6 +106,10 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
     onSuccess: () => {
       const preciseMinutes = elapsedTime / 60;
       const caloriesBurned = calculateZone2Calories(preciseMinutes);
+      
+      // Invalidate cycle completion check to detect if cycle is complete
+      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+      
       onComplete({
         duration: elapsedTime,
         caloriesBurned,

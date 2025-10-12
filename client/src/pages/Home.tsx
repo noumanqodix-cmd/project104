@@ -94,6 +94,8 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
+      // Also check for cycle completion after rest day completion
+      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
     },
     onError: (error: any) => {
       toast({
