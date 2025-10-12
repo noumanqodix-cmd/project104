@@ -68,7 +68,10 @@ export const users = pgTable("users", {
   equipment: text("equipment").array(),
   workoutDuration: integer("workout_duration"),
   daysPerWeek: integer("days_per_week"),
-  selectedDays: integer("selected_days").array(),
+  selectedDays: integer("selected_days").array(),  // Legacy: Day-of-week selection (kept for backwards compatibility)
+  selectedDates: text("selected_dates").array(),  // NEW: Array of YYYY-MM-DD strings for current 7-day cycle
+  cycleNumber: integer("cycle_number").default(1),  // NEW: Tracks which 7-day cycle user is on
+  totalWorkoutsCompleted: integer("total_workouts_completed").default(0),  // NEW: Total workouts completed across all cycles
   fitnessLevel: text("fitness_level"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
