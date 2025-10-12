@@ -1846,7 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (existingScheduledSession) {
           const updatedSession = await storage.updateWorkoutSession(existingScheduledSession.id, {
             ...validatedData,
-            sessionDate: new Date(),
+            // sessionDate now comes from client (user's local time)
           });
           
           return res.json(updatedSession);

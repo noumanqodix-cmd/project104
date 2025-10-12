@@ -100,6 +100,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
         status: "completed",
         durationMinutes,
         caloriesBurned,
+        sessionDate: new Date(), // User's local time
       });
     },
     onSuccess: () => {

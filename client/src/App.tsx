@@ -410,6 +410,7 @@ function AppRoutes() {
                     status: workoutSummaryData.incomplete ? "incomplete" : "completed",
                     durationMinutes: Math.floor(workoutSummaryData.duration / 60),
                     notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
+                    sessionDate: new Date(), // User's local time
                   });
                 }
                 
