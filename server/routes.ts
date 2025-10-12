@@ -2484,15 +2484,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset program from today - reschedule all pending workouts starting from today
+  // Reset program from today - reschedule ONLY missed workouts to today, preserve future dates
   app.post("/api/workout-sessions/reset-from-today", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
-      // STEP 1: Mark old missed sessions as skipped FIRST
-      // This ensures they won't be included in the pending workouts snapshot
+      // STEP 1: Find missed workouts (scheduled before today, not completed)
       const allSessions = await storage.getUserSessions(userId);
       const missedWorkouts = allSessions.filter((session: any) => {
         if (!session.scheduledDate) return false;
@@ -2501,86 +2500,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sessionDate = parseLocalDate(session.scheduledDate);
         return isBeforeCalendarDay(sessionDate, today);
       });
-      
-      if (missedWorkouts.length > 0) {
-        await Promise.all(
-          missedWorkouts.map((workout: any) => 
-            storage.updateWorkoutSession(workout.id, { status: 'skipped' })
-          )
-        );
-        console.log(`[RESET] Marked ${missedWorkouts.length} old missed workout(s) as skipped`);
+
+      if (missedWorkouts.length === 0) {
+        console.log(`[RESET] No missed workouts to reschedule`);
+        return res.json({ message: "No missed workouts to reschedule", rescheduledCount: 0 });
       }
 
-      // STEP 2: Snapshot all pending (incomplete) sessions AFTER skipping missed ones
-      const updatedSessions = await storage.getUserSessions(userId);
-      const pendingWorkouts = updatedSessions
-        .filter((session: any) => {
-          if (session.status === 'archived') return false;
-          if (session.completed === 1 || session.status === 'skipped') return false;
-          return true;
-        })
-        .sort((a: any, b: any) => {
-          const dateA = parseLocalDate(a.scheduledDate);
-          const dateB = parseLocalDate(b.scheduledDate);
-          return dateA.getTime() - dateB.getTime();
-        });
-      
-      // DEDUPLICATE: Remove sessions with same programWorkoutId AND same scheduledDate
-      // Keeps multi-week schedule intact (same programWorkoutId can appear on different dates)
-      // This prevents bug where clicking reset multiple times creates duplicates on same date
-      const seenWorkoutDatePairs = new Set<string>();
-      const uniquePendingWorkouts = pendingWorkouts.filter((session: any) => {
-        const key = `${session.programWorkoutId || 'manual'}_${session.scheduledDate}`;
-        if (seenWorkoutDatePairs.has(key)) {
-          return false; // Skip if same workout on same date already exists
-        }
-        seenWorkoutDatePairs.add(key);
-        return true;
+      // STEP 2: Move ONLY the first missed workout to today
+      // Future workouts keep their original scheduled dates
+      const firstMissedWorkout = missedWorkouts.sort((a: any, b: any) => {
+        const dateA = parseLocalDate(a.scheduledDate);
+        const dateB = parseLocalDate(b.scheduledDate);
+        return dateA.getTime() - dateB.getTime();
+      })[0];
+
+      // Update the missed workout to today
+      await storage.updateWorkoutSession(firstMissedWorkout.id, {
+        scheduledDate: currentDateString,
+        sessionDayOfWeek: today.getDay() === 0 ? 7 : today.getDay(),
+        status: 'scheduled'
       });
 
-      if (uniquePendingWorkouts.length === 0) {
-        return res.json({ message: "No pending workouts to reschedule", rescheduledCount: 0 });
-      }
-
-      // STEP 3: Clean up sessions from today onwards to prevent duplicates
-      // This archives completed sessions and deletes incomplete ones
-      await storage.cleanupSessionsForRegeneration(userId, currentDateString);
-
-      // STEP 4: Recreate sessions starting from today using the snapshot
-      let dayOffset = 0;
-      const createdSessions = [];
-      
-      for (const workout of uniquePendingWorkouts) {
-        const newScheduledDate = new Date(today);
-        newScheduledDate.setDate(today.getDate() + dayOffset);
-        const newScheduledDateString = formatLocalDate(newScheduledDate);
-        
-        // Calculate the calendar day-of-week to match the new date
-        const calendarDay = newScheduledDate.getDay();
-        const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
-        
-        // Create a new session with the rescheduled date
-        const newSession = await storage.createWorkoutSession({
-          userId: workout.userId,
-          programWorkoutId: workout.programWorkoutId,
-          workoutName: workout.workoutName,
-          workoutType: workout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
-          scheduledDate: newScheduledDateString,
-          sessionDayOfWeek: schemaDayOfWeek,
-          sessionType: (workout.sessionType === 'rest' ? 'rest' : 'workout') as 'workout' | 'rest',
-          status: 'scheduled',
-          completed: 0,
-          isArchived: 0
-        });
-        createdSessions.push(newSession);
-        
-        dayOffset++;
-      }
-
-      console.log(`[RESET] Rescheduled ${uniquePendingWorkouts.length} unique workouts starting from ${currentDateString}`);
+      console.log(`[RESET] Moved 1 missed workout to ${currentDateString}, preserved future workout dates`);
       res.json({ 
-        message: `Rescheduled ${uniquePendingWorkouts.length} workouts`,
-        rescheduledCount: uniquePendingWorkouts.length 
+        message: `Moved missed workout to today`,
+        rescheduledCount: 1
       });
     } catch (error) {
       console.error("Reset from today error:", error);

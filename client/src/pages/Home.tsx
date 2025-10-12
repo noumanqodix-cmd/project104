@@ -26,7 +26,7 @@ import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User, FitnessAssessment } from "@shared/schema";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay, getTodayLocal } from "@shared/dateUtils";
 import {
   Dialog,
@@ -50,6 +50,9 @@ export default function Home() {
   const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
   const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
+  
+  // Track previous missed workout count to prevent repeated rescheduling
+  const previousMissedCountRef = useRef<number>(0);
 
   // STEP 1: Fetch all home page data in single request for performance
   // Gets: user profile, active program, workout sessions, fitness assessments
@@ -161,7 +164,7 @@ export default function Home() {
     enabled: !!user,
   });
 
-  // MUTATION: Reset Program - Reschedules all future workouts starting from today
+  // MUTATION: Reset Program - Moves missed workout to today, preserves future dates
   // Used for automatic missed workout rescheduling
   const resetProgramMutation = useMutation({
     mutationFn: async () => {
@@ -176,7 +179,7 @@ export default function Home() {
       // Show success toast after confirmed reschedule
       toast({
         title: "Life Happens!",
-        description: "We've moved your missed workout to today so your entire movement pattern gets worked.",
+        description: "We've moved your missed workout to today. Your future workouts stay on their scheduled dates.",
         duration: 5000,
       });
       
@@ -265,10 +268,17 @@ export default function Home() {
   }, [user?.id]); // Only run when user changes
 
   // EFFECT: Automatically reschedule missed workouts (no dialog needed)
-  // Life happens! We just move the missed workout to today and shift everything forward
+  // Life happens! We move the missed workout to today, future workouts keep their dates
+  // GUARD: Only trigger when count transitions from 0 to >0 to prevent repeated calls
   useEffect(() => {
+    const currentCount = missedWorkoutsResponse?.count || 0;
+    
+    // Only trigger if:
+    // 1. Previous count was 0 AND current count > 0 (newly detected missed workout)
+    // 2. Mutation is not already running/succeeded/failed
     if (
-      missedWorkoutsResponse?.count > 0 && 
+      previousMissedCountRef.current === 0 &&
+      currentCount > 0 && 
       !resetProgramMutation.isPending && 
       !resetProgramMutation.isSuccess &&
       !resetProgramMutation.isError
@@ -279,7 +289,10 @@ export default function Home() {
         resetProgramMutation.mutate();
       }
     }
-  }, [missedWorkoutsResponse?.count]); // Only depends on count - mutation reset on success allows future auto-reschedules
+    
+    // Update previous count for next check
+    previousMissedCountRef.current = currentCount;
+  }, [missedWorkoutsResponse?.count]);
 
   // Check for 7-day cycle completion
   useEffect(() => {
