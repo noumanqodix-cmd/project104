@@ -79,7 +79,7 @@ export default function Home() {
     totalWorkoutsCompleted: number;
     currentCycleDates: string[];
   }>({
-    queryKey: ["/api/programs/cycle-completion"],
+    queryKey: ["/api/cycles/completion-check"],
     enabled: !!activeProgram?.id && !!user,
   });
 
