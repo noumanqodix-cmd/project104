@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { WorkoutSession, User, FitnessAssessment } from "@shared/schema";
+import { formatLocalDate } from "@shared/dateUtils";
 
 interface ProgressViewProps {
   onBack: () => void;
@@ -97,7 +98,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       
-      const weekKey = weekStart.toISOString().split('T')[0];
+      const weekKey = formatLocalDate(weekStart);
       
       if (!weeklyData[weekKey]) {
         weeklyData[weekKey] = { 
@@ -148,7 +149,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       
-      const weekKey = weekStart.toISOString().split('T')[0];
+      const weekKey = formatLocalDate(weekStart);
       
       if (!weeklyData[weekKey]) {
         weeklyData[weekKey] = { 
