@@ -902,17 +902,19 @@ export async function generateWorkoutProgram(
     restSeconds: 30
   });
   
-  // Primary compound (5 sets, 5 reps avg, 180s rest): ~13.5min
+  // Primary compound - time varies by fitness level due to set count
+  // Beginners: 4 sets @ 180s rest, Advanced: 5 sets @ 180s rest
   const primaryCompoundTime = calculateExerciseTime({
-    sets: 5,
+    sets: fitnessLevel === "beginner" ? 4 : 5,
     repsMin: 4,
     repsMax: 6,
     restSeconds: 180
   });
   
-  // Secondary compound/hypertrophy (4 sets, 10 reps avg, 90s rest): ~6.7min
+  // Secondary compound/hypertrophy - time varies by fitness level
+  // Beginners: 3 sets @ 90s rest, Advanced: 4 sets @ 90s rest
   const secondaryCompoundTime = calculateExerciseTime({
-    sets: 4,
+    sets: fitnessLevel === "beginner" ? 3 : 4,
     repsMin: 8,
     repsMax: 12,
     restSeconds: 90
