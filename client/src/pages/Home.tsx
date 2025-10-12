@@ -449,7 +449,7 @@ export default function Home() {
                 year: 'numeric'
               })}
             </p>
-            {user && user.cycleNumber > 0 && (
+            {user && user.cycleNumber !== null && user.cycleNumber > 0 && (
               <Badge variant="secondary" className="mt-2" data-testid="badge-cycle-progress">
                 Cycle {user.cycleNumber} • {user.totalWorkoutsCompleted} Workouts Completed
               </Badge>
