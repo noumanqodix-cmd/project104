@@ -321,6 +321,9 @@ function AppRoutes() {
       await queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       await queryClient.fetchQuery({ queryKey: ["/api/workout-sessions"] });
       
+      // Refresh home page data to show workout as complete
+      await queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      
       // Also invalidate cycle completion check so it re-runs to detect cycle completion
       await queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
     },

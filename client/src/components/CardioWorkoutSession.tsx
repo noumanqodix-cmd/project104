@@ -107,6 +107,9 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
       const preciseMinutes = elapsedTime / 60;
       const caloriesBurned = calculateZone2Calories(preciseMinutes);
       
+      // Refresh home page data to show workout as complete
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      
       // Invalidate cycle completion check to detect if cycle is complete
       queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
       
