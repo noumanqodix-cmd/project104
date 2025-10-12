@@ -391,3 +391,46 @@ export function isExerciseAllowed(
   const allowedForPattern = movementDifficulties[pattern] || getDefault(fitnessLevel);
   return allowedForPattern.includes(difficulty);
 }
+
+// Sort exercises by difficulty (hardest first) based on user's level for the pattern
+// RESPECTS movement-specific allowed difficulties - only prioritizes within allowed range
+export function sortExercisesByDifficultyPriority<T extends { movementPattern?: string; difficulty: string }>(
+  exercises: T[],
+  movementDifficulties: { [pattern: string]: string[] },
+  fitnessLevel: string = 'beginner'
+): T[] {
+  const difficultyRank: { [key: string]: number } = {
+    'advanced': 3,
+    'intermediate': 2,
+    'beginner': 1
+  };
+  
+  return exercises.sort((a, b) => {
+    const patternA = a.movementPattern?.toLowerCase() || 'unknown';
+    const patternB = b.movementPattern?.toLowerCase() || 'unknown';
+    
+    // Get default allowed difficulties if pattern not in map
+    const getDefault = (level: string): string[] => {
+      if (level === 'beginner') return ['beginner', 'intermediate'];
+      if (level === 'intermediate') return ['beginner', 'intermediate'];
+      return ['beginner', 'intermediate', 'advanced'];
+    };
+    
+    const allowedA = movementDifficulties[patternA] || getDefault(fitnessLevel);
+    const allowedB = movementDifficulties[patternB] || getDefault(fitnessLevel);
+    
+    // Check if difficulties are allowed for their respective patterns
+    const isAllowedA = allowedA.includes(a.difficulty);
+    const isAllowedB = allowedB.includes(b.difficulty);
+    
+    // Disallowed exercises go to the end
+    if (!isAllowedA && isAllowedB) return 1;
+    if (isAllowedA && !isAllowedB) return -1;
+    if (!isAllowedA && !isAllowedB) return 0;
+    
+    // Both allowed - sort by difficulty rank (higher rank first)
+    const rankA = difficultyRank[a.difficulty] || 0;
+    const rankB = difficultyRank[b.difficulty] || 0;
+    return rankB - rankA; // Higher difficulty first
+  });
+}

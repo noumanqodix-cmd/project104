@@ -3,7 +3,8 @@ import { selectProgramTemplate, type ProgramTemplate } from "./programTemplates"
 import { 
   calculateMovementPatternLevels, 
   getMovementDifficultiesMap, 
-  isExerciseAllowed 
+  isExerciseAllowed,
+  sortExercisesByDifficultyPriority
 } from "@shared/utils";
 import { 
   EXPERIENCE_LEVELS, 
@@ -598,6 +599,18 @@ export async function generateWorkoutProgram(
       exercisesByPattern[ex.movementPattern].push(ex);
     }
   });
+  
+  // DIFFICULTY PRIORITIZATION: Sort exercises by difficulty (hardest first) within each pattern
+  // This ensures intermediate/advanced users get harder exercises as primary choices
+  Object.keys(exercisesByPattern).forEach(pattern => {
+    exercisesByPattern[pattern] = sortExercisesByDifficultyPriority(
+      exercisesByPattern[pattern],
+      movementDifficulties,
+      fitnessLevel
+    );
+  });
+  
+  console.log(`[DIFFICULTY-SORT] Exercises sorted by difficulty (hardest first) for each pattern`);
 
   //  Determine scheduled days for the week
   // Only support 3, 4, or 5 days per week for optimal programming
