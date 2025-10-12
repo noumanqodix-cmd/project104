@@ -1427,7 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/programs/regenerate", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
-      const { startDate } = req.body;
+      const { startDate, selectedDates } = req.body;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1582,6 +1582,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           createdProgramWorkouts.push(restDay);
         }
+      }
+
+      // Save selectedDates to user profile if provided (for new 7-day cycle system)
+      if (selectedDates && Array.isArray(selectedDates) && selectedDates.length > 0) {
+        await storage.updateUser(userId, { selectedDates });
+        console.log(`[REGENERATE] Saved selectedDates for new 7-day cycle:`, selectedDates);
       }
 
       // Clean up sessions from TODAY onwards only (never touch historical sessions)

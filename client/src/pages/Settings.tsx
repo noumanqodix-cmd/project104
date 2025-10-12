@@ -57,6 +57,7 @@ import { formatLocalDate, getTodayLocal } from "@shared/dateUtils";
 import { calculateAge } from "@shared/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { toggleEquipment as toggleEquipmentUtil } from "@/lib/equipmentUtils";
+import { DayPicker } from "@/components/DayPicker";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -73,7 +74,7 @@ export default function Settings() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [workoutDuration, setWorkoutDuration] = useState(60);
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showProgramUpdateDialog, setShowProgramUpdateDialog] = useState(false);
   const [showGenerationModal, setShowGenerationModal] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
@@ -86,6 +87,7 @@ export default function Settings() {
   const [originalDaysPerWeek, setOriginalDaysPerWeek] = useState(3);
   const [originalWorkoutDuration, setOriginalWorkoutDuration] = useState(60);
   const [originalGoal, setOriginalGoal] = useState("maintain");
+  const [originalSelectedDates, setOriginalSelectedDates] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -93,7 +95,7 @@ export default function Settings() {
       setSelectedEquipment(user.equipment || []);
       setDaysPerWeek(user.daysPerWeek || 3);
       setWorkoutDuration(user.workoutDuration || 60);
-      setSelectedDays(user.selectedDays || []);
+      setSelectedDates(user.selectedDates || []);
       setSelectedUnitPreference(user.unitPreference || "imperial");
       
       // Set original values for change detection
@@ -101,6 +103,7 @@ export default function Settings() {
       setOriginalDaysPerWeek(user.daysPerWeek || 3);
       setOriginalWorkoutDuration(user.workoutDuration || 60);
       setOriginalGoal(user.nutritionGoal || "maintain");
+      setOriginalSelectedDates(user.selectedDates || []);
       
       const isMetric = unitPreference === 'metric';
       if (user.height) {
@@ -225,10 +228,10 @@ export default function Settings() {
       return;
     }
 
-    if (selectedDays.length !== daysPerWeek) {
+    if (selectedDates.length !== daysPerWeek) {
       toast({
         title: "Error",
-        description: `Please select exactly ${daysPerWeek} workout days.`,
+        description: `Please select exactly ${daysPerWeek} workout dates for your next cycle.`,
         variant: "destructive",
       });
       return;
@@ -239,38 +242,38 @@ export default function Settings() {
     const daysChanged = daysPerWeek !== originalDaysPerWeek;
     const durationChanged = workoutDuration !== originalWorkoutDuration;
     const goalChanged = selectedGoal !== originalGoal;
+    const datesChanged = JSON.stringify([...selectedDates].sort()) !== JSON.stringify([...originalSelectedDates].sort());
     
-    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged || goalChanged;
+    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged || goalChanged || datesChanged;
     
     if (programAffectingChanges) {
       // Show dialog asking if user wants new program or just update settings
       setShowProgramUpdateDialog(true);
     } else {
-      // No program-affecting changes, just save
+      // No program-affecting changes, just save (exclude selectedDates - only save with program generation)
       updateProgramSettingsMutation.mutate({
         nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
         workoutDuration,
-        selectedDays,
       });
     }
   };
   
   const handleKeepCurrentProgram = async () => {
     try {
-      // Save preferences and wait for completion
+      // Save preferences and wait for completion (exclude selectedDates - no new workouts generated)
       await updateProgramSettingsMutation.mutateAsync({
         nutritionGoal: selectedGoal,
         equipment: selectedEquipment,
         daysPerWeek,
         workoutDuration,
-        selectedDays,
       });
       
       setShowProgramUpdateDialog(false);
       
       // Update original values only after successful save
+      // NOTE: selectedDates NOT updated here - only saved when generating new program
       setOriginalGoal(selectedGoal);
       setOriginalEquipment(selectedEquipment);
       setOriginalDaysPerWeek(daysPerWeek);
@@ -289,7 +292,7 @@ export default function Settings() {
         equipment: selectedEquipment,
         daysPerWeek,
         workoutDuration,
-        selectedDays,
+        selectedDates,
       });
       
       // Then generate new program with updated settings
@@ -303,6 +306,7 @@ export default function Settings() {
       setOriginalEquipment(selectedEquipment);
       setOriginalDaysPerWeek(daysPerWeek);
       setOriginalWorkoutDuration(workoutDuration);
+      setOriginalSelectedDates(selectedDates);
     } catch (error) {
       // If profile update fails, don't proceed with program generation
       setShowProgramUpdateDialog(false);
@@ -314,22 +318,13 @@ export default function Settings() {
     setSelectedEquipment(prev => toggleEquipmentUtil(prev, equipment));
   };
 
-  const handleDayToggle = (dayValue: number) => {
-    if (selectedDays.includes(dayValue)) {
-      setSelectedDays(selectedDays.filter(d => d !== dayValue));
-    } else {
-      if (selectedDays.length < daysPerWeek) {
-        setSelectedDays([...selectedDays, dayValue].sort((a, b) => a - b));
-      }
-    }
-  };
-
   const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
 
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/programs/regenerate", {
         startDate: formatLocalDate(getTodayLocal()),
+        selectedDates: selectedDates,
       });
     },
     onSuccess: () => {
@@ -686,7 +681,7 @@ export default function Settings() {
                 <Label htmlFor="days-per-week">Days Per Week</Label>
                 <Select value={daysPerWeek.toString()} onValueChange={(val) => {
                   setDaysPerWeek(parseInt(val));
-                  setSelectedDays([]); // Reset selected days when changing days per week
+                  setSelectedDates([]); // Reset selected dates when changing days per week
                 }}>
                   <SelectTrigger id="days-per-week" data-testid="select-days-per-week">
                     <SelectValue />
@@ -717,45 +712,16 @@ export default function Settings() {
 
             <div className="space-y-3">
               <Label className="text-base font-semibold">
-                Select your {daysPerWeek} workout days
+                Select Your Next {daysPerWeek} Workout Dates
               </Label>
               <p className="text-sm text-muted-foreground">
-                Choose which days of the week you want to work out ({selectedDays.length}/{daysPerWeek} selected)
+                Pick the specific calendar dates for your next 7-day cycle ({selectedDates.length}/{daysPerWeek} selected)
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 1, label: "Monday" },
-                  { value: 2, label: "Tuesday" },
-                  { value: 3, label: "Wednesday" },
-                  { value: 4, label: "Thursday" },
-                  { value: 5, label: "Friday" },
-                  { value: 6, label: "Saturday" },
-                  { value: 7, label: "Sunday" },
-                ].map((day) => {
-                  const isSelected = selectedDays.includes(day.value);
-                  const isDisabled = !isSelected && selectedDays.length >= daysPerWeek;
-                  
-                  return (
-                    <Label
-                      key={day.value}
-                      htmlFor={`settings-day-${day.value}`}
-                      className={`flex items-center space-x-3 border rounded-lg p-3 cursor-pointer ${
-                        isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover-elevate'
-                      }`}
-                      data-testid={`option-day-${day.value}`}
-                    >
-                      <Checkbox
-                        id={`settings-day-${day.value}`}
-                        checked={isSelected}
-                        onCheckedChange={() => handleDayToggle(day.value)}
-                        disabled={isDisabled}
-                        data-testid={`checkbox-day-${day.value}`}
-                      />
-                      <span className="font-medium text-sm">{day.label}</span>
-                    </Label>
-                  );
-                })}
-              </div>
+              <DayPicker
+                daysPerWeek={daysPerWeek}
+                initialSelectedDates={selectedDates}
+                onDatesSelected={setSelectedDates}
+              />
             </div>
 
             <Button 
