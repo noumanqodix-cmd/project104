@@ -53,82 +53,138 @@ let routesRegistered = false;
 // HELPER: Generate Workout Schedule
 // ==========================================
 // Creates individual workout sessions for the entire program duration
-// This pre-generates all sessions so users can see their full schedule
+// 
+// NEW APPROACH (selectedDates):
+// - Accepts selectedDates array (YYYY-MM-DD strings)
+// - Creates sessions ONLY for those specific dates
+// - Assigns workouts sequentially (workout 1 → date 1, workout 2 → date 2, etc.)
 //
-// HOW IT WORKS:
+// LEGACY APPROACH (dayOfWeek):
 // - Loops through all days in the program duration (durationWeeks × 7 days)
-// - For each day, checks if there's a matching programWorkout template
-// - If match found, creates a session for that specific date
-// - Sessions include both workout days AND rest days (if in programWorkouts)
-//
-// EXAMPLE:
-// durationWeeks=8, programWorkouts includes Mon/Wed/Fri/Sat workouts + Tue/Thu/Sun rest
-// = Loops 56 days, creates sessions for all programWorkout days
+// - For each day, checks if there's a matching programWorkout template by dayOfWeek
+// - Creates sessions for matching days
 //
 // INPUT:
 //   - programId: Which program these sessions belong to
 //   - userId: Who owns these sessions
-//   - programWorkouts: Template workouts (Mon workout, Wed workout, etc.)
+//   - programWorkouts: Template workouts (indexed or dayOfWeek-based)
 //   - durationWeeks: Program duration in weeks (passed explicitly by caller)
 //   - startDateString: Start date in YYYY-MM-DD format
+//   - selectedDates: (Optional) Array of YYYY-MM-DD strings for NEW approach
 //
 // OUTPUT: Number of sessions created
 //
 // IMPORTANT: Cleans up existing future sessions before creating new ones
 // This prevents duplicate sessions if user regenerates their program
-async function generateWorkoutSchedule(programId: string, userId: string, programWorkouts: ProgramWorkout[], durationWeeks: number, startDateString: string) {
+async function generateWorkoutSchedule(
+  programId: string, 
+  userId: string, 
+  programWorkouts: ProgramWorkout[], 
+  durationWeeks: number, 
+  startDateString: string,
+  selectedDates?: string[]
+) {
   try {
-    // Parse the provided start date (YYYY-MM-DD string from caller)
-    const today = parseLocalDate(startDateString);
-    
     // CRITICAL: Clean up any existing future sessions before creating new ones
     // This prevents duplicate key violations when regenerating programs
     console.log(`[SESSION-CLEANUP] Cleaning up existing sessions from ${startDateString} before creating new ones`);
     const cleanupResult = await storage.cleanupSessionsForRegeneration(userId, startDateString);
     console.log(`[SESSION-CLEANUP] Archived ${cleanupResult.archived} completed sessions, deleted ${cleanupResult.deleted} incomplete sessions`);
     
-    // Create a map of dayOfWeek to programWorkout for quick lookup
-    const workoutsByDay = new Map<number, ProgramWorkout>();
-    programWorkouts.forEach(pw => {
-      workoutsByDay.set(pw.dayOfWeek, pw);
-    });
-    
-    // Generate sessions starting from TODAY for the entire duration
     const sessions = [];
-    const totalDays = durationWeeks * 7;
     
-    for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
-      // Use a fresh Date object for each iteration to avoid mutation issues
-      const scheduledDate = new Date(today.getTime());
-      scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
+    // ==========================================
+    // NEW APPROACH: Use selectedDates (date-based scheduling)
+    // ==========================================
+    if (selectedDates && selectedDates.length > 0) {
+      console.log(`[SESSION-NEW] Creating sessions for ${selectedDates.length} selected dates`);
       
-      // Convert Date to YYYY-MM-DD string using shared utility
-      const scheduledDateString = formatLocalDate(scheduledDate);
+      // Filter workouts to only those with workoutIndex (new approach)
+      const indexedWorkouts = programWorkouts.filter(pw => pw.workoutIndex !== null && pw.workoutIndex !== undefined);
       
-      // Get calendar day-of-week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      const calendarDay = scheduledDate.getDay();
+      // Sort workouts by workoutIndex to ensure correct order
+      indexedWorkouts.sort((a, b) => (a.workoutIndex || 0) - (b.workoutIndex || 0));
       
-      // Convert to our schema format: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
-      // JavaScript: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-      // Schema: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
-      const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
-      
-      // Find the programWorkout for this day
-      const programWorkout = workoutsByDay.get(schemaDayOfWeek);
-      
-      if (programWorkout) {
-        sessions.push({
-          userId,
-          programWorkoutId: programWorkout.id,
-          workoutName: programWorkout.workoutName,
-          scheduledDate: scheduledDateString,
-          sessionDayOfWeek: schemaDayOfWeek,
-          sessionType: (programWorkout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
-          workoutType: programWorkout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
-          completed: 0,
-          status: "scheduled" as const,
-        });
+      // Create sessions for each selected date, assigning workouts sequentially
+      for (let i = 0; i < selectedDates.length; i++) {
+        const scheduledDateString = selectedDates[i];
+        const workout = indexedWorkouts[i % indexedWorkouts.length]; // Cycle through workouts if needed
+        
+        if (workout) {
+          const scheduledDate = parseLocalDate(scheduledDateString);
+          const calendarDay = scheduledDate.getDay();
+          const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
+          
+          sessions.push({
+            userId,
+            programWorkoutId: workout.id,
+            workoutName: workout.workoutName,
+            scheduledDate: scheduledDateString,
+            sessionDayOfWeek: schemaDayOfWeek,
+            sessionType: (workout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
+            workoutType: workout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
+            completed: 0,
+            status: "scheduled" as const,
+          });
+        }
       }
+      
+      console.log(`[SESSION-NEW] Created ${sessions.length} sessions from selectedDates`);
+    } 
+    // ==========================================
+    // LEGACY APPROACH: Use dayOfWeek (week-based scheduling)
+    // ==========================================
+    else {
+      console.log(`[SESSION-LEGACY] Creating sessions using dayOfWeek approach for ${durationWeeks} weeks`);
+      
+      const today = parseLocalDate(startDateString);
+      
+      // Create a map of dayOfWeek to programWorkout for quick lookup
+      const workoutsByDay = new Map<number, ProgramWorkout>();
+      programWorkouts.forEach(pw => {
+        if (pw.dayOfWeek !== null && pw.dayOfWeek !== undefined) {
+          workoutsByDay.set(pw.dayOfWeek, pw);
+        }
+      });
+      
+      // Generate sessions starting from TODAY for the entire duration
+      const totalDays = durationWeeks * 7;
+      
+      for (let dayOffset = 0; dayOffset < totalDays; dayOffset++) {
+        // Use a fresh Date object for each iteration to avoid mutation issues
+        const scheduledDate = new Date(today.getTime());
+        scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
+        
+        // Convert Date to YYYY-MM-DD string using shared utility
+        const scheduledDateString = formatLocalDate(scheduledDate);
+        
+        // Get calendar day-of-week: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const calendarDay = scheduledDate.getDay();
+        
+        // Convert to our schema format: 1 = Monday, 2 = Tuesday, ..., 7 = Sunday
+        // JavaScript: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+        // Schema: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
+        const schemaDayOfWeek = calendarDay === 0 ? 7 : calendarDay;
+        
+        // Find the programWorkout for this day
+        const programWorkout = workoutsByDay.get(schemaDayOfWeek);
+        
+        if (programWorkout) {
+          sessions.push({
+            userId,
+            programWorkoutId: programWorkout.id,
+            workoutName: programWorkout.workoutName,
+            scheduledDate: scheduledDateString,
+            sessionDayOfWeek: schemaDayOfWeek,
+            sessionType: (programWorkout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
+            workoutType: programWorkout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
+            completed: 0,
+            status: "scheduled" as const,
+          });
+        }
+      }
+      
+      console.log(`[SESSION-LEGACY] Created ${sessions.length} sessions from dayOfWeek mapping`);
     }
     
     console.log(`Creating ${sessions.length} workout sessions for program ${programId}`);
@@ -323,11 +379,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true });
       }
 
+      // Calculate selectedDates from user.selectedDates if available (NEW approach)
+      let selectedDates: string[] | undefined;
+      if (user.selectedDates && user.selectedDates.length > 0) {
+        selectedDates = user.selectedDates;
+        console.log(`[ONBOARDING] Using selectedDates from user profile: ${selectedDates.join(', ')}`);
+      } else {
+        console.log(`[ONBOARDING] No selectedDates in user profile, using legacy selectedDays approach`);
+      }
+
       console.log("[ONBOARDING] Generating program for user:", userId);
       const generatedProgram = await generateWorkoutProgram({
         user,
         latestAssessment,
         availableExercises,
+        selectedDates,  // Pass selectedDates for new approach
       });
 
       // Archive any existing active programs
@@ -355,7 +421,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const programWorkout = await storage.createProgramWorkout({
           programId: newProgram.id,
           workoutName: workout.workoutName,
-          dayOfWeek: workout.dayOfWeek,
+          dayOfWeek: workout.dayOfWeek,           // LEGACY: may be undefined in new mode
+          workoutIndex: workout.workoutIndex,     // NEW: sequential index (1, 2, 3, ...)
           workoutType: workout.workoutType || null,
           movementFocus: workout.movementFocus || [],
         });
@@ -391,30 +458,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("[ONBOARDING] Workout sessions created, generating scheduled sessions");
 
-      // Track which days have workouts to create rest days for remaining days
+      // Track which days have workouts to create rest days for remaining days (LEGACY only)
       const scheduledDays = new Set<number>();
       for (const workout of generatedProgram.workouts) {
-        scheduledDays.add(workout.dayOfWeek);
+        if (workout.dayOfWeek) {  // Only process if using legacy dayOfWeek approach
+          scheduledDays.add(workout.dayOfWeek);
+        }
       }
       
-      // Create rest days for any days not scheduled
-      for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
-        if (!scheduledDays.has(dayOfWeek)) {
-          const restDay = await storage.createProgramWorkout({
-            programId: newProgram.id,
-            dayOfWeek,
-            workoutName: "Rest Day",
-            movementFocus: [],
-            workoutType: null,
-          });
-          createdProgramWorkouts.push(restDay);
+      // Create rest days for any days not scheduled (LEGACY only - new approach doesn't use rest days)
+      if (scheduledDays.size > 0) {  // Only create rest days if using legacy approach
+        for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
+          if (!scheduledDays.has(dayOfWeek)) {
+            const restDay = await storage.createProgramWorkout({
+              programId: newProgram.id,
+              dayOfWeek,
+              workoutName: "Rest Day",
+              movementFocus: [],
+              workoutType: null,
+            });
+            createdProgramWorkouts.push(restDay);
+          }
         }
       }
 
       // Generate workout schedule for entire program duration starting from TODAY
       // Use client-provided startDate (user's local timezone) with fallback to server date
       const startDateString = startDate || formatLocalDate(new Date());
-      await generateWorkoutSchedule(newProgram.id, userId, createdProgramWorkouts, newProgram.durationWeeks || 8, startDateString);
+      await generateWorkoutSchedule(
+        newProgram.id, 
+        userId, 
+        createdProgramWorkouts, 
+        newProgram.durationWeeks || 8, 
+        startDateString,
+        selectedDates  // Pass selectedDates for new approach
+      );
 
       console.log("[ONBOARDING] Program generation complete");
       
@@ -1201,11 +1279,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nutritionGoal: user.nutritionGoal,
       });
 
+      // Calculate selectedDates from user.selectedDates if available (NEW approach)
+      // This provides specific YYYY-MM-DD dates for the next N workouts
+      let selectedDates: string[] | undefined;
+      if (user.selectedDates && user.selectedDates.length > 0) {
+        selectedDates = user.selectedDates;
+        console.log(`[PROGRAM] Using selectedDates from user profile: ${selectedDates.join(', ')}`);
+      } else {
+        console.log(`[PROGRAM] No selectedDates in user profile, using legacy selectedDays approach`);
+      }
+
       console.log("[TEMPLATE] Starting program generation with nutrition goal:", user.nutritionGoal);
       const generatedProgram = await generateWorkoutProgram({
         user,
         latestAssessment,
         availableExercises,
+        selectedDates,  // Pass selectedDates to new approach
       });
       console.log("[TEMPLATE] Program generation completed successfully");
 
@@ -1237,11 +1326,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdProgramWorkouts: ProgramWorkout[] = [];
       
       for (const workout of generatedProgram.workouts) {
-        scheduledDays.add(workout.dayOfWeek);
+        // Track dayOfWeek for legacy rest day creation (if present)
+        if (workout.dayOfWeek) {
+          scheduledDays.add(workout.dayOfWeek);
+        }
         
         const programWorkout = await storage.createProgramWorkout({
           programId: program.id,
-          dayOfWeek: workout.dayOfWeek,
+          dayOfWeek: workout.dayOfWeek,         // LEGACY: may be undefined in new mode
+          workoutIndex: workout.workoutIndex,   // NEW: sequential index (1, 2, 3, ...)
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
           workoutType: workout.workoutType,
@@ -1308,7 +1401,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate workout schedule starting from client-requested date
       const startDateString = startDate || todayString;
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
+      await generateWorkoutSchedule(
+        program.id, 
+        userId, 
+        createdProgramWorkouts, 
+        generatedProgram.durationWeeks, 
+        startDateString,
+        selectedDates  // Pass selectedDates for new approach
+      );
 
       // Remove any duplicate sessions that may have been created
       const duplicatesRemoved = await storage.removeDuplicateSessions(userId);
@@ -1417,11 +1517,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdProgramWorkouts: ProgramWorkout[] = [];
       
       for (const workout of generatedProgram.workouts) {
-        scheduledDays.add(workout.dayOfWeek);
+        // Track dayOfWeek for legacy rest day creation (if present)
+        if (workout.dayOfWeek) {
+          scheduledDays.add(workout.dayOfWeek);
+        }
         
         const programWorkout = await storage.createProgramWorkout({
           programId: program.id,
-          dayOfWeek: workout.dayOfWeek,
+          dayOfWeek: workout.dayOfWeek,         // LEGACY: may be undefined in new mode
+          workoutIndex: workout.workoutIndex,   // NEW: sequential index (1, 2, 3, ...)
           workoutName: workout.workoutName,
           movementFocus: workout.movementFocus,
           workoutType: workout.workoutType,
@@ -1488,7 +1592,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate workout schedule starting from client-requested date
       const startDateString = startDate || todayString;
-      await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
+      await generateWorkoutSchedule(
+        program.id, 
+        userId, 
+        createdProgramWorkouts, 
+        generatedProgram.durationWeeks, 
+        startDateString,
+        selectedDates  // Pass selectedDates for new approach
+      );
 
       // Remove any duplicate sessions that may have been created
       const duplicatesRemoved = await storage.removeDuplicateSessions(userId);

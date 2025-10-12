@@ -209,10 +209,13 @@ export const workoutPrograms = pgTable("workout_programs", {
 // TABLE: programWorkouts
 // Individual workouts within a program (one per training day)
 // Example: Mon=Upper Power, Wed=Lower Strength, Fri=Full Body
+// LEGACY: Uses dayOfWeek (1-7) for backwards compatibility
+// NEW: Uses workoutIndex (1, 2, 3, ..., N) for date-based scheduling
 export const programWorkouts = pgTable("program_workouts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   programId: varchar("program_id").notNull(),
-  dayOfWeek: integer("day_of_week").notNull(),
+  dayOfWeek: integer("day_of_week"),  // LEGACY: Made optional for new approach
+  workoutIndex: integer("workout_index"),  // NEW: Sequential workout number (1, 2, 3, ...)
   workoutName: text("workout_name").notNull(),
   movementFocus: text("movement_focus").array().notNull(),
   workoutType: text("workout_type"),

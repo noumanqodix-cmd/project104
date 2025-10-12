@@ -54,6 +54,7 @@ export interface ProgramGenerationInput {
   user: User;                           // User's profile (name, goals, equipment, schedule)
   latestAssessment: FitnessAssessment;  // Most recent fitness test results
   availableExercises: Exercise[];       // Full exercise database filtered by user's equipment
+  selectedDates?: string[];             // NEW: Array of YYYY-MM-DD strings for scheduled workout dates
 }
 
 // OUTPUT: The complete program we create
@@ -66,8 +67,9 @@ export interface GeneratedProgram {
 
 // Each workout in the program
 export interface GeneratedWorkout {
-  dayOfWeek: number;         // 0=Sunday, 1=Monday, etc.
-  workoutName: string;       // Descriptive name like "Monday - Upper Body Push"
+  dayOfWeek?: number;        // LEGACY: 0=Sunday, 1=Monday, etc. (kept for backwards compatibility)
+  workoutIndex?: number;     // NEW: Sequential workout number (1, 2, 3, ..., N) where N = daysPerWeek
+  workoutName: string;       // Descriptive name like "Workout 1 - Upper Body Push"
   workoutType: "strength" | "cardio" | "hiit" | "mobility" | null;
   movementFocus: string[];   // Which movement patterns this workout trains
   exercises: GeneratedExercise[];  // List of exercises in this workout
@@ -778,8 +780,17 @@ export async function generateWorkoutProgram(
   
   console.log(`[DIFFICULTY-SORT] Exercises sorted by difficulty (hardest first) for each pattern`);
 
-  //  Determine scheduled days for the week
-  // Only support 3, 4, or 5 days per week for optimal programming
+  // ==========================================
+  // BACKWARDS COMPATIBILITY: Support both selectedDates (new) and selectedDays (legacy)
+  // ==========================================
+  // NEW APPROACH: Use selectedDates if provided (array of YYYY-MM-DD strings)
+  // LEGACY APPROACH: Fall back to selectedDays (day-of-week numbers 1-7)
+  // This ensures existing users' programs still work while supporting the new date-based system
+  
+  const useSelectedDates = input.selectedDates && input.selectedDates.length === daysPerWeek;
+  const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  // LEGACY: For backwards compatibility, support day-of-week scheduling
   const daySchedules: { [key: number]: number[] } = {
     3: [1, 3, 5],       // Monday, Wednesday, Friday
     4: [1, 2, 4, 5],    // Monday, Tuesday, Thursday, Friday
@@ -789,7 +800,8 @@ export async function generateWorkoutProgram(
   const scheduledDays = user.selectedDays && user.selectedDays.length === daysPerWeek 
     ? user.selectedDays 
     : daySchedules[daysPerWeek] || daySchedules[3];
-  const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  console.log(`[SCHEDULING] Mode: ${useSelectedDates ? 'DATE-BASED' : 'DAY-OF-WEEK'}, Workouts: ${daysPerWeek}`);
 
   // Select the appropriate program template based on user's nutrition goal
   const selectedTemplate = selectProgramTemplate(user.nutritionGoal, latestAssessment.experienceLevel);
@@ -975,21 +987,25 @@ export async function generateWorkoutProgram(
   
   console.log(`[EXERCISE-CALC] For ${workoutDuration}min ${nutritionGoal.toUpperCase()} session: ${warmupCount}w + ${powerCount}p + ${primaryCount}pri + ${secondaryCount}sec + ${cardioCount}c = ${estimatedTotal.toFixed(1)}min. Supersets: ${useSupersets ? 'YES' : 'NO'}`);
   
-  // Template-based workout generation - Generate ALL 7 days for entire program duration
+  // ==========================================
+  // WORKOUT GENERATION: Generate N workouts (where N = daysPerWeek)
+  // ==========================================
+  // NEW: Generate exactly daysPerWeek workouts with sequential indexes (1, 2, 3, ...)
+  // LEGACY: Also support generating 7-day week for backwards compatibility
   const workouts: GeneratedWorkout[] = [];
   
   // SMART EXERCISE REUSE TRACKING
-  // Track when each exercise was used (day number) for intelligent reuse
-  // Core/rotation/carry can repeat after 2+ days, compounds blocked for full week
-  const exerciseUsageMap = new Map<string, number>(); // exerciseId -> dayOfWeek used
-  const firstDayExercises = new Set<string>(); // Track day 1 exercises for cross-week recovery
+  // Track when each exercise was used (workout number) for intelligent reuse
+  // Core/rotation/carry can repeat after 2+ workouts, compounds blocked for full week
+  const exerciseUsageMap = new Map<string, number>(); // exerciseId -> workoutIndex used
+  const firstDayExercises = new Set<string>(); // Track workout 1 exercises for cross-week recovery
   
   // COMPOUND PATTERN TRACKING
   // Track when each movement pattern was used for compound exercises to prevent back-to-back same-pattern compounds
-  const compoundPatternUsage = new Map<string, number>(); // pattern -> last day used
+  const compoundPatternUsage = new Map<string, number>(); // pattern -> last workout index used
   
   // MUSCLE TRACKING FOR RECOVERY
-  // Track which muscles were worked heavily on previous training day
+  // Track which muscles were worked heavily on previous training workout
   const previousDayMuscles = new Set<string>(); // Primary muscles from previous workout
   
   // Helper function to check if exercise can be used
@@ -1085,10 +1101,21 @@ export async function generateWorkoutProgram(
     return !firstDayExercises.has(exerciseId);
   };
   
-  // Generate workouts for each day of the week (1-7 = Monday-Sunday)
-  for (let dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
-    const dayName = dayNames[dayOfWeek];
-    const isScheduledDay = scheduledDays.includes(dayOfWeek);
+  // ==========================================
+  // MAIN WORKOUT LOOP: Generate workouts
+  // ==========================================
+  // NEW APPROACH: Generate exactly daysPerWeek workouts with sequential indexes
+  // LEGACY APPROACH: If using selectedDays, still generate full week (7 days) for backwards compatibility
+  
+  const totalWorkoutsToGenerate = useSelectedDates ? daysPerWeek : 7;
+  
+  for (let loopIndex = 1; loopIndex <= totalWorkoutsToGenerate; loopIndex++) {
+    // NEW: Use sequential workout index (1, 2, 3, ..., N)
+    // LEGACY: Map loopIndex to dayOfWeek for backwards compatibility
+    const workoutIndex = loopIndex;
+    const dayOfWeek = useSelectedDates ? undefined : loopIndex; // Only set dayOfWeek for legacy mode
+    const dayName = dayOfWeek ? dayNames[dayOfWeek] : `Workout ${workoutIndex}`;
+    const isScheduledDay = useSelectedDates ? true : scheduledDays.includes(dayOfWeek!);
     
     if (isScheduledDay) {
       // WORKOUT DAY: Generate actual workout with exercises
@@ -1106,15 +1133,13 @@ export async function generateWorkoutProgram(
       // MUSCLE TRACKING: Track primary muscles targeted in this workout
       const usedPrimaryMuscles = new Set<string>();
       
-      // Get workout index (1st workout, 2nd workout, etc.)
-      const workoutIndex = scheduledDays.indexOf(dayOfWeek) + 1;
-      
       // Get weekly pattern distribution for this specific workout
+      // Use workoutIndex for pattern selection (1, 2, 3, ... N)
       const weekPlan = weeklyPatternDistribution[daysPerWeek];
       const dayPlan = weekPlan[workoutIndex];
       
       if (!dayPlan) {
-        console.warn(`[WEEK-PLAN] No pattern distribution found for day ${workoutIndex} in ${daysPerWeek}-day program, using default`);
+        console.warn(`[WEEK-PLAN] No pattern distribution found for workout ${workoutIndex} in ${daysPerWeek}-day program, using default`);
       }
       
       // PRIORITY-BASED PATTERN DISTRIBUTION SYSTEM
@@ -1126,11 +1151,11 @@ export async function generateWorkoutProgram(
       const usedPatterns = new Set([...primaryPatterns, ...secondaryPatterns]);
       const fallbackPatterns = allPatterns.filter(p => !usedPatterns.has(p));
       
-      console.log(`[WEEK-PLAN] Day ${workoutIndex} (${dayName}): Primary=${primaryPatterns.join(', ')}, Secondary=${secondaryPatterns.join(', ')}, Fallback=${fallbackPatterns.join(', ')}`);
+      console.log(`[WEEK-PLAN] Workout ${workoutIndex} (${dayName}): Primary=${primaryPatterns.join(', ')}, Secondary=${secondaryPatterns.join(', ')}, Fallback=${fallbackPatterns.join(', ')}`);
       const compoundExercises: { exercise: Exercise; pattern: string }[] = [];
       
-      // Track if this is the last scheduled workout day
-      const isLastScheduledDay = workoutIndex === scheduledDays.length;
+      // Track if this is the last scheduled workout
+      const isLastScheduledDay = workoutIndex === daysPerWeek;
       
       // Track remaining slots for each exercise type (respect calculated primaryCount/secondaryCount)
       let primarySlotsRemaining = primaryCount;
@@ -2043,8 +2068,10 @@ export async function generateWorkoutProgram(
       // Generate descriptive workout name based on movement patterns
       const descriptiveWorkoutName = generateWorkoutName(movementFocus, workoutType, dayName);
       
+      // Push workout with both dayOfWeek (legacy) and workoutIndex (new)
       workouts.push({
-        dayOfWeek,
+        dayOfWeek,          // LEGACY: undefined in new mode, dayOfWeek number in legacy mode
+        workoutIndex,       // NEW: Sequential workout number (1, 2, 3, ... N)
         workoutName: descriptiveWorkoutName,
         workoutType,
         movementFocus: Array.from(new Set(movementFocus)),
@@ -2058,14 +2085,18 @@ export async function generateWorkoutProgram(
       
       console.log(`[RECOVERY] Updated previous day muscles for next workout: ${Array.from(previousDayMuscles).join(', ') || 'none'}`);
     } else {
-      // REST DAY: Generate rest day with null workoutType and no exercises
-      workouts.push({
-        dayOfWeek,
-        workoutName: `${dayName} - Rest Day`,
-        workoutType: null,
-        movementFocus: [],
-        exercises: [],
-      });
+      // REST DAY: Only generate rest days in LEGACY mode (when using selectedDays)
+      // In NEW mode (selectedDates), we only generate actual workout days
+      if (!useSelectedDates) {
+        workouts.push({
+          dayOfWeek,          // LEGACY: dayOfWeek number for rest day
+          workoutIndex: undefined, // No workoutIndex for rest days
+          workoutName: `${dayName} - Rest Day`,
+          workoutType: null,
+          movementFocus: [],
+          exercises: [],
+        });
+      }
       
       // Clear previous day muscles after rest day (full recovery)
       previousDayMuscles.clear();
