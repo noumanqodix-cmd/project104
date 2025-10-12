@@ -103,15 +103,17 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
         sessionDate: new Date(), // User's local time
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       const preciseMinutes = elapsedTime / 60;
       const caloriesBurned = calculateZone2Calories(preciseMinutes);
       
-      // Refresh home page data to show workout as complete
-      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      console.log('[CARDIO] Session completed, refreshing all data...');
       
-      // Invalidate cycle completion check to detect if cycle is complete
-      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+      // Force immediate refetch of all critical data
+      await queryClient.refetchQueries({ queryKey: ["/api/home-data"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cycles/completion-check"] });
+      
+      console.log('[CARDIO] All data refreshed successfully');
       
       onComplete({
         duration: elapsedTime,

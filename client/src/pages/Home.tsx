@@ -91,11 +91,15 @@ export default function Home() {
         sessionDate: new Date(),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
-      // Also check for cycle completion after rest day completion
-      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+    onSuccess: async () => {
+      console.log('[HOME] Rest day completed, refreshing all data...');
+      
+      // Force immediate refetch of all critical data
+      await queryClient.refetchQueries({ queryKey: ["/api/home-data"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cycles/completion-check"] });
+      
+      console.log('[HOME] All data refreshed successfully');
     },
     onError: (error: any) => {
       toast({

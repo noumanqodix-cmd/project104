@@ -319,15 +319,14 @@ function AppRoutes() {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, workoutData);
     },
     onSuccess: async () => {
-      // Invalidate cache and force a fresh fetch (including inactive queries)
-      await queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
-      await queryClient.fetchQuery({ queryKey: ["/api/workout-sessions"] });
+      console.log('[APP] Workout saved, refreshing all data...');
       
-      // Refresh home page data to show workout as complete
-      await queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      // Force immediate refetch of all critical data (don't just invalidate)
+      await queryClient.refetchQueries({ queryKey: ["/api/home-data"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/cycles/completion-check"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/workout-sessions"] });
       
-      // Also invalidate cycle completion check so it re-runs to detect cycle completion
-      await queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+      console.log('[APP] All data refreshed successfully');
     },
   });
 
