@@ -4,7 +4,8 @@
 FitForge is a mobile-first fitness application designed for personalized workout program generation. It guides users through an onboarding questionnaire, creates custom workout plans based on fitness levels, available equipment, and schedule, and provides tools for workout tracking and progress monitoring. The application utilizes a template-based adaptive training system for intelligent program generation and progressive overload, aiming for quick data entry and functional clarity to help users achieve their fitness goals.
 
 ## User Preferences
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language.
+- Testing preference: Only use browser-based testing when absolutely necessary (UI/UX validation, multi-page workflows, JavaScript-dependent features). Prefer faster methods like API testing, database queries, log inspection, and LSP diagnostics for backend/schema changes.
 
 ## System Architecture
 
