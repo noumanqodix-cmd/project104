@@ -115,7 +115,7 @@ async function runTest() {
       const fullExercise = availableExercises.find(e => e.name === ex.exerciseName);
       const pattern = fullExercise?.movementPattern || 'unknown';
       const difficulty = fullExercise?.difficulty || 'unknown';
-      const exerciseType = fullExercise?.exerciseType || 'unknown';
+      const category = fullExercise?.exerciseCategory || 'unknown';
       
       // Track pattern
       if (pattern !== 'unknown') {
@@ -139,7 +139,7 @@ async function runTest() {
       // Display exercise info
       console.log(`\n   ${exNum}. ${ex.exerciseName} ${ex.supersetGroup ? `[${ex.supersetGroup}]` : ''}`);
       console.log(`      Pattern: ${pattern} | Difficulty: ${difficulty}`);
-      console.log(`      Type: ${exerciseType} | Equipment: ${ex.equipment || 'bodyweight'}`);
+      console.log(`      Category: ${category} | Equipment: ${ex.equipment || 'bodyweight'}`);
       
       if (ex.repsMin !== undefined && ex.repsMax !== undefined) {
         console.log(`      Sets: ${ex.sets} x ${ex.repsMin}-${ex.repsMax} reps | Rest: ${ex.restSeconds}s`);

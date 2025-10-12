@@ -13,8 +13,7 @@ interface GeneratedExerciseData {
   difficulty: string;
   primaryMuscles: string[];
   secondaryMuscles: string[];
-  exerciseType: "warmup" | "main" | "cooldown";
-  liftType: "compound" | "isolation";
+  exerciseCategory: "warmup" | "power" | "compound" | "isolation" | "core" | "cardio";
   isCorrective: number;
   formTips: string[];
   trackingType?: "reps" | "duration" | "both";
@@ -26,10 +25,13 @@ export async function generateExercisesForEquipment(
   const prompt = `You are an expert strength and conditioning coach. Generate 10-15 diverse exercises specifically for ${equipment}.
 
 **Requirements:**
-1. Include exercises from ALL three types:
-   - Warmup exercises (mobility, activation, dynamic stretching)
-   - Main exercises (strength, power, skill work, isolation)
-   - Cooldown exercises (static stretching, mobility)
+1. Include exercises from ALL categories (exerciseCategory):
+   - warmup: Mobility, activation, dynamic stretching
+   - power: Explosive, plyometric, Olympic lift variations
+   - compound: Multi-joint strength exercises
+   - isolation: Single-joint exercises targeting specific muscles
+   - core: Core stability, anti-rotation, planks
+   - cardio: Conditioning, endurance work
 
 2. Cover multiple movement patterns:
    - Push (horizontal/vertical pressing)
@@ -50,9 +52,13 @@ export async function generateExercisesForEquipment(
    - Intermediate (moderate complexity)
    - Advanced (high skill/strength requirements)
 
-4. Include BOTH functional compound movements AND isolation exercises:
-   - Compound/Functional: Multi-joint exercises (Squats, Deadlifts, Rows, Presses)
-   - Isolation: Single-joint exercises (Bicep Curls, Tricep Extensions, Lateral Raises, Leg Curls, Calf Raises, Chest Flyes)
+4. Category guidelines:
+   - warmup: Always beginner difficulty, duration-based
+   - power: Include beginner-advanced, low reps with long rest
+   - compound: Multi-joint, any difficulty
+   - isolation: Single-joint, intermediate-advanced only (NEVER beginner)
+   - core: Core patterns, any difficulty
+   - cardio: Conditioning exercises, any difficulty
 5. Include corrective exercises where appropriate (exercises that address common movement dysfunctions)
 6. Provide specific, actionable form tips for each exercise
 
@@ -67,8 +73,7 @@ export async function generateExercisesForEquipment(
       "difficulty": "beginner|intermediate|advanced",
       "primaryMuscles": ["broad muscle group(s)"],
       "secondaryMuscles": ["specific anatomical muscles"],
-      "exerciseType": "warmup|main|cooldown",
-      "liftType": "compound",
+      "exerciseCategory": "warmup|power|compound|isolation|core|cardio",
       "isCorrective": 0,
       "trackingType": "reps|duration|both",
       "formTips": [
@@ -90,13 +95,14 @@ export async function generateExercisesForEquipment(
 - "both": Can be tracked either way (carries, some cardio)
 
 **Important:**
-- liftType: "compound" for multi-joint exercises, "isolation" for single-joint exercises
+- exerciseCategory: Choose the most appropriate category for each exercise
 - isCorrective: 1 for corrective exercises, 0 for regular exercises
-- MUST include BOTH compound (liftType: "compound") AND isolation exercises (liftType: "isolation")
-- **ISOLATION EXERCISES (liftType: "isolation") must ONLY be generated as "intermediate" or "advanced" difficulty, NEVER "beginner"**
+- MUST include exercises from ALL categories: warmup, power, compound, isolation, core, cardio
+- **ISOLATION EXERCISES (exerciseCategory: "isolation") must ONLY be "intermediate" or "advanced" difficulty, NEVER "beginner"**
 - Compound exercises can be any difficulty level (beginner, intermediate, advanced)
-- Essential compound exercises to include when applicable: Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Lat Pulldown, Bent-Over Row
-- Essential isolation exercises to include when applicable: Bicep Curls, Tricep Extensions, Lateral Raises, Chest Flyes, Leg Curls, Calf Raises
+- Essential compound exercises: Barbell Back Squat, Barbell Bench Press, Barbell Deadlift, Lat Pulldown, Bent-Over Row
+- Essential isolation exercises: Bicep Curls, Tricep Extensions, Lateral Raises, Chest Flyes, Leg Curls, Calf Raises
+- Essential power exercises: Jump Squats, Box Jumps, Medicine Ball Throws, Kettlebell Swings
 - Ensure variety in movement patterns and difficulty levels
 - Make exercise names clear and specific
 - Form tips should be practical coaching cues`;
@@ -132,7 +138,7 @@ export async function generateExercisesForEquipment(
     difficulty: ex.difficulty,
     primaryMuscles: ex.primaryMuscles,
     secondaryMuscles: ex.secondaryMuscles,
-    exerciseCategory: ex.liftType === 'compound' ? 'compound' : 'isolation', // Map old liftType to exerciseCategory
+    exerciseCategory: ex.exerciseCategory,
     isCorrective: ex.isCorrective,
     formTips: ex.formTips,
     videoUrl: null,
