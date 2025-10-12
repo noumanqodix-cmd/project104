@@ -94,6 +94,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
   const [sessionError, setSessionError] = useState<string>("");
+  const [storedRestDuration, setStoredRestDuration] = useState<number>(90); // Store rest duration for current exercise
   const isPausedRef = useRef(false);
   const isSwappingRef = useRef(false);
   const sessionInitializedRef = useRef(false);
@@ -240,6 +241,33 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     || currentExercise?.movementPattern === 'cardio'
     || currentExercise?.equipment.some(eq => eq.toLowerCase().includes('cardio'));
   const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
+  
+  // Helper to check if current exercise is a warmup
+  const isWarmup = () => {
+    return currentProgramExercise?.exercise?.exerciseCategory === 'warmup';
+  };
+  
+  // Get appropriate rest duration based on exercise type
+  const getRestDuration = () => {
+    if (isWarmup()) return 0; // No rest for warmups
+    
+    const category = currentProgramExercise?.exercise?.exerciseCategory;
+    
+    switch (category) {
+      case 'power':
+      case 'compound':
+        return 120; // 2 minutes for power/compound
+      case 'isolation':
+        return 60; // 1 minute for isolation
+      case 'core':
+      case 'carry':
+        return 45; // 45 seconds for core/carry
+      case 'cardio':
+        return 0; // No rest for cardio (handled by HIIT timer)
+      default:
+        return 90; // Default 90 seconds
+    }
+  };
 
   useEffect(() => {
     isPausedRef.current = isPaused;
@@ -404,12 +432,18 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       });
     } else {
       // Move to next exercise
+      // Get rest duration for CURRENT (HIIT) exercise before changing index
+      const restDuration = getRestDuration(); // Should be 0 for cardio/HIIT
+      setStoredRestDuration(restDuration);
       setCurrentExerciseIndex(prev => prev + 1);
       setCurrentSet(1);
       setActualReps("");
       setActualWeight("");
       setActualDuration("");
-      setShowRestTimer(true);
+      // Only show rest timer if duration > 0 (HIIT should be 0)
+      if (restDuration > 0) {
+        setShowRestTimer(true);
+      }
     }
   };
 
@@ -505,6 +539,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     if (isInSuperset()) {
       const pairIndex = getSupersetPairIndex();
       const isFirstInPair = isFirstExerciseInSuperset();
+      const restDuration = getRestDuration(); // Get rest duration for CURRENT exercise before changing index
       
       if (isFirstInPair && pairIndex !== -1) {
         // First exercise in superset: go immediately to second exercise (NO REST)
@@ -515,7 +550,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         // Keep same set number, no rest timer
         return;
       } else {
-        // Second exercise in superset: show rest, then handleRestComplete will loop back
+        // Second exercise in superset
         if (isLastSet) {
           // Find next non-superset exercise or complete workout
           const nextIndex = currentExerciseIndex + 1;
@@ -556,25 +591,44 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             });
           } else {
             // Move to next exercise
+            // Store rest duration BEFORE changing index
+            setStoredRestDuration(restDuration);
             setCurrentExerciseIndex(nextIndex);
             setCurrentSet(1);
             setActualReps("");
             setActualWeight("");
             setActualDuration("");
-            setShowRestTimer(true);
+            // Only show rest timer if not a warmup (warmups have 0 second rest)
+            if (restDuration > 0) {
+              setShowRestTimer(true);
+            }
           }
         } else {
-          // Not last set: show rest, then go back to first exercise with next set
+          // Not last set: loop back to first exercise with next set
           setActualReps("");
           setActualWeight("");
           setActualDuration("");
-          setShowRestTimer(true);
+          // Only show rest timer if not a warmup (warmups have 0 second rest)
+          if (restDuration > 0) {
+            // Store rest duration BEFORE changing index
+            setStoredRestDuration(restDuration);
+            setShowRestTimer(true);
+          } else {
+            // Warmup: immediately go back to first exercise for next set (NO REST)
+            const pairIndex = getSupersetPairIndex();
+            if (pairIndex !== -1) {
+              setCurrentExerciseIndex(pairIndex);
+              setCurrentSet(prev => prev + 1);
+            }
+          }
         }
         return;
       }
     }
 
     // Regular (non-superset) flow
+    const restDuration = getRestDuration(); // Get rest duration for CURRENT exercise before changing index
+    
     if (isLastSet) {
       if (isLastExercise) {
         const totalVolume = updatedExercises.reduce((total, ex) => {
@@ -611,19 +665,29 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           sessionId: sessionId,
         });
       } else {
+        // Store rest duration BEFORE changing index
+        setStoredRestDuration(restDuration);
         setCurrentExerciseIndex(prev => prev + 1);
         setCurrentSet(1);
         setActualReps("");
         setActualWeight("");
         setActualDuration("");
-        setShowRestTimer(true);
+        // Only show rest timer if duration > 0
+        if (restDuration > 0) {
+          setShowRestTimer(true);
+        }
       }
     } else {
+      // Store rest duration BEFORE changing set (still same exercise, so same duration)
+      setStoredRestDuration(restDuration);
       setCurrentSet(prev => prev + 1);
       setActualReps("");
       setActualWeight("");
       setActualDuration("");
-      setShowRestTimer(true);
+      // Only show rest timer if duration > 0
+      if (restDuration > 0) {
+        setShowRestTimer(true);
+      }
     }
   };
 
@@ -1067,7 +1131,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
       {showRestTimer && (
         <RestTimerOverlay
-          duration={90}
+          duration={storedRestDuration}
           onComplete={handleRestComplete}
           onSkip={() => setShowRestTimer(false)}
           showAds={showAds}
