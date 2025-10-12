@@ -843,8 +843,21 @@ export async function generateWorkoutProgram(
       return true;
     }
     
-    // Compound and power exercises blocked for full week (no same-week repeats)
-    if (exerciseCategory === 'compound' || exerciseCategory === 'power') {
+    // COMPOUND REUSE: Allow after 2-3 days for even weekly distribution
+    // Power exercises still blocked for full week (high CNS demand)
+    if (exerciseCategory === 'compound') {
+      const daysSince = currentDay - lastUsedDay;
+      // Require 2+ day gap for compound reuse (e.g., Monday compound can be reused Thursday+)
+      if (daysSince < 2) {
+        console.log(`[COMPOUND-REUSE] Blocking ${exerciseId} - only ${daysSince} days since last use (need 2+)`);
+        return false;
+      }
+      console.log(`[COMPOUND-REUSE] Allowing ${exerciseId} - ${daysSince} days since last use`);
+      return true;
+    }
+    
+    // Power exercises blocked for full week (highest CNS demand)
+    if (exerciseCategory === 'power') {
       return false;
     }
     
@@ -940,7 +953,15 @@ export async function generateWorkoutProgram(
       }
       
       // Adjust compound selection to account for reserved isolation slots
-      const compoundSlotsToFill = mainCount - reservedSupersetSlots;
+      let compoundSlotsToFill = mainCount - reservedSupersetSlots;
+      
+      // CAP COMPOUNDS PER DAY: Prevent later days from hoarding reused compounds
+      // Allow modest flexibility (+1 from average) to accommodate pattern requirements
+      // but prevent extreme imbalance (e.g., 3-5-4-7 → 3-5-5-5)
+      const averageCompoundsPerDay = Math.floor(mainCount - reservedSupersetSlots);
+      const MAX_COMPOUNDS_PER_DAY = averageCompoundsPerDay + 1; // Allow +1 flexibility
+      compoundSlotsToFill = Math.min(compoundSlotsToFill, MAX_COMPOUNDS_PER_DAY);
+      console.log(`[COMPOUND-CAP] Day ${workoutIndex}: Limiting to ${compoundSlotsToFill} compounds (max: ${MAX_COMPOUNDS_PER_DAY}, base: ${averageCompoundsPerDay})`);
       
       // REQUIRED MOVEMENT SELECTION FIRST
       // Before tiered selection, prioritize required movements that haven't been used this week
@@ -1437,6 +1458,12 @@ export async function generateWorkoutProgram(
           
           for (const ex of toAdd) {
             if (actualStrengthDuration >= strengthTimeBudget - 1) break;
+            
+            // COMPOUND CAP ENFORCEMENT: Stop if we've hit the max compounds per day
+            if (ex.exerciseCategory === 'compound' && stageOutputs.compounds.length >= MAX_COMPOUNDS_PER_DAY) {
+              console.log(`[FALLBACK-CAP] Stopping compound additions - at max (${MAX_COMPOUNDS_PER_DAY}) for day ${workoutIndex}`);
+              break;
+            }
             
             // Re-check muscle constraint (in case multiple exercises from same pattern target same muscle)
             if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles)) {
