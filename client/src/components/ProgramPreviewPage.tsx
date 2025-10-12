@@ -53,11 +53,6 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
     return '-';
   };
 
-  const getDayName = (dayOfWeek: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek % 7];
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b p-6 bg-primary/5">
@@ -108,7 +103,7 @@ export default function ProgramPreviewPage({ generatedProgram, onContinue }: Pro
                         {workout.workoutName}
                       </h3>
                       <p className="text-sm text-muted-foreground mt-1" data-testid={`text-day-${workout.dayOfWeek}`}>
-                        {getDayName(workout.dayOfWeek)} • {workout.movementFocus.join(', ')}
+                        {workout.movementFocus.join(', ')}
                       </p>
                     </div>
                     <Badge variant="secondary" data-testid={`badge-day-${workout.dayOfWeek}`}>

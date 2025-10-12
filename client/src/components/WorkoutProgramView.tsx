@@ -96,11 +96,6 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
     return '-';
   };
 
-  const getDayName = (dayOfWeek: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek % 7];
-  };
-
   const isOlympicLift = (exercise: Exercise) => {
     return exercise?.isOlympicLift === 1;
   };
@@ -179,7 +174,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
               Previous
             </Button>
             <span className="text-sm font-medium" data-testid="text-workout-navigation">
-              {getDayName(currentWorkout.dayOfWeek)} • Workout {currentWorkoutIndex + 1} of {fullProgram.workouts.length}
+              Workout {currentWorkoutIndex + 1} of {fullProgram.workouts.length}
             </span>
             <Button
               variant="outline"

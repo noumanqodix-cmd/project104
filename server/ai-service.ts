@@ -111,21 +111,20 @@ export interface GeneratedExercise {
 // HELPER FUNCTION: Generate Workout Names
 // ==========================================
 // Creates descriptive workout names based on which movement patterns are included
-// Example: If workout has squat + hinge + pull patterns → "Monday - Full Body Strength"
+// Example: If workout has squat + hinge + pull patterns → "Full Body Strength"
 //
 // INPUT: 
 //   - movementFocus: Array of movement patterns in this workout (e.g., ["squat", "hinge", "pull"])
 //   - workoutType: Type of workout (strength, cardio, hiit, mobility)
-//   - dayName: Day of week (e.g., "Monday")
-// OUTPUT: Descriptive name string (e.g., "Monday - Upper Body Push")
-function generateWorkoutName(movementFocus: string[], workoutType: "strength" | "cardio" | "hiit" | "mobility" | null, dayName: string): string {
+// OUTPUT: Descriptive name string (e.g., "Upper Body Push")
+function generateWorkoutName(movementFocus: string[], workoutType: "strength" | "cardio" | "hiit" | "mobility" | null): string {
   
   // Remove duplicates from the movement list (in case squat appears twice)
   const uniquePatterns = Array.from(new Set(movementFocus));
   
   // Special case: Cardio/HIIT workouts get a simple name
   if (workoutType === "cardio" || workoutType === "hiit") {
-    return `${dayName} - Cardio & Conditioning`;
+    return "Cardio & Conditioning";
   }
   
   // Categorize the movements into body regions
@@ -149,39 +148,39 @@ function generateWorkoutName(movementFocus: string[], workoutType: "strength" | 
   
   // Full body workout (all 3 regions: push + pull + legs)
   if (upperPush && upperPull && lowerBody) {
-    return `${dayName} - Full Body Strength`;
+    return "Full Body Strength";
   }
   
   // Upper body push only (chest, shoulders, triceps)
   if (upperPush && !upperPull && !lowerBody) {
-    return core ? `${dayName} - Push & Core` : `${dayName} - Upper Body Push`;
+    return core ? "Push & Core" : "Upper Body Push";
   }
   
   // Upper body pull only (back, biceps)
   if (upperPull && !upperPush && !lowerBody) {
-    return core ? `${dayName} - Pull & Core` : `${dayName} - Upper Body Pull`;
+    return core ? "Pull & Core" : "Upper Body Pull";
   }
   
   // Upper body combined (push + pull, no legs)
   if (upperPush && upperPull && !lowerBody) {
-    return `${dayName} - Upper Body Power`;
+    return "Upper Body Power";
   }
   
   // Lower body only (quads, glutes, hamstrings)
   if (lowerBody && !upperPush && !upperPull) {
-    return core ? `${dayName} - Lower Body & Core` : `${dayName} - Lower Body Strength`;
+    return core ? "Lower Body & Core" : "Lower Body Strength";
   }
   
   // Mixed lower + upper (full body with cardio)
   if (lowerBody && (upperPush || upperPull)) {
     if (cardioIncluded) {
-      return `${dayName} - Total Body Conditioning`;  // Includes cardio finisher
+      return "Total Body Conditioning";  // Includes cardio finisher
     }
-    return `${dayName} - Full Body Power`;
+    return "Full Body Power";
   }
   
   // Safety fallback (should rarely hit this)
-  return `${dayName} - Strength Training`;
+  return "Strength Training";
 }
 
 // ==========================================
@@ -2066,7 +2065,7 @@ export async function generateWorkoutProgram(
       }
       
       // Generate descriptive workout name based on movement patterns
-      const descriptiveWorkoutName = generateWorkoutName(movementFocus, workoutType, dayName);
+      const descriptiveWorkoutName = generateWorkoutName(movementFocus, workoutType);
       
       // Push workout with both dayOfWeek (legacy) and workoutIndex (new)
       workouts.push({

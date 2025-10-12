@@ -300,11 +300,6 @@ export default function Home() {
     });
   };
 
-  const getDayName = (dateString: string | Date) => {
-    const date = typeof dateString === 'string' ? parseLocalDate(dateString) : dateString;
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  };
-
   const getStartOfWeek = () => {
     const now = new Date();
     const dayOfWeek = now.getDay();
