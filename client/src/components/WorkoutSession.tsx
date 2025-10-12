@@ -237,9 +237,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   const currentProgramExercise = programExercises[currentExerciseIndex];
   const isHIIT = currentProgramExercise?.workSeconds !== null && currentProgramExercise?.workSeconds !== undefined;
+  
+  // Robust duration-based check with multiple fallbacks
   const isDurationBased = currentProgramExercise?.exercise?.trackingType === 'duration' 
+    || currentProgramExercise?.exercise?.trackingType === 'both'
     || currentExercise?.movementPattern === 'cardio'
-    || currentExercise?.equipment.some(eq => eq.toLowerCase().includes('cardio'));
+    || currentExercise?.equipment?.some(eq => eq.toLowerCase().includes('cardio'))
+    || (currentExercise?.durationSeconds !== null && currentExercise?.durationSeconds !== undefined && currentExercise.durationSeconds > 0);
+  
   const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
   
   // Helper to check if current exercise is a warmup
@@ -1053,6 +1058,12 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   type="number"
                   value={actualDuration}
                   onChange={(e) => setActualDuration(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && actualDuration) {
+                      e.preventDefault();
+                      handleSetComplete();
+                    }
+                  }}
                   placeholder={currentExercise.durationSeconds?.toString() || "300"}
                   className="text-2xl text-center h-16"
                   data-testid="input-actual-duration"
@@ -1108,18 +1119,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             <Button
               size="lg"
               className="w-full"
-              onClick={() => {
-                console.log('[BUTTON] handleSetComplete called', {
-                  isDurationBased,
-                  actualDuration,
-                  actualReps,
-                  actualWeight,
-                  needsWeight,
-                  currentExerciseName: currentExercise.name,
-                  trackingType: currentProgramExercise?.exercise?.trackingType
-                });
-                handleSetComplete();
-              }}
+              onClick={handleSetComplete}
               disabled={isDurationBased ? !actualDuration : (!actualReps || (needsWeight && !actualWeight))}
               data-testid="button-next-set"
             >
