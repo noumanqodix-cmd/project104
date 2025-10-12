@@ -33,15 +33,8 @@ export default function History() {
     queryKey: ["/api/programs/archived"],
   });
 
-  // Get IDs of workouts in the active program
-  const activeProgramWorkoutIds = new Set(activeProgramWorkouts?.map(w => w.id) || []);
-
-  // Filter sessions to only show completed ones from the active program
-  const completedSessions = sessions?.filter(s => {
-    if (!s.completed) return false;
-    if (!s.programWorkoutId) return false;
-    return activeProgramWorkoutIds.has(s.programWorkoutId);
-  }) || [];
+  // Calculate stats across ALL completed sessions (cumulative across all cycles/programs)
+  const completedSessions = sessions?.filter(s => s.completed && s.status !== 'skipped') || [];
 
   const totalStats = {
     totalSessions: completedSessions.length,
