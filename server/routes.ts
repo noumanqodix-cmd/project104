@@ -1917,8 +1917,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If we found a pre-scheduled session, update it instead of creating new
         if (existingScheduledSession) {
+          // Don't update scheduledDate - keep the original scheduled date
+          // Only update status, completed, session metadata
+          const { scheduledDate, ...updateData } = validatedData;
+          
           const updatedSession = await storage.updateWorkoutSession(existingScheduledSession.id, {
-            ...validatedData,
+            ...updateData,
             // sessionDate now comes from client (user's local time)
           });
           
