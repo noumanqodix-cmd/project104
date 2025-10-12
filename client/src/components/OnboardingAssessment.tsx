@@ -1,26 +1,23 @@
 // ==========================================
 // ONBOARDING ASSESSMENT - New User Setup Journey
 // ==========================================
-// This component guides new users through the complete onboarding process
-// It's a multi-step wizard that collects all necessary information to build
-// a personalized workout program
+// This component guides authenticated new users through onboarding
+// Users reach this page after: Landing → Marketing → Login → No existing program
 //
 // ONBOARDING FLOW (5 STEPS):
 // 1. QUESTIONNAIRE → Collect experience level, available equipment, training schedule
 // 2. NUTRITION → Calculate BMR/TDEE, heart rate zones, set nutrition goals
 // 3. TEST SELECTION → Choose fitness test type (bodyweight, weights, or skip)
 // 4. FITNESS TEST → Complete chosen test (bodyweight OR weights OR skip)
-// 5. SUBMIT → Save everything and generate workout program
-//
-// AUTHENTICATION HANDLING:
-// - If user is logged in → Save directly to database → Navigate to /home
-// - If user is NOT logged in → Save to localStorage → Redirect to login → Resume after auth
+// 5. DATE SELECTION → Pick calendar dates for workout cycle
+// 6. SUBMIT → Save to database and generate workout program → Navigate to /home
 //
 // DATA COLLECTED:
 // - Training preferences (days/week, duration, equipment)
 // - Body metrics (height, weight, age)
 // - Nutrition goals (gain/maintain/lose)
 // - Fitness test results (optional but recommended)
+// - Calendar dates for first workout cycle
 //
 // WHY THIS MATTERS:
 // All this information is used by the AI workout generator to create
@@ -78,95 +75,33 @@ export default function OnboardingAssessment() {
   // ==========================================
   // MUTATION: Submit Complete Onboarding Data
   // ==========================================
-  // This handles the final submission of all collected onboarding data
-  // It's smart about authentication - works for both logged-in and anonymous users
-  //
-  // TWO POSSIBLE FLOWS:
-  // 
-  // FLOW A - User Already Logged In:
-  //   1. Check auth status → User has session
-  //   2. Save directly to database → Success!
-  //   3. Navigate to /home → Start using app
-  //
-  // FLOW B - User NOT Logged In (Anonymous):
-  //   1. Check auth status → No session
-  //   2. Save data to localStorage (browser storage)
-  //   3. Redirect to login page
-  //   4. After login → OIDCCallbackPage retrieves localStorage → Saves to database → Navigate to /home
-  //      (Note: The resume logic happens in OIDCCallbackPage.tsx, not in this component)
-  //
-  // WHY TWO FLOWS?
-  // Some users want to explore the app before creating an account
-  // We don't lose their data - we save it temporarily and complete setup after login
+  // Saves all collected onboarding data to database and generates workout program
+  // User is always authenticated at this point (logged in via marketing → auth flow)
   const completeAssessmentMutation = useMutation({
-    // The actual API call function
     mutationFn: async (data: any) => {
-      console.log('[ONBOARDING] Mutation started with data:', data);
+      console.log('[ONBOARDING] Saving assessment data:', data);
       
-      // STEP 1: Check if user is authenticated
-      try {
-        console.log('[ONBOARDING] Checking authentication...');
-        const userResponse = await apiRequest("GET", "/api/auth/user");
-        const user = await userResponse.json();
-        console.log('[ONBOARDING] User authentication response:', user);
-        
-        if (user && user.id) {
-          // AUTHENTICATED FLOW - Save directly to database
-          console.log('[ONBOARDING] User authenticated, saving assessment...');
-          const response = await apiRequest("POST", "/api/onboarding-assessment/complete", {
-            ...data,
-            startDate: formatLocalDate(getTodayLocal()),  // Program starts today
-          });
-          const responseData = await response.json();
-          console.log('[ONBOARDING] Assessment saved successfully:', responseData);
-          return { authenticated: true, data: responseData };
-        }
-      } catch (error) {
-        console.log('[ONBOARDING] Authentication check failed:', error);
-        // Fall through to unauthenticated flow
-      }
-      
-      // UNAUTHENTICATED FLOW - Save to browser storage for later
-      console.log('[ONBOARDING] User not authenticated, saving to localStorage');
-      return { authenticated: false, data };
-    },
-    
-    // What to do if submission succeeds
-    onSuccess: (result) => {
-      console.log('[ONBOARDING] Mutation success, result:', result);
-      
-      if (result.authenticated) {
-        // AUTHENTICATED SUCCESS - Go straight to app
-        console.log('[ONBOARDING] Authenticated flow - invalidating queries and navigating to /home');
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });  // Reload user data
-        queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });  // Reload assessments
-        toast({
-          title: "Assessment Complete!",
-          description: "Your profile has been set up successfully.",
-        });
-        console.log('[ONBOARDING] Navigating to /home');
-        setLocation("/home");  // Navigate to main app
-      } else {
-        // UNAUTHENTICATED SUCCESS - Save and redirect to login
-        console.log('[ONBOARDING] Unauthenticated flow - saving to localStorage and redirecting to login');
-        const onboardingData = {
-          questionnaireData: result.data,
-          isOnboardingAssessment: true,  // Flag to indicate this is onboarding data
-        };
-        localStorage.setItem('fitforge_onboarding_data', JSON.stringify(onboardingData));
-        console.log('[ONBOARDING] Redirecting to /api/login');
-        window.location.href = "/api/login";  // Redirect to Replit Auth login
-      }
-    },
-    
-    // What to do if submission fails
-    onError: (error: any) => {
-      console.error('[ONBOARDING] Mutation error:', error);
-      console.error('[ONBOARDING] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
+      const response = await apiRequest("POST", "/api/onboarding-assessment/complete", {
+        ...data,
+        startDate: formatLocalDate(getTodayLocal()),
       });
+      
+      return await response.json();
+    },
+    
+    onSuccess: () => {
+      console.log('[ONBOARDING] Assessment complete, redirecting to home');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      toast({
+        title: "Assessment Complete!",
+        description: "Your personalized program is ready.",
+      });
+      setLocation("/home");
+    },
+    
+    onError: (error: any) => {
+      console.error('[ONBOARDING] Error:', error);
       toast({
         title: "Assessment Failed",
         description: error.message || "Failed to save assessment. Please try again.",
@@ -276,10 +211,6 @@ export default function OnboardingAssessment() {
           <QuestionnaireFlow
             onComplete={(data) => {
               setQuestionnaireData(data);
-              // Save unitPreference to localStorage for NutritionAssessment to read
-              if (data.unitPreference) {
-                localStorage.setItem('unitPreference', data.unitPreference);
-              }
               setCurrentStep("nutrition");
             }}
             onBack={() => setLocation("/")}
