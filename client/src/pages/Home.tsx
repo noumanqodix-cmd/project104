@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { CycleComplete } from "@/components/CycleComplete";
 
 export default function Home() {
   const { toast } = useToast();
@@ -44,6 +45,7 @@ export default function Home() {
   const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
   const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [showCycleCompleteDialog, setShowCycleCompleteDialog] = useState(false);
   const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
   const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
@@ -79,6 +81,17 @@ export default function Home() {
   }>({
     queryKey: ["/api/programs/completion-check"],
     enabled: !!activeProgram?.id,
+  });
+
+  // Check for 7-day cycle completion
+  const { data: cycleCompletionCheck } = useQuery<{
+    shouldPrompt: boolean;
+    cycleNumber: number;
+    totalWorkoutsCompleted: number;
+    currentCycleDates: string[];
+  }>({
+    queryKey: ["/api/programs/cycle-completion"],
+    enabled: !!activeProgram?.id && !!user,
   });
 
 
@@ -279,6 +292,13 @@ export default function Home() {
       setShowCompletionDialog(true);
     }
   }, [completionCheck?.shouldPrompt]);
+
+  // Check for 7-day cycle completion (takes priority over 4-week completion)
+  useEffect(() => {
+    if (cycleCompletionCheck?.shouldPrompt) {
+      setShowCycleCompleteDialog(true);
+    }
+  }, [cycleCompletionCheck?.shouldPrompt]);
 
   const completedSessions = sessions?.filter((s: any) => s.completed) || [];
   const totalCompletedSessions = completedSessions.length;
@@ -875,6 +895,21 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 7-Day Cycle Completion Dialog */}
+      <CycleComplete
+        open={showCycleCompleteDialog}
+        cycleNumber={cycleCompletionCheck?.cycleNumber || 1}
+        totalWorkoutsCompleted={cycleCompletionCheck?.totalWorkoutsCompleted || 0}
+        onRepeatSameDays={() => {
+          setShowCycleCompleteDialog(false);
+          // Handled by CycleComplete component
+        }}
+        onNewProgram={() => {
+          setShowCycleCompleteDialog(false);
+          setLocation("/settings");
+        }}
+      />
 
       {/* Cardio Type Selection Dialog */}
       <Dialog open={showCardioTypeDialog} onOpenChange={setShowCardioTypeDialog}>
