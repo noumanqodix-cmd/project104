@@ -64,6 +64,7 @@ export interface IStorage {
   archiveCompletedSessions(userId: string, fromDate: string): Promise<number>;
   deleteIncompleteSessions(userId: string, fromDate: string): Promise<number>;
   cleanupSessionsForRegeneration(userId: string, fromDate: string): Promise<{ archived: number; deleted: number }>;
+  removeDuplicateSessions(userId: string): Promise<number>;
   
   createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet>;
   getWorkoutSet(id: string): Promise<WorkoutSet | undefined>;
@@ -431,6 +432,60 @@ export class DbStorage implements IStorage {
     const deleted = await this.deleteIncompleteSessions(userId, fromDate);
     
     return { archived, deleted };
+  }
+
+  async removeDuplicateSessions(userId: string): Promise<number> {
+    // Find and remove duplicate sessions for the same date
+    // Keep the most recent session (by sessionDate timestamp) for each scheduled_date
+    
+    // Get all non-archived sessions for the user
+    const allSessions = await db.select().from(workoutSessions)
+      .where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.isArchived, 0)
+      ))
+      .orderBy(workoutSessions.scheduledDate, desc(workoutSessions.sessionDate));
+    
+    // Group by scheduled_date to find duplicates
+    const sessionsByDate = new Map<string, WorkoutSession[]>();
+    for (const session of allSessions) {
+      if (!session.scheduledDate) continue;
+      
+      if (!sessionsByDate.has(session.scheduledDate)) {
+        sessionsByDate.set(session.scheduledDate, []);
+      }
+      sessionsByDate.get(session.scheduledDate)!.push(session);
+    }
+    
+    // Find and delete duplicates (keep most recent)
+    const idsToDelete: string[] = [];
+    for (const [date, sessions] of sessionsByDate.entries()) {
+      if (sessions.length > 1) {
+        // Sort by sessionDate descending (most recent first)
+        sessions.sort((a, b) => {
+          const aTime = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
+          const bTime = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        // Keep the first (most recent), delete the rest
+        for (let i = 1; i < sessions.length; i++) {
+          idsToDelete.push(sessions[i].id);
+        }
+        
+        console.log(`[DUPLICATE-CLEANUP] Found ${sessions.length} sessions for ${date}, keeping most recent (${sessions[0].id}), removing ${sessions.length - 1} older session(s)`);
+      }
+    }
+    
+    // Delete all duplicate sessions in one query
+    if (idsToDelete.length > 0) {
+      await db.delete(workoutSessions)
+        .where(inArray(workoutSessions.id, idsToDelete));
+      
+      console.log(`[DUPLICATE-CLEANUP] Removed ${idsToDelete.length} duplicate session(s) for user ${userId}`);
+    }
+    
+    return idsToDelete.length;
   }
 
   async getSessionByDate(userId: string, scheduledDate: string): Promise<WorkoutSession | undefined> {
