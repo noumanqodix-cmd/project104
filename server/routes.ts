@@ -1237,6 +1237,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDateString = startDate || todayString;
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
+      // Remove any duplicate sessions that may have been created
+      const duplicatesRemoved = await storage.removeDuplicateSessions(userId);
+      if (duplicatesRemoved > 0) {
+        console.log(`[GENERATE] Removed ${duplicatesRemoved} duplicate session(s) after schedule generation`);
+      }
+
       res.json({ program, generatedProgram });
     } catch (error) {
       console.error("Generate program error:", error);
@@ -1411,6 +1417,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDateString = startDate || todayString;
       await generateWorkoutSchedule(program.id, userId, createdProgramWorkouts, generatedProgram.durationWeeks, startDateString);
 
+      // Remove any duplicate sessions that may have been created
+      const duplicatesRemoved = await storage.removeDuplicateSessions(userId);
+      if (duplicatesRemoved > 0) {
+        console.log(`[REGENERATE] Removed ${duplicatesRemoved} duplicate session(s) after schedule generation`);
+      }
+
       res.json({ program, generatedProgram });
     } catch (error) {
       console.error("Regenerate program error:", error);
@@ -1528,6 +1540,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/home-data", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
+
+      // Remove any duplicate sessions before loading data (safety net)
+      const duplicatesRemoved = await storage.removeDuplicateSessions(userId);
+      if (duplicatesRemoved > 0) {
+        console.log(`[HOME-DATA] Removed ${duplicatesRemoved} duplicate session(s) during home data load`);
+      }
 
       // Fetch all home page data in parallel for optimal performance
       const [user, activeProgram, sessions, fitnessAssessments] = await Promise.all([

@@ -459,10 +459,10 @@ export class DbStorage implements IStorage {
     
     // Find and delete duplicates (keep most recent)
     const idsToDelete: string[] = [];
-    for (const [date, sessions] of sessionsByDate.entries()) {
+    for (const [date, sessions] of Array.from(sessionsByDate.entries())) {
       if (sessions.length > 1) {
         // Sort by sessionDate descending (most recent first)
-        sessions.sort((a, b) => {
+        sessions.sort((a: WorkoutSession, b: WorkoutSession) => {
           const aTime = a.sessionDate ? new Date(a.sessionDate).getTime() : 0;
           const bTime = b.sessionDate ? new Date(b.sessionDate).getTime() : 0;
           return bTime - aTime;
