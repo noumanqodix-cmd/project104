@@ -1108,7 +1108,18 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
             <Button
               size="lg"
               className="w-full"
-              onClick={handleSetComplete}
+              onClick={() => {
+                console.log('[BUTTON] handleSetComplete called', {
+                  isDurationBased,
+                  actualDuration,
+                  actualReps,
+                  actualWeight,
+                  needsWeight,
+                  currentExerciseName: currentExercise.name,
+                  trackingType: currentProgramExercise?.exercise?.trackingType
+                });
+                handleSetComplete();
+              }}
               disabled={isDurationBased ? !actualDuration : (!actualReps || (needsWeight && !actualWeight))}
               data-testid="button-next-set"
             >
