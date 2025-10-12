@@ -1,3 +1,19 @@
+// ==========================================
+// WORKOUT PAGE - Active Workout Router
+// ==========================================
+// This page determines which type of workout to display:
+// 1. Strength Workout → Shows WorkoutSession component (sets/reps tracking)
+// 2. Cardio Workout → Shows CardioWorkoutSession component (timer/intervals)
+// 3. Completed Workout → Shows completion message
+// 4. No Workout → Shows "no workout scheduled" message
+//
+// FLOW:
+// 1. Fetch today's session from database
+// 2. Check if completed → show completion message
+// 3. Check if cardio → delegate to CardioWorkoutSession
+// 4. Otherwise → delegate to WorkoutSession (strength)
+// ==========================================
+
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import WorkoutSession, { WorkoutSummary } from "@/components/WorkoutSession";
