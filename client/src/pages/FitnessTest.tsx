@@ -1,3 +1,24 @@
+// ==========================================
+// FITNESS TEST PAGE - Track Your Progress & Retake Tests
+// ==========================================
+// This page shows your fitness test history and lets you retake tests anytime
+//
+// WHAT IT DOES:
+// 1. Displays your movement pattern skill levels (beginner/intermediate/advanced for each pattern)
+// 2. Shows bodyweight & weights test history with progress tracking
+// 3. Allows you to retake fitness tests to update your levels
+// 4. Lets you manually override skill levels (advanced feature with warnings)
+//
+// USER JOURNEY:
+// View Results → Click "Retake Test" → Choose Test Type → Complete Test → See Updated Results
+//
+// KEY FEATURES:
+// - Progress tracking: Compare your latest test to previous tests
+// - Manual overrides: Advance to next level even if not meeting targets (with warnings)
+// - Test history: See all past assessments with dates
+// - Retake anytime: No need to go through onboarding again
+// ==========================================
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +36,12 @@ import TestTypeSelector from "@/components/TestTypeSelector";
 import FitnessTestForm, { type FitnessTestResults } from "@/components/FitnessTestForm";
 import WeightsTestForm, { type WeightsTestResults } from "@/components/WeightsTestForm";
 
-// Map movement pattern to override field name
+// ==========================================
+// HELPER: Map Movement Pattern to Database Field
+// ==========================================
+// Each movement pattern has a specific override field in the database
+// This function translates pattern names to the correct field names
+// Example: "horizontal_push" → "horizontalPushOverride"
 const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
   const fieldMap: Record<keyof MovementPatternLevels, string> = {
     horizontal_push: 'horizontalPushOverride',
@@ -33,41 +59,77 @@ const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
 };
 
 export default function FitnessTest() {
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  // ==========================================
+  // STATE MANAGEMENT (Component Memory)
+  // ==========================================
+  // React uses "hooks" to remember information between screen updates
+  
+  const [, setLocation] = useLocation();  // Function to navigate to different pages
+  const { toast } = useToast();  // Function to show popup messages to user
+  
+  // STATE: Is the user currently retaking a test?
+  // false = viewing results | true = in retake flow
   const [isRetaking, setIsRetaking] = useState(false);
+  
+  // STATE: Which test type did they choose?
+  // null = not chosen yet | "bodyweight" = bodyweight test | "weights" = weights test
   const [testType, setTestType] = useState<"bodyweight" | "weights" | null>(null);
+  
+  // STATE: Manual override dialog information
+  // Stores info about which pattern and level user wants to override to
   const [overrideDialog, setOverrideDialog] = useState<{
-    open: boolean;
-    pattern: keyof MovementPatternLevels | null;
-    currentLevel: MovementPatternLevel | null;
-    nextLevel: MovementPatternLevel | null;
+    open: boolean;                           // Is dialog visible?
+    pattern: keyof MovementPatternLevels | null;  // Which movement pattern?
+    currentLevel: MovementPatternLevel | null;    // What's their current level?
+    nextLevel: MovementPatternLevel | null;       // What level do they want?
   }>({ open: false, pattern: null, currentLevel: null, nextLevel: null });
   
+  // ==========================================
+  // DATA FETCHING (Loading Information from Server)
+  // ==========================================
+  // useQuery = React Query hook that automatically loads data from the server
+  // It handles loading states, errors, and caching for us
+  
+  // FETCH: User profile data (name, settings, preferences)
   const { data: user } = useQuery<any>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/auth/user"],  // Unique key to identify this query
   });
 
+  // Determine which unit system to use for weights (imperial=lbs, metric=kg)
   const unitPreference = user?.unitPreference || 'imperial';
   const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
 
+  // FETCH: All fitness assessments for this user
+  // Includes both bodyweight and weights tests, ordered by date (newest first)
   const { data: assessments, isLoading } = useQuery<FitnessAssessment[]>({
     queryKey: ["/api/fitness-assessments"],
   });
 
+  // ==========================================
+  // MUTATIONS (Sending Changes to Server)
+  // ==========================================
+  // useMutation = React Query hook for sending updates to the server
+  // Like useQuery but for CREATE/UPDATE/DELETE operations
+  
+  // MUTATION: Manual Level Override
+  // Allows advanced users to force a level up (e.g., beginner → intermediate)
+  // even if they haven't met the performance targets
   const overrideMutation = useMutation({
+    // The actual API call
     mutationFn: (data: { assessmentId: string; pattern: keyof MovementPatternLevels; level: string }) => {
       const overrideField = getOverrideFieldName(data.pattern);
       return apiRequest('PATCH', `/api/fitness-assessments/${data.assessmentId}/override`, { [overrideField]: data.level });
     },
+    // What to do if it succeeds
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
-      setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null });
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });  // Reload assessments to show new level
+      setOverrideDialog({ open: false, pattern: null, currentLevel: null, nextLevel: null });  // Close dialog
       toast({
         title: "Level Override Applied",
         description: "Your manual level override has been saved successfully.",
       });
     },
+    // What to do if it fails
     onError: (error: any) => {
       console.error("Override mutation error:", error);
       toast({
@@ -78,12 +140,17 @@ export default function FitnessTest() {
     },
   });
 
+  // MUTATION: Save Retaken Fitness Test
+  // Handles both bodyweight and weights test submissions
   const saveTestMutation = useMutation({
+    // The actual API call
     mutationFn: async (testData: FitnessTestResults | WeightsTestResults) => {
+      // Build the assessment object to send to server
       const assessmentData: any = {
-        experienceLevel: user?.fitnessLevel || 'beginner',
+        experienceLevel: user?.fitnessLevel || 'beginner',  // Use current fitness level
       };
 
+      // Map bodyweight test fields
       if (testType === 'bodyweight') {
         const bodyweightData = testData as FitnessTestResults;
         assessmentData.pushups = bodyweightData.pushups;
@@ -94,7 +161,9 @@ export default function FitnessTest() {
         assessmentData.singleLegRdl = bodyweightData.singleLegRdl;
         assessmentData.plankHold = bodyweightData.plankHold;
         assessmentData.mileTime = bodyweightData.mileTime;
-      } else if (testType === 'weights') {
+      } 
+      // Map weights test fields (1RM values)
+      else if (testType === 'weights') {
         const weightsData = testData as WeightsTestResults;
         assessmentData.squat1rm = weightsData.squat;
         assessmentData.deadlift1rm = weightsData.deadlift;
@@ -107,17 +176,20 @@ export default function FitnessTest() {
         assessmentData.mileTime = weightsData.mileTime;
       }
 
+      // Send to server (same endpoint used during onboarding)
       return await apiRequest('POST', '/api/fitness-assessments', assessmentData);
     },
+    // What to do if it succeeds
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
-      setIsRetaking(false);
-      setTestType(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });  // Reload assessments to show new test
+      setIsRetaking(false);  // Exit retake mode
+      setTestType(null);     // Clear selected test type
       toast({
         title: "Test Complete!",
         description: "Your fitness assessment has been saved successfully.",
       });
     },
+    // What to do if it fails
     onError: (error: any) => {
       console.error("Save test error:", error);
       toast({
