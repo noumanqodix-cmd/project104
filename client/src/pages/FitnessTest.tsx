@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Dumbbell, Award, Calendar, Target, AlertTriangle, ChevronUp, ShieldAlert } from "lucide-react";
+import { TrendingUp, Dumbbell, Award, Calendar, Target, AlertTriangle, ChevronUp, ShieldAlert, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -11,6 +11,9 @@ import { calculateMovementPatternLevels, getProgressionTargets, type MovementPat
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import TestTypeSelector from "@/components/TestTypeSelector";
+import FitnessTestForm, { type FitnessTestResults } from "@/components/FitnessTestForm";
+import WeightsTestForm, { type WeightsTestResults } from "@/components/WeightsTestForm";
 
 // Map movement pattern to override field name
 const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
@@ -32,6 +35,8 @@ const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
 export default function FitnessTest() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [isRetaking, setIsRetaking] = useState(false);
+  const [testType, setTestType] = useState<"bodyweight" | "weights" | null>(null);
   const [overrideDialog, setOverrideDialog] = useState<{
     open: boolean;
     pattern: keyof MovementPatternLevels | null;
@@ -69,6 +74,56 @@ export default function FitnessTest() {
         variant: "destructive",
         title: "Override Failed",
         description: error.message || "Failed to apply level override. Please try again.",
+      });
+    },
+  });
+
+  const saveTestMutation = useMutation({
+    mutationFn: async (testData: FitnessTestResults | WeightsTestResults) => {
+      const assessmentData: any = {
+        experienceLevel: user?.fitnessLevel || 'beginner',
+      };
+
+      if (testType === 'bodyweight') {
+        const bodyweightData = testData as FitnessTestResults;
+        assessmentData.pushups = bodyweightData.pushups;
+        assessmentData.pikePushups = bodyweightData.pikePushups;
+        assessmentData.pullups = bodyweightData.pullups;
+        assessmentData.squats = bodyweightData.squats;
+        assessmentData.walkingLunges = bodyweightData.walkingLunges;
+        assessmentData.singleLegRdl = bodyweightData.singleLegRdl;
+        assessmentData.plankHold = bodyweightData.plankHold;
+        assessmentData.mileTime = bodyweightData.mileTime;
+      } else if (testType === 'weights') {
+        const weightsData = testData as WeightsTestResults;
+        assessmentData.squat1rm = weightsData.squat;
+        assessmentData.deadlift1rm = weightsData.deadlift;
+        assessmentData.benchPress1rm = weightsData.benchPress;
+        assessmentData.overheadPress1rm = weightsData.overheadPress;
+        assessmentData.barbellRow1rm = weightsData.row;
+        assessmentData.dumbbellLunge1rm = weightsData.dumbbellLunge;
+        assessmentData.plankHold = weightsData.plankHold;
+        assessmentData.farmersCarry1rm = weightsData.farmersCarry;
+        assessmentData.mileTime = weightsData.mileTime;
+      }
+
+      return await apiRequest('POST', '/api/fitness-assessments', assessmentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      setIsRetaking(false);
+      setTestType(null);
+      toast({
+        title: "Test Complete!",
+        description: "Your fitness assessment has been saved successfully.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Save test error:", error);
+      toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: error.message || "Failed to save fitness assessment. Please try again.",
       });
     },
   });
@@ -503,55 +558,63 @@ export default function FitnessTest() {
     );
   }
 
+  // Show retake test flow
+  if (isRetaking) {
+    if (!testType) {
+      return (
+        <TestTypeSelector
+          onSelect={(type) => {
+            if (type === 'skip') {
+              setIsRetaking(false);
+              toast({
+                title: "Test Skipped",
+                description: "You can retake the test anytime from this page.",
+              });
+            } else {
+              setTestType(type);
+            }
+          }}
+          onBack={() => setIsRetaking(false)}
+        />
+      );
+    }
+
+    if (testType === 'bodyweight') {
+      return (
+        <FitnessTestForm
+          onComplete={(results) => saveTestMutation.mutate(results)}
+          onBack={() => setTestType(null)}
+        />
+      );
+    }
+
+    if (testType === 'weights') {
+      return (
+        <WeightsTestForm
+          onComplete={(results) => saveTestMutation.mutate(results)}
+          onBack={() => setTestType(null)}
+        />
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Fitness Test</h1>
-          <p className="text-muted-foreground">Track your progress and test your limits</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Fitness Test</h1>
+            <p className="text-muted-foreground">Track your progress and test your limits</p>
+          </div>
+          <Button
+            onClick={() => setIsRetaking(true)}
+            className="gap-2"
+            data-testid="button-retake-test"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retake Test
+          </Button>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Choose Your Test</CardTitle>
-            <CardDescription>Select the type of fitness test you want to perform</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-auto py-4"
-              onClick={() => setLocation("/test/bodyweight")}
-              data-testid="button-bodyweight-test"
-            >
-              <div className="flex items-start gap-3 text-left">
-                <Award className="h-5 w-5 mt-1" />
-                <div>
-                  <div className="font-semibold mb-1">Bodyweight Test</div>
-                  <div className="text-sm text-muted-foreground">
-                    Push-ups, Pull-ups, Air Squats, Mile Run
-                  </div>
-                </div>
-              </div>
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              className="w-full justify-start h-auto py-4"
-              onClick={() => setLocation("/test/weights")}
-              data-testid="button-weights-test"
-            >
-              <div className="flex items-start gap-3 text-left">
-                <Dumbbell className="h-5 w-5 mt-1" />
-                <div>
-                  <div className="font-semibold mb-1">Weights Test</div>
-                  <div className="text-sm text-muted-foreground">
-                    Squat, Deadlift, Bench Press, Overhead Press, Row
-                  </div>
-                </div>
-              </div>
-            </Button>
-          </CardContent>
-        </Card>
 
         {renderMovementPatternLevels()}
         {renderBodyweightProgress()}
