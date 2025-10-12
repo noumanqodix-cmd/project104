@@ -98,13 +98,14 @@ export const exercises = pgTable("exercises", {
   difficulty: text("difficulty").notNull(),
   primaryMuscles: text("primary_muscles").array().notNull(),
   secondaryMuscles: text("secondary_muscles").array(),
-  liftType: text("lift_type").notNull().default("compound"),
+  exerciseCategory: text("exercise_category").notNull(), // New unified field: warmup | power | compound | isolation | core | cardio
+  liftType: text("lift_type").notNull().default("compound"), // Deprecated: use exerciseCategory
   isCorrective: integer("is_corrective").notNull().default(0),
-  isPower: integer("is_power").notNull().default(0),
+  isPower: integer("is_power").notNull().default(0), // Deprecated: use exerciseCategory
   isOlympicLift: integer("is_olympic_lift").notNull().default(0),
-  exerciseType: text("exercise_type").notNull().default("main"),
+  exerciseType: text("exercise_type").notNull().default("main"), // Deprecated: use exerciseCategory
   trackingType: text("tracking_type").notNull().default("reps"),
-  workoutType: text("workout_type").notNull().default("strength"),
+  workoutType: text("workout_type").notNull().default("strength"), // Deprecated: use exerciseCategory
   recommendedTempo: text("recommended_tempo"),
   videoUrl: text("video_url"),
   formTips: text("form_tips").array(),
@@ -113,10 +114,11 @@ export const exercises = pgTable("exercises", {
 export const insertExerciseSchema = createInsertSchema(exercises).omit({
   id: true,
 }).extend({
-  liftType: z.enum(["compound", "isolation"]).default("compound"),
-  exerciseType: z.enum(["warmup", "main", "cooldown"]).optional(),
+  exerciseCategory: z.enum(["warmup", "power", "compound", "isolation", "core", "cardio"]),
+  liftType: z.enum(["compound", "isolation"]).default("compound").optional(), // Deprecated
+  exerciseType: z.enum(["warmup", "main", "cooldown"]).optional(), // Deprecated
   trackingType: z.enum(["reps", "duration", "both"]).default("reps"),
-  workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).default("strength"),
+  workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).default("strength").optional(), // Deprecated
 });
 
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
