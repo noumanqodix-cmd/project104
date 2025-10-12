@@ -251,7 +251,7 @@ export const patchWorkoutSessionSchema = z.object({
   durationMinutes: z.number().optional(),
   caloriesBurned: z.number().optional(),
   notes: z.string().optional(),
-  sessionDate: z.date().optional(),
+  sessionDate: z.coerce.date().optional(), // Coerce ISO strings from client to Date
 });
 
 export const insertWorkoutSetSchema = createInsertSchema(workoutSets).omit({
