@@ -3,28 +3,35 @@ import type { User, FitnessAssessment, Exercise } from '../shared/schema';
 import { db } from '../server/db';
 import { exercises as exercisesTable } from '../shared/schema';
 
-// Test user data - 4-day beginner program to test isolation reuse logic
-const testUser: Partial<User> = {
+// Base test user - will be modified for different test scenarios
+const baseTestUser = {
   id: 'test-user-123',
-  username: 'testuser',
   email: 'test@example.com',
+  firstName: 'Test',
+  lastName: 'User',
+  profileImageUrl: null,
+  subscriptionTier: 'free',
   fitnessLevel: 'beginner',
-  equipment: ['barbell', 'dumbbells', 'pull-up bar', 'bench'],
-  goal: 'maintain',
+  equipment: ['dumbbells'], // Dumbbell-only to stress test limited equipment
   nutritionGoal: 'maintain',
-  daysPerWeek: 4,
+  daysPerWeek: 3, // Will be modified per test
   workoutDuration: 60,
-  selectedDays: [1, 3, 5, 6] as any, // Monday, Wednesday, Friday, Saturday
+  selectedDays: [1, 3, 5], // Will be modified per test
+  selectedDates: [],
+  cycleNumber: 1,
+  totalWorkoutsCompleted: 0,
   height: 70,
   weight: 180,
-  age: 30,
+  dateOfBirth: new Date('1994-01-01'),
+  bmr: null,
+  targetCalories: null,
   unitPreference: 'imperial',
-  hasCompletedOnboarding: 1,
-  hasCompletedAssessment: 1
+  createdAt: new Date(),
+  updatedAt: new Date()
 } as User;
 
 // Test fitness assessment
-const testAssessment: Partial<FitnessAssessment> = {
+const testAssessment = {
   id: 'test-assessment-123',
   userId: 'test-user-123',
   testDate: new Date(),
@@ -35,45 +42,51 @@ const testAssessment: Partial<FitnessAssessment> = {
   squats: 20,
   walkingLunges: 10,
   singleLegRdl: 8,
-  plankHoldSeconds: 45,
-  mileTimeMinutes: 10,
-  pushupOverride: null,
-  pullupsOverride: null,
-  squatsOverride: null,
+  plankHold: 45,
+  mileTime: 10,
+  squat1rm: null,
+  deadlift1rm: null,
+  benchPress1rm: null,
+  overheadPress1rm: null,
+  barbellRow1rm: null,
+  dumbbellLunge1rm: null,
+  farmersCarry1rm: null,
+  horizontalPushOverride: null,
+  verticalPushOverride: null,
+  pullOverride: null,
+  lowerBodyOverride: null,
   hingeOverride: null,
   coreOverride: null,
-  cardioOverride: null,
-  horizontal_push_override: null,
-  vertical_push_override: null
+  rotationOverride: null,
+  carryOverride: null,
+  cardioOverride: null
 } as FitnessAssessment;
 
-async function runTest() {
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('  FITFORGE PROGRAM GENERATION TEST');
+async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercise[]) {
+  // Configure test user for this frequency
+  const selectedDaysMap = {
+    3: [1, 3, 5], // Mon, Wed, Fri
+    4: [1, 3, 5, 6], // Mon, Wed, Fri, Sat
+    5: [1, 2, 3, 5, 6] // Mon, Tue, Wed, Fri, Sat
+  };
+  
+  const testUser = {
+    ...baseTestUser,
+    daysPerWeek,
+    selectedDays: selectedDaysMap[daysPerWeek]
+  } as User;
+
+  console.log('\n\n═══════════════════════════════════════════════════════════════');
+  console.log(`  PROGRAM GENERATION TEST - ${daysPerWeek} DAYS PER WEEK`);
   console.log('═══════════════════════════════════════════════════════════════');
   console.log('\n📋 TEST CONFIGURATION:');
   console.log(`  Experience Level: ${testAssessment.experienceLevel}`);
   console.log(`  Days per Week: ${testUser.daysPerWeek}`);
-  console.log(`  Session Duration: ${testUser.sessionDuration} minutes`);
-  console.log(`  Equipment: ${testUser.equipment.join(', ')}`);
-  console.log(`  Goal: ${testUser.goal}`);
-  console.log(`\n💪 FITNESS ASSESSMENT:`);
-  console.log(`  Push-Ups: ${testAssessment.pushups}`);
-  console.log(`  Pike Push-Ups: ${testAssessment.pikePushups}`);
-  console.log(`  Pull-Ups: ${testAssessment.pullups}`);
-  console.log(`  Squats: ${testAssessment.squats}`);
-  console.log(`  Walking Lunges: ${testAssessment.walkingLunges}`);
-  console.log(`  Single-Leg RDL: ${testAssessment.singleLegRdl}`);
-  console.log(`  Plank Hold: ${testAssessment.plankHoldSeconds}s`);
-  console.log(`  Mile Time: ${testAssessment.mileTimeMinutes} min`);
+  console.log(`  Session Duration: ${testUser.workoutDuration} minutes`);
+  console.log(`  Equipment: ${testUser.equipment?.join(', ')}`);
+  console.log(`  Nutrition Goal: ${testUser.nutritionGoal}`);
 
-  console.log('\n🔄 FETCHING EXERCISES FROM DATABASE...');
-  
-  // Fetch all exercises from database
-  const availableExercises = await db.select().from(exercisesTable);
-  console.log(`   Found ${availableExercises.length} exercises in database\n`);
-
-  console.log('🔄 GENERATING PROGRAM...\n');
+  console.log('\n🔄 GENERATING PROGRAM...\n');
 
   const program = await generateWorkoutProgram({
     user: testUser,
@@ -201,4 +214,24 @@ async function runTest() {
   console.log(`${'═'.repeat(65)}\n`);
 }
 
-runTest().catch(console.error);
+async function runAllTests() {
+  console.log('\n╔═══════════════════════════════════════════════════════════════╗');
+  console.log('║     FITFORGE PROGRAM GENERATION TEST SUITE                    ║');
+  console.log('║     Testing: 3, 4, 5 Days/Week | Dumbbells Only | 60 Min      ║');
+  console.log('╚═══════════════════════════════════════════════════════════════╝');
+
+  console.log('\n🔄 FETCHING EXERCISES FROM DATABASE...');
+  const availableExercises = await db.select().from(exercisesTable);
+  console.log(`   Found ${availableExercises.length} exercises in database`);
+
+  // Run tests for each frequency
+  for (const days of [3, 4, 5] as const) {
+    await runSingleTest(days, availableExercises);
+  }
+
+  console.log('\n\n╔═══════════════════════════════════════════════════════════════╗');
+  console.log('║     ALL TESTS COMPLETE                                        ║');
+  console.log('╚═══════════════════════════════════════════════════════════════╝\n');
+}
+
+runAllTests().catch(console.error);
