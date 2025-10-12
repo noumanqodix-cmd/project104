@@ -26,17 +26,12 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
 
   // Find TODAY's session - show it whether completed or not
   const today = getTodayEDT();
-  console.log('[WORKOUT-DEBUG] Today:', today, 'Formatted:', today.toISOString());
-  console.log('[WORKOUT-DEBUG] Sessions:', sessions?.map(s => ({ id: s.id, scheduledDate: s.scheduledDate, status: s.status })));
   
   const todaySession = sessions?.find((s: any) => {
     if (!s.scheduledDate || s.status === 'archived') return false;
     const sessionDate = parseLocalDate(s.scheduledDate);
-    console.log('[WORKOUT-DEBUG] Comparing:', s.scheduledDate, 'parsed to', sessionDate, 'vs today', today, 'isSame:', isSameCalendarDay(sessionDate, today));
     return isSameCalendarDay(sessionDate, today);
   });
-  
-  console.log('[WORKOUT-DEBUG] Found today session:', todaySession);
 
   const isCompleted = todaySession?.completed === 1;
 
