@@ -1135,6 +1135,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           onComplete={handleRestComplete}
           onSkip={() => setShowRestTimer(false)}
           showAds={showAds}
+          onTick={() => setWorkoutTime(prev => prev + 1)}
         />
       )}
 

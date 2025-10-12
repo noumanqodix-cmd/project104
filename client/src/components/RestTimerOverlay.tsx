@@ -8,15 +8,17 @@ interface RestTimerOverlayProps {
   onComplete: (rir?: number) => void;
   onSkip: () => void;
   showAds?: boolean;
+  onTick?: () => void; // Called every second during rest
 }
 
-export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds = false }: RestTimerOverlayProps) {
+export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds = false, onTick }: RestTimerOverlayProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [rir, setRir] = useState("");
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
+      onTick?.(); // Increment parent's workout time
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
@@ -30,7 +32,7 @@ export default function RestTimerOverlay({ duration, onComplete, onSkip, showAds
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onComplete, rir]);
+  }, [onComplete, rir, onTick]);
 
   const playBeep = () => {
     if (!audioContextRef.current) {
