@@ -16,6 +16,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, Plus, Heart, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -467,6 +468,11 @@ export default function Home() {
                 year: 'numeric'
               })}
             </p>
+            {user && user.cycleNumber > 0 && (
+              <Badge variant="secondary" className="mt-2" data-testid="badge-cycle-progress">
+                Cycle {user.cycleNumber} • {user.totalWorkoutsCompleted} Workouts Completed
+              </Badge>
+            )}
           </div>
           <Link href="/settings">
             <Button variant="ghost" size="icon" data-testid="button-settings">
