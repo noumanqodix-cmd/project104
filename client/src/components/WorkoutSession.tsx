@@ -98,6 +98,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   const isSwappingRef = useRef(false);
   const sessionInitializedRef = useRef(false);
   const previousWorkoutIdRef = useRef<string>("");
+  const loadedWorkoutIdRef = useRef<string>(""); // Track which workout we've loaded exercises for
 
   const startSessionMutation = useMutation({
     mutationFn: async (programWorkoutId: string) => {
@@ -176,7 +177,10 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         ? programDetails.workouts.find(w => w.id === todaySession.programWorkoutId)
         : null;
       
-      if (workout && workout.exercises) {
+      // CRITICAL FIX: Only rebuild exercises array if workout has changed
+      // This prevents resetting exercise state during active workout when sessions refetch
+      if (workout && workout.exercises && workout.id !== loadedWorkoutIdRef.current) {
+        loadedWorkoutIdRef.current = workout.id;
         setCurrentWorkoutId(workout.id);
         setProgramExercises(workout.exercises);
         const mappedExercises: ExerciseData[] = workout.exercises.map(pe => {
@@ -332,6 +336,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       return;
     }
     
+    // Set recommended increases based on RIR
     if (rir !== undefined && !isLastSet && !isDurationBased) {
       if (needsWeight) {
         const increase = getWeightIncreaseRecommendation(rir);
@@ -346,6 +351,9 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       setRecommendedWeightIncrease(0);
       setRecommendedRepIncrease(0);
     }
+    
+    // NOTE: Do NOT progress here - the progression already happened in handleSetComplete
+    // before the rest timer was shown. The rest timer is just a pause, not a transition point.
   };
 
   const handleHIITComplete = async () => {
