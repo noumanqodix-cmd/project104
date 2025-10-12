@@ -17,7 +17,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 
 ### Feature Specifications
 - **Data Model**: Includes Users, Fitness Assessments, Exercise Database, Workout Programs, and Performance Tracking. Workout sessions are pre-generated with `scheduledDate`, enforcing a one-session-per-day rule.
-- **Comprehensive Fitness Assessment System**: Onboarding supports Bodyweight Test, Weights Test, or an option to skip. Assessment data maps to 10 independent movement patterns. Collects `daysPerWeek` (3, 4, or 5 days only), `selectedDays`, comprehensive equipment selection (17 options), and session duration options (30, 45, 60, or 90 minutes).
+- **Comprehensive Fitness Assessment System**: Onboarding supports Bodyweight Test, Weights Test, or an option to skip. Assessment data maps to 10 independent movement patterns. Collects `daysPerWeek` (3, 4, or 5 days only), `selectedDays`, comprehensive equipment selection (17 options), and session duration options (30, 45, 60, or 90 minutes). Users can retake fitness tests anytime from Settings/Fitness Test page using the same test components and logic as onboarding, with results saved to the same database structure.
 - **Template-Based Adaptive Training System**:
   - **Program Generation**: Algorithms select from prebuilt templates (Strength Primary, Cardio Primary, Hybrid Balance) to create custom 8-week programs based on user equipment, fitness level, and schedule. Supports 3, 4, or 5 days per week.
   - **Week-Level Program Planning**: Plans entire week's movement pattern distribution before selecting exercises for recovery and variety. Uses a 3-tier priority system (PRIMARY, SECONDARY, FALLBACK) for exercise selection.
