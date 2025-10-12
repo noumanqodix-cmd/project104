@@ -1235,6 +1235,11 @@ export async function generateWorkoutProgram(
             for (const ex of available) {
               if (exercises.length >= mainCount) break;
               
+              // Re-check muscle constraint (in case multiple exercises from same pattern target same muscle)
+              if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.liftType, ex.primaryMuscles || [], usedPrimaryMuscles)) {
+                continue;
+              }
+              
               // Backfill exercises are treated as secondary/accessory work
               const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
                 : ex.movementPattern === 'core' || ex.movementPattern === 'rotation' || ex.movementPattern === 'carry'
@@ -1316,6 +1321,11 @@ export async function generateWorkoutProgram(
           
           for (const ex of toAdd) {
             if (actualStrengthDuration >= strengthTimeBudget - 1) break;
+            
+            // Re-check muscle constraint (in case multiple exercises from same pattern target same muscle)
+            if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.liftType, ex.primaryMuscles || [], usedPrimaryMuscles)) {
+              continue;
+            }
             
             // Determine exercise role
             const exerciseRole = ex.liftType === 'compound' ? 'secondary-compound' 
