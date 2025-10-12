@@ -32,6 +32,10 @@ import BottomNavigation from "./components/BottomNavigation";
 import TestTypeSelector from "./components/TestTypeSelector";
 import ProgramPreviewPage from "./components/ProgramPreviewPage";
 import OnboardingAssessment from "./components/OnboardingAssessment";
+import Landing from "./pages/Landing";
+import About from "./pages/About";
+import HowItWorks from "./pages/HowItWorks";
+import AIPowered from "./pages/AIPowered";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -435,8 +439,20 @@ function AppRoutes() {
             <OnboardingAssessment />
           </Route>
 
+          <Route path="/about">
+            <About />
+          </Route>
+
+          <Route path="/how-it-works">
+            <HowItWorks />
+          </Route>
+
+          <Route path="/ai-powered">
+            <AIPowered />
+          </Route>
+
           <Route path="/">
-            <OnboardingFlow />
+            <Landing />
           </Route>
         </Switch>
       
