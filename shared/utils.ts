@@ -349,7 +349,7 @@ export function calculateMovementPatternLevels(
 
 // Convert movement pattern level to allowed difficulty array
 export function getAllowedDifficulties(level: MovementPatternLevel): string[] {
-  if (level === 'beginner') return ['beginner'];
+  if (level === 'beginner') return ['beginner', 'intermediate']; // Allow intermediate for exercise variety
   if (level === 'intermediate') return ['beginner', 'intermediate'];
   return ['beginner', 'intermediate', 'advanced'];
 }
@@ -383,7 +383,7 @@ export function isExerciseAllowed(
   const difficulty = exercise.difficulty;
   
   const getDefault = (level: string): string[] => {
-    if (level === 'beginner') return ['beginner'];
+    if (level === 'beginner') return ['beginner', 'intermediate']; // Allow intermediate for exercise variety
     if (level === 'intermediate') return ['beginner', 'intermediate'];
     return ['beginner', 'intermediate', 'advanced'];
   };
