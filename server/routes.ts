@@ -2709,6 +2709,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update user's totalWorkoutsCompleted if workout is being completed for the first time
+      console.log(`[WORKOUT-CHECK] Completion check - validatedData.completed: ${validatedData.completed}, oldSession.completed: ${oldSession.completed}, session.sessionType: ${session.sessionType}`);
+      
       if (validatedData.completed === 1 && oldSession.completed === 0 && session.sessionType === "workout") {
         const user = await storage.getUser(userId);
         if (user) {
@@ -2717,7 +2719,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalWorkoutsCompleted: updatedTotalWorkouts
           });
           console.log(`[WORKOUT] User ${userId} completed workout. Total workouts: ${updatedTotalWorkouts}`);
+        } else {
+          console.log(`[WORKOUT-CHECK] User not found: ${userId}`);
         }
+      } else {
+        console.log(`[WORKOUT-CHECK] Condition failed - not incrementing counter`);
       }
 
       res.json(session);

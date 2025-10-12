@@ -647,7 +647,7 @@ export default function Settings() {
                   { value: "resistance bands", label: "Resistance Bands" },
                   { value: "cable machine", label: "Cable Machine" },
                   { value: "pull-up bar", label: "Pull-up Bar" },
-                  { value: "trx", label: "TRX" },
+                  { value: "suspension system", label: "Suspension System" },
                   { value: "medicine ball", label: "Medicine Ball" },
                   { value: "box", label: "Box/Bench" },
                   { value: "jump rope", label: "Jump Rope" },
