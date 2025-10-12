@@ -1,3 +1,19 @@
+// ==========================================
+// HOME PAGE - Daily Workout Dashboard
+// ==========================================
+// This is the main dashboard that shows:
+// 1. Today's workout (if any)
+// 2. Tomorrow's workout preview
+// 3. Weekly progress statistics
+// 4. Program completion status
+//
+// KEY FEATURES:
+// - Missed Workout Detection: Automatically detects missed workouts and prompts user to reset or skip
+// - Program Completion Check: Prompts user to regenerate after 4 weeks
+// - Rest Day Management: Users can complete rest days or add cardio (HIIT/Steady State/Zone 2)
+// - Session Archival: Auto-archives old completed/skipped sessions on page load
+// ==========================================
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -35,6 +51,8 @@ export default function Home() {
   const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
 
+  // STEP 1: Fetch all home page data in single request for performance
+  // Gets: user profile, active program, workout sessions, fitness assessments
   const { data: homeData, isLoading: homeDataLoading } = useQuery<{
     user: User | null;
     activeProgram: WorkoutProgram | null;
@@ -124,7 +142,8 @@ export default function Home() {
     },
   });
 
-  // Check for missed workouts
+  // STEP 2: Detect missed workouts (uncompleted sessions before today)
+  // Example: If user has uncompleted workouts from Mon-Wed and today is Fri, count = 3
   const { data: missedWorkoutsResponse } = useQuery({
     queryKey: ["/api/workout-sessions/missed", formatLocalDate(getTodayLocal())],
     queryFn: async () => {
@@ -137,6 +156,8 @@ export default function Home() {
     enabled: !!user,
   });
 
+  // MUTATION: Reset Program - Reschedules all future workouts starting from today
+  // Used when user has missed workouts and wants to get back on track
   const resetProgramMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/workout-sessions/reset-from-today", {
@@ -161,6 +182,7 @@ export default function Home() {
     },
   });
 
+  // MUTATION: Skip Missed Workouts - Marks missed workouts as skipped, continues with scheduled workouts
   const skipMissedWorkoutsMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/workout-sessions/skip-missed", {
@@ -222,14 +244,15 @@ export default function Home() {
     generateProgramMutation.mutate();
   };
 
-  // Archive old completed/skipped sessions when page loads
+  // EFFECT: Auto-archive old sessions on page load (keeps database clean)
+  // Moves completed/skipped sessions older than current date to archived state
   useEffect(() => {
     if (user) {
       archiveOldSessionsMutation.mutate();
     }
   }, [user?.id]); // Only run when user changes
 
-  // Check for missed workouts and show dialog
+  // EFFECT: Show missed workout dialog if uncompleted sessions detected before today
   useEffect(() => {
     if (missedWorkoutsResponse && missedWorkoutsResponse.count > 0) {
       const missedWorkouts = missedWorkoutsResponse.missedWorkouts;
