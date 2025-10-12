@@ -5,13 +5,14 @@
 // 1. Today's workout (if any)
 // 2. Tomorrow's workout preview
 // 3. Weekly progress statistics
-// 4. Program completion status
+// 4. Cycle progress tracking
 //
 // KEY FEATURES:
-// - Missed Workout Detection: Automatically detects missed workouts and prompts user to reset or skip
-// - Program Completion Check: Prompts user to regenerate after 4 weeks
+// - Automatic Missed Workout Rescheduling: Detects missed workouts and automatically reschedules all remaining workouts forward
+// - 7-Day Cycle Completion: Prompts user to repeat same days or generate new program after completing cycle
 // - Rest Day Management: Users can complete rest days or add cardio (HIIT/Steady State/Zone 2)
 // - Session Archival: Auto-archives old completed/skipped sessions on page load
+// - Cycle Progress Badge: Displays current cycle number and total workouts completed
 // ==========================================
 
 import { Button } from "@/components/ui/button";
