@@ -412,9 +412,9 @@ function assignTrainingParameters(
   // Power exercises - explosive movements with max intent
   if (exerciseRole === 'power' || exercise.exerciseCategory === 'power') {
     const powerParams = {
-      beginner: { sets: 3, repsMin: 3, repsMax: 3, restSeconds: 120 },     // 3x3 @ 2min rest
-      intermediate: { sets: 4, repsMin: 2, repsMax: 3, restSeconds: 120 }, // 4x2-3 @ 2min rest  
-      advanced: { sets: 5, repsMin: 1, repsMax: 2, restSeconds: 120 }      // 5x1-2 @ 2min rest
+      beginner: { sets: 3, repsMin: 3, repsMax: 3, restSeconds: 60 },     // 3x3 @ 60s rest
+      intermediate: { sets: 4, repsMin: 2, repsMax: 3, restSeconds: 60 }, // 4x2-3 @ 60s rest  
+      advanced: { sets: 5, repsMin: 1, repsMax: 2, restSeconds: 60 }      // 5x1-2 @ 60s rest
     };
     
     const params = powerParams[fitnessLevel as keyof typeof powerParams] || powerParams.beginner;
@@ -942,12 +942,12 @@ export async function generateWorkoutProgram(
   console.log(`[CARDIO-CONFIG] Nutrition goal: ${nutritionGoal}, cardio types: ${cardioConfig.types.join(', ')}, allocated time: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%)`);
   
   // POWER EXERCISE TIME CALCULATION
-  // Power exercises use 2min rest for all levels to fit within allocated time
+  // Power exercises use 60s rest for all levels for easier movements
   const powerExerciseTime = calculateExerciseTime({
     sets: fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 5,
     repsMin: fitnessLevel === "advanced" ? 1 : 2,
     repsMax: fitnessLevel === "beginner" ? 3 : 3,
-    restSeconds: 120  // 2min rest for all levels
+    restSeconds: 60  // 60s rest for all levels
   });
   
   // PERCENTAGE-BASED TIME ALLOCATION
