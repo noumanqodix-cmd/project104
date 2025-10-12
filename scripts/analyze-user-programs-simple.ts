@@ -54,11 +54,11 @@ async function analyzeUserPrograms() {
         const dateStr = session.scheduledDate || 'No date';
         console.log(`\n  ${status} Day ${session.workoutIndex + 1}: ${session.workoutName} (${dateStr})`);
 
-        // Get exercises for this session
+        // Get exercises for this session via programWorkoutId
         const sessionExercises = await db
           .select()
           .from(programExercises)
-          .where(eq(programExercises.workoutId, session.id));
+          .where(eq(programExercises.workoutId, session.programWorkoutId || ''));
         
         // Sort by orderIndex manually
         sessionExercises.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
