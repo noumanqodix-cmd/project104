@@ -2260,7 +2260,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "No pending workouts to reschedule", rescheduledCount: 0 });
       }
 
-      // STEP 2: Clean up sessions from today onwards to prevent duplicates
+      // STEP 2: Clean up ALL incomplete sessions (including missed ones before today)
+      // Mark old missed sessions as skipped to prevent them from showing up again
+      const missedWorkouts = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false;
+        if (session.completed === 1 || session.status === 'skipped') return false;
+        const sessionDate = parseLocalDate(session.scheduledDate);
+        return isBeforeCalendarDay(sessionDate, today);
+      });
+      
+      if (missedWorkouts.length > 0) {
+        await Promise.all(
+          missedWorkouts.map((workout: any) => 
+            storage.updateWorkoutSession(workout.id, { status: 'skipped' })
+          )
+        );
+        console.log(`[RESET] Marked ${missedWorkouts.length} old missed workout(s) as skipped`);
+      }
+      
+      // Clean up sessions from today onwards to prevent duplicates
       // This archives completed sessions and deletes incomplete ones
       await storage.cleanupSessionsForRegeneration(userId, currentDateString);
 
