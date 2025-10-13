@@ -412,9 +412,9 @@ function assignTrainingParameters(
   // Power exercises - explosive movements with max intent
   if (exerciseRole === 'power' || exercise.exerciseCategory === 'power') {
     const powerParams = {
-      beginner: { sets: 3, repsMin: 3, repsMax: 3, restSeconds: 60 },     // 3x3 @ 60s rest
-      intermediate: { sets: 4, repsMin: 2, repsMax: 3, restSeconds: 60 }, // 4x2-3 @ 60s rest  
-      advanced: { sets: 5, repsMin: 1, repsMax: 2, restSeconds: 60 }      // 5x1-2 @ 60s rest
+      beginner: { sets: 2, repsMin: 3, repsMax: 3, restSeconds: 60 },     // 2x3 @ 60s rest
+      intermediate: { sets: 2, repsMin: 2, repsMax: 3, restSeconds: 60 }, // 2x2-3 @ 60s rest  
+      advanced: { sets: 2, repsMin: 1, repsMax: 2, restSeconds: 60 }      // 2x1-2 @ 60s rest
     };
     
     const params = powerParams[fitnessLevel as keyof typeof powerParams] || powerParams.beginner;
@@ -488,15 +488,15 @@ function assignTrainingParameters(
   
   switch (exerciseRole) {
     case 'primary-compound':
-      // Strength focus: Lower reps, more sets, longer rest
-      sets = fitnessLevel === "beginner" ? 4 : 5;
+      // Strength focus: Lower reps, 3-4 sets, longer rest
+      sets = fitnessLevel === "beginner" ? 3 : 4;
       repsMin = 4;
       repsMax = 6;
       restSeconds = 180; // 3 minutes for primary compounds
       break;
       
     case 'secondary-compound':
-      // Hypertrophy focus: Moderate reps, moderate sets
+      // Hypertrophy focus: Moderate reps, 3-4 sets
       sets = fitnessLevel === "beginner" ? 3 : 4;
       repsMin = 8;
       repsMax = 12;
@@ -504,8 +504,8 @@ function assignTrainingParameters(
       break;
       
     case 'isolation':
-      // Hypertrophy focus: Higher reps, moderate sets, shorter rest
-      sets = 3;
+      // Hypertrophy focus: Higher reps, 2 sets, shorter rest
+      sets = 2;
       repsMin = 10;
       repsMax = 15;
       restSeconds = 60; // 60s for isolation work
