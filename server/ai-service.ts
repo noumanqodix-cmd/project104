@@ -667,7 +667,7 @@ export async function generateWorkoutProgram(
       { name: "Lying Hip Bridge", pattern: "hinge" },  // Bodyweight exercise, no alternative needed
       { name: "Overhead Press", pattern: "vertical_push", alternatives: ["Pike Push-Up"] },  // Bodyweight shoulder press alternative
       { name: "Push-Up", pattern: "horizontal_push" },  // Already bodyweight
-      { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
+      { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Scapular Pull-Ups", "Standing Dumbbell Pullover", "Dumbbell Pullover to Press", "Resistance Band Lat Pulldown", "Band Assisted Pull-Up"] },  // Beginner vertical pull variations
       { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
       { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Lateral Lunge"] },  // All use bodyweight
       { name: "Farmer's Carry", pattern: "carry" }  // Requires equipment (dumbbells/kettlebells/medicine ball)
@@ -678,7 +678,7 @@ export async function generateWorkoutProgram(
       { name: "Deadlift", pattern: "hinge" },
       { name: "Overhead Press", pattern: "vertical_push" },  // Barbell OHP
       { name: "Bench Press", pattern: "horizontal_push" },
-      { name: "Pull-Up", pattern: "vertical_pull" },
+      { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Chin-Up", "Standing Dumbbell Pullover", "Resistance Band Lat Pulldown", "Pullover"] },
       { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
       { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
@@ -689,7 +689,7 @@ export async function generateWorkoutProgram(
       { name: "Deadlift", pattern: "hinge" },
       { name: "Overhead Press", pattern: "vertical_push" },
       { name: "Bench Press", pattern: "horizontal_push" },
-      { name: "Pull-Up", pattern: "vertical_pull" },
+      { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Chin-Up", "Explosive Pull-Ups", "Kipping Pull-Up", "Pullover"] },
       { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
       { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
