@@ -855,20 +855,17 @@ export async function generateWorkoutProgram(
     gain: {
       30: { warmup: 7, power: 18, strength: 65, cardio: 5 },   // Minimal cardio for short sessions
       45: { warmup: 7, power: 18, strength: 63, cardio: 8 },
-      60: { warmup: 7, power: 18, strength: 60, cardio: 10 },
-      90: { warmup: 8, power: 17, strength: 58, cardio: 12 }   // Can add more cardio with extra time
+      60: { warmup: 7, power: 18, strength: 60, cardio: 10 }
     },
     maintain: {
       30: { warmup: 6, power: 17, strength: 60, cardio: 12 },  // Balanced approach
       45: { warmup: 6, power: 17, strength: 58, cardio: 15 },
-      60: { warmup: 7, power: 18, strength: 55, cardio: 18 },
-      90: { warmup: 8, power: 17, strength: 52, cardio: 20 }
+      60: { warmup: 7, power: 18, strength: 55, cardio: 18 }
     },
     lose: {
       30: { warmup: 5, power: 15, strength: 55, cardio: 20 },  // Max cardio even in short sessions
       45: { warmup: 5, power: 15, strength: 53, cardio: 23 },
-      60: { warmup: 6, power: 16, strength: 50, cardio: 25 },
-      90: { warmup: 7, power: 15, strength: 48, cardio: 28 }   // Extended cardio for fat loss
+      60: { warmup: 6, power: 16, strength: 50, cardio: 25 }
     }
   };
   
@@ -877,8 +874,7 @@ export async function generateWorkoutProgram(
   const getDurationKey = (duration: number): number => {
     if (duration <= 35) return 30;
     if (duration <= 52) return 45;
-    if (duration <= 75) return 60;
-    return 90;
+    return 60;  // Default to 60 for longer sessions
   };
   
   const durationKey = getDurationKey(workoutDuration);
