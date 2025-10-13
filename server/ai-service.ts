@@ -814,22 +814,23 @@ export async function generateWorkoutProgram(
   
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
-      // 3-day (Mon/Wed/Fri): Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull
-      // Uses indices 1, 3, 5 for legacy day-of-week mode
+      // 3-day program: Workout 1 → Workout 2 → Workout 3
+      // Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull
       1: { primary: ['pull', 'hinge'], secondary: ['core', 'carry'] },
-      3: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
-      5: { primary: ['vertical_push', 'pull'], secondary: ['lunge', 'core'] }
+      2: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
+      3: { primary: ['vertical_push', 'pull'], secondary: ['lunge', 'core'] }
     },
     4: {
-      // 4-day (Mon/Tue/Thu/Fri): Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower
-      // Uses indices 1, 2, 4, 5 for legacy day-of-week mode
+      // 4-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4
+      // Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower
       1: { primary: ['pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
       2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
-      4: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
-      5: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
+      3: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
+      4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
     },
     5: {
-      // 5-day: Horizontal Push → Pull → Legs → Vertical Push+Pull → Lower (classic split)
+      // 5-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4 → Workout 5
+      // Horizontal Push → Pull → Legs → Vertical Push+Pull → Lower (classic split)
       1: { primary: ['horizontal_push'], secondary: ['rotation', 'core'] },
       2: { primary: ['pull'], secondary: ['carry', 'core'] },
       3: { primary: ['squat', 'lunge'], secondary: ['hinge', 'core'] },
