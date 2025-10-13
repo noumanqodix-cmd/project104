@@ -1316,8 +1316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const squats = assessment.squats || 0;
     
     // Categorize by movement pattern
-    const isPressing = ['push', 'press'].some(p => movementPattern.toLowerCase().includes(p));
-    const isPulling = ['pull', 'row'].some(p => movementPattern.toLowerCase().includes(p));
+    const isPressing = ['horizontal_push', 'vertical_push', 'press'].some(p => movementPattern.toLowerCase().includes(p));
+    const isPulling = ['horizontal_pull', 'vertical_pull', 'pull', 'row'].some(p => movementPattern.toLowerCase().includes(p));
     const isLowerBody = ['squat', 'lunge', 'hinge', 'leg'].some(p => movementPattern.toLowerCase().includes(p));
     
     // Estimate weights for dumbbells (per hand) in lbs

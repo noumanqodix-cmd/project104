@@ -132,7 +132,7 @@ function generateWorkoutName(movementFocus: string[], workoutType: "strength" | 
   const upperPush = uniquePatterns.filter(p => ["horizontal_push", "vertical_push"].includes(p)).length > 0;
   
   // Check if workout includes upper body pulling (back, biceps)
-  const upperPull = uniquePatterns.filter(p => p === "pull").length > 0;
+  const upperPull = uniquePatterns.filter(p => ["horizontal_pull", "vertical_pull"].includes(p)).length > 0;
   
   // Check if workout includes lower body movements (legs, glutes)
   const lowerBody = uniquePatterns.filter(p => ["squat", "lunge", "hinge"].includes(p)).length > 0;
@@ -534,24 +534,24 @@ function assignTrainingParameters(
   if ((exercise.exerciseCategory === 'compound' || exercise.exerciseCategory === 'power') && assessment) {
     const percentage = repsMax > 12 ? 0.65 : repsMax > 8 ? 0.75 : 0.80;
     
-    if (exercise.movementPattern === "push" && assessment.benchPress1rm) {
+    if ((exercise.movementPattern === "horizontal_push" || exercise.movementPattern === "vertical_push") && assessment.benchPress1rm) {
       recommendedWeight = Math.round(assessment.benchPress1rm * percentage);
     } else if (exercise.movementPattern === "squat" && assessment.squat1rm) {
       recommendedWeight = Math.round(assessment.squat1rm * percentage);
     } else if (exercise.movementPattern === "hinge" && assessment.deadlift1rm) {
       recommendedWeight = Math.round(assessment.deadlift1rm * percentage);
-    } else if (exercise.movementPattern === "pull" && assessment.barbellRow1rm) {
+    } else if ((exercise.movementPattern === "horizontal_pull" || exercise.movementPattern === "vertical_pull") && assessment.barbellRow1rm) {
       recommendedWeight = Math.round(assessment.barbellRow1rm * percentage);
     }
   }
   
   // Fallback: estimate weights from bodyweight test data
   if (!recommendedWeight && exercise.equipment?.some(eq => eq !== "bodyweight")) {
-    if (exercise.movementPattern === "push" && assessment.pushups) {
+    if ((exercise.movementPattern === "horizontal_push" || exercise.movementPattern === "vertical_push") && assessment.pushups) {
       if (assessment.pushups < 15) recommendedWeight = user.unitPreference === "imperial" ? 50 : 22;
       else if (assessment.pushups < 30) recommendedWeight = user.unitPreference === "imperial" ? 75 : 34;
       else recommendedWeight = user.unitPreference === "imperial" ? 95 : 43;
-    } else if (exercise.movementPattern === "pull" && assessment.pullups !== undefined && assessment.pullups !== null) {
+    } else if ((exercise.movementPattern === "horizontal_pull" || exercise.movementPattern === "vertical_pull") && assessment.pullups !== undefined && assessment.pullups !== null) {
       if (assessment.pullups < 5) recommendedWeight = user.unitPreference === "imperial" ? 40 : 18;
       else if (assessment.pullups < 10) recommendedWeight = user.unitPreference === "imperial" ? 60 : 27;
       else recommendedWeight = user.unitPreference === "imperial" ? 80 : 36;

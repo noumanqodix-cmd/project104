@@ -41,7 +41,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
       strengthFocus: 80,
       cardioFocus: 20,
       movementPatternDistribution: {
-        strength: ['push', 'pull', 'hinge', 'squat', 'lunge', 'carry', 'core'],
+        strength: ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'hinge', 'squat', 'lunge', 'carry', 'core'],
         cardio: ['cardio', 'plyometric'],
       },
       cardioPlacement: 'finisher',
@@ -68,7 +68,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
       strengthFocus: 30,
       cardioFocus: 70,
       movementPatternDistribution: {
-        strength: ['push', 'pull', 'squat', 'core'], // Essential movements only
+        strength: ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'squat', 'core'], // Essential movements only
         cardio: ['cardio', 'plyometric'],
       },
       cardioPlacement: 'dedicated_days',
@@ -95,7 +95,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
       strengthFocus: 70,
       cardioFocus: 30,
       movementPatternDistribution: {
-        strength: ['push', 'pull', 'hinge', 'squat', 'lunge', 'carry', 'core', 'rotation'],
+        strength: ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'hinge', 'squat', 'lunge', 'carry', 'core', 'rotation'],
         cardio: ['cardio', 'plyometric'],
       },
       cardioPlacement: 'finisher',

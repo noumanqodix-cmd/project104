@@ -34,8 +34,10 @@ export async function generateExercisesForEquipment(
    - cardio: Conditioning, endurance work
 
 2. Cover multiple movement patterns:
-   - Push (horizontal/vertical pressing)
-   - Pull (horizontal/vertical pulling)
+   - horizontal_push (chest pressing - bench press, push-ups)
+   - vertical_push (shoulder pressing - overhead press)
+   - horizontal_pull (back rowing - rows, face pulls)
+   - vertical_pull (back pulling - pull-ups, lat pulldowns)
    - Hinge (hip dominant movements)
    - Squat (knee dominant movements)
    - Carry (loaded carries)
@@ -68,7 +70,7 @@ export async function generateExercisesForEquipment(
     {
       "name": "Exercise Name",
       "description": "Clear description of the exercise and its benefits",
-      "movementPattern": "push|pull|hinge|squat|carry|rotation|core|hang|lunge|cardio|plyometric|crawl",
+      "movementPattern": "horizontal_push|vertical_push|horizontal_pull|vertical_pull|hinge|squat|carry|rotation|core|hang|lunge|cardio|plyometric|crawl",
       "equipment": ["${equipment}"],
       "difficulty": "beginner|intermediate|advanced",
       "primaryMuscles": ["broad muscle group(s)"],
