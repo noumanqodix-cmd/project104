@@ -53,7 +53,8 @@ const testAssessment = {
   farmersCarry1rm: null,
   horizontalPushOverride: null,
   verticalPushOverride: null,
-  pullOverride: null,
+  verticalPullOverride: null,
+  horizontalPullOverride: null,
   lowerBodyOverride: null,
   hingeOverride: null,
   coreOverride: null,
@@ -191,8 +192,9 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
 
   const requiredPatterns = [
     'horizontal_push',
-    'vertical_push', 
-    'pull',
+    'vertical_push',
+    'vertical_pull',
+    'horizontal_pull',
     'squat',
     'lunge',
     'hinge',
@@ -215,7 +217,7 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
 
   console.log(`\n${'═'.repeat(65)}`);
   if (allPatternsPresent) {
-    console.log('✅ SUCCESS: All 10 required movement patterns are present!');
+    console.log('✅ SUCCESS: All 11 required movement patterns are present!');
   } else {
     console.log('⚠️  WARNING: Some movement patterns are missing!');
   }
