@@ -20,8 +20,8 @@
 // - Calendar dates for first workout cycle
 //
 // WHY THIS MATTERS:
-// All this information is used by the AI workout generator to create
-// a custom program that matches your abilities and goals
+// All this information is used to create a science-backed workout program
+// tailored to your abilities and goals using functional movement patterns
 // ==========================================
 
 import { useState } from "react";

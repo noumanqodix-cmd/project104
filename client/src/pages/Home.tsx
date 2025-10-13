@@ -480,7 +480,7 @@ export default function Home() {
           <Card>
             <CardHeader>
               <CardTitle>No Active Program</CardTitle>
-              <CardDescription>Generate a personalized AI-powered workout program tailored to your fitness level, equipment, and goals</CardDescription>
+              <CardDescription>Generate a personalized workout program tailored to your fitness level, equipment, and goals</CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
@@ -491,7 +491,7 @@ export default function Home() {
                 data-testid="button-generate-program"
               >
                 <Sparkles className="h-5 w-5 mr-2" />
-                {generateProgramMutation.isPending ? "Generating..." : "Generate AI Workout Program"}
+                {generateProgramMutation.isPending ? "Generating..." : "Generate Workout Program"}
               </Button>
             </CardContent>
           </Card>
@@ -780,7 +780,7 @@ export default function Home() {
             <DialogDescription>
               {generationStatus === 'generating' && (
                 <>
-                  Our AI is creating your personalized workout program...
+                  Creating your personalized workout program based on functional movement patterns...
                   <br />
                   This may take a few moments. Please wait.
                 </>

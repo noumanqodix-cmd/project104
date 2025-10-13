@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
-  Brain, 
+  Activity, 
   ArrowLeft,
   Zap,
   BarChart3,
@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 
-export default function AIPowered() {
+export default function SmartProgression() {
   const [, setLocation] = useLocation();
 
   return (
@@ -19,11 +19,11 @@ export default function AIPowered() {
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-4">
-            <Brain className="h-12 w-12 text-primary" />
+            <Activity className="h-12 w-12 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold">AI-Powered Progression</h1>
+          <h1 className="text-4xl font-bold">Science-Backed Progression</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Programs that evolve week by week, cycle by cycle
+            Programs built on functional movement patterns that evolve with you
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default function AIPowered() {
               <h2 className="text-2xl font-semibold">Smart Program Generation</h2>
             </div>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Every program is uniquely generated based on your specific inputs. The AI considers:
+              Every program is uniquely built using functional movement patterns based on your specific needs:
             </p>
             
             <div className="grid gap-4">
@@ -47,7 +47,7 @@ export default function AIPowered() {
                   <h3 className="font-semibold">Your Fitness Level</h3>
                   <p className="text-sm text-muted-foreground">
                     Optional fitness tests assess your strength across all 10 movement patterns. 
-                    Programs adapt exercise difficulty to match your current abilities.
+                    Programs adapt exercise difficulty to match your current abilities using proven strength progression principles.
                   </p>
                 </div>
               </div>
@@ -59,8 +59,8 @@ export default function AIPowered() {
                 <div className="space-y-1 flex-1">
                   <h3 className="font-semibold">Your Equipment</h3>
                   <p className="text-sm text-muted-foreground">
-                    From bodyweight-only to full gym access, the AI selects from 196 exercises 
-                    that match what you have available.
+                    From bodyweight-only to full gym access, our system selects from 196 exercises 
+                    that match what you have available, ensuring every workout is practical and effective.
                   </p>
                 </div>
               </div>
@@ -72,8 +72,8 @@ export default function AIPowered() {
                 <div className="space-y-1 flex-1">
                   <h3 className="font-semibold">Your Goals</h3>
                   <p className="text-sm text-muted-foreground">
-                    Whether building muscle, losing fat, or maintaining fitness, the AI adjusts 
-                    workout intensity, volume, and cardio recommendations.
+                    Whether building muscle, losing fat, or maintaining fitness, programs adjust 
+                    workout intensity, volume, and cardio based on established sports science principles.
                   </p>
                 </div>
               </div>
@@ -126,7 +126,7 @@ export default function AIPowered() {
             <div className="text-center space-y-4">
               <h3 className="text-2xl font-bold">Ready to Experience It?</h3>
               <p className="text-muted-foreground max-w-xl mx-auto">
-                Create your account to unlock AI-powered functional fitness training 
+                Create your account to unlock science-backed functional fitness training 
                 that adapts to your life and goals.
               </p>
               <div className="pt-4">

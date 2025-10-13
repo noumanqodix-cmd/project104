@@ -890,7 +890,7 @@ export default function Settings() {
               {generationStatus === 'generating' && (
                 <>
                   <div className="space-y-4 py-4">
-                    <p>Our AI is creating your personalized workout program...</p>
+                    <p>Creating your personalized workout program...</p>
                     <p className="text-sm text-muted-foreground">This may take a few moments. Please wait.</p>
                   </div>
                 </>

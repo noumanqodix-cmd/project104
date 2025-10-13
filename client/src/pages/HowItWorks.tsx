@@ -146,10 +146,10 @@ export default function HowItWorks() {
           
           <Button
             size="lg"
-            onClick={() => setLocation("/ai-powered")}
+            onClick={() => setLocation("/science")}
             data-testid="button-next"
           >
-            Next: AI Progression
+            Next: Science-Based Progression
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>

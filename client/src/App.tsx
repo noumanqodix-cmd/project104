@@ -37,7 +37,7 @@ import OnboardingAssessment from "./components/OnboardingAssessment";
 import Landing from "./pages/Landing";
 import About from "./pages/About";
 import HowItWorks from "./pages/HowItWorks";
-import AIPowered from "./pages/AIPowered";
+import SmartProgression from "./pages/SmartProgression";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -470,8 +470,8 @@ function AppRoutes() {
             <HowItWorks />
           </Route>
 
-          <Route path="/ai-powered">
-            <AIPowered />
+          <Route path="/science">
+            <SmartProgression />
           </Route>
 
           <Route path="/">

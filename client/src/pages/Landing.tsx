@@ -31,7 +31,7 @@ export default function Landing() {
                 <span className="text-primary">For Real Life</span>
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                AI-powered workout programs that adapt to your life, not the other way around. 
+                Science-backed workout programs that adapt to your life, not the other way around. 
                 Train movement patterns that matter.
               </p>
             </div>
@@ -90,10 +90,10 @@ export default function Landing() {
             <div className="p-3 rounded-lg bg-primary/10 w-fit">
               <TrendingUp className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold">AI-Powered Progression</h3>
+            <h3 className="text-xl font-semibold">Adaptive Progression</h3>
             <p className="text-muted-foreground">
               Programs that adapt week by week based on your equipment, fitness level, and goals. 
-              Smart training that evolves with you.
+              Science-backed training that evolves with you.
             </p>
           </Card>
         </div>

@@ -30,7 +30,7 @@ export default function WelcomePage({ onGetStarted, onLogin }: WelcomePageProps)
           Your personalized fitness journey starts here
         </p>
         <p className="text-lg text-white/80 mb-12 max-w-2xl mx-auto">
-          Get custom workout programs tailored to your fitness level, available equipment, and goals. Track your progress and achieve results with AI-powered recommendations.
+          Get custom workout programs tailored to your fitness level, available equipment, and goals. Track your progress and achieve results with science-backed programming.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
