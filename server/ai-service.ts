@@ -1529,21 +1529,23 @@ export async function generateWorkoutProgram(
           
           let priority = 0;
           
-          // Highest priority: targets untargeted muscle
+          // Highest priority: targets untargeted muscle (new muscle group)
           const hasUntargetedMuscle = ex.primaryMuscles?.some(m => !targetedMuscles.has(m));
           if (hasUntargetedMuscle) priority += 100;
           
-          // Medium priority: targets antagonist of already-targeted muscle
+          // High priority: targets antagonist of already-targeted muscle (muscle balance)
           const targetsAntagonist = ex.primaryMuscles?.some(muscle => {
             return Array.from(targetedMuscles).some(targeted => {
               const antagonists = antagonistPairs[targeted] || [];
               return antagonists.includes(muscle);
             });
           });
-          if (targetsAntagonist) priority += 50;
+          if (targetsAntagonist) priority += 60;
           
-          // Low priority: already targeted but still useful
-          if (!hasUntargetedMuscle && !targetsAntagonist) priority += 10;
+          // Medium priority: direct isolation of already-targeted muscle (finisher/pump work)
+          // Useful for triceps after compounds, biceps after pull work, etc.
+          const targetsAlreadyWorked = ex.primaryMuscles?.some(m => targetedMuscles.has(m));
+          if (!hasUntargetedMuscle && !targetsAntagonist && targetsAlreadyWorked) priority += 40;
           
           isolationCandidates.push({ exercise: ex, priority });
         }
@@ -1556,6 +1558,13 @@ export async function generateWorkoutProgram(
       // Select top candidates up to MAX_ISOLATIONS (capped at 2)
       for (const { exercise: ex, priority } of isolationCandidates) {
         if (stageOutputs.isolations.length >= MAX_ISOLATIONS) break;
+        
+        // RE-CHECK: Muscle tracking may have changed since building candidates list
+        // This prevents duplicate muscle targeting (e.g., both Seated and Standing Calf Raise)
+        if (!canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles)) {
+          console.log(`[ISOLATION-SKIP] ${ex.name} - muscle already targeted or other constraint`);
+          continue;
+        }
         
         const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
         const genEx: GeneratedExercise = {
