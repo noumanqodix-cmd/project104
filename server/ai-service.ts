@@ -998,7 +998,7 @@ export async function generateWorkoutProgram(
   
   // SMART EXERCISE REUSE TRACKING
   // Track when each exercise was used (workout number) for intelligent reuse
-  // Core/rotation/carry can repeat after 2+ workouts, compounds blocked for full week
+  // Core exercises blocked for full week, isolation/cardio can repeat after 2+ workouts
   const exerciseUsageMap = new Map<string, number>(); // exerciseId -> workoutIndex used
   const firstDayExercises = new Set<string>(); // Track workout 1 exercises for cross-week recovery
   
@@ -1078,13 +1078,18 @@ export async function generateWorkoutProgram(
       return false;
     }
     
-    // Isolation, core, and cardio exercises can repeat after 2+ days
-    if (exerciseCategory === 'isolation' || exerciseCategory === 'core' || exerciseCategory === 'cardio') {
+    // Core exercises blocked for full week to ensure variety and freshness
+    if (exerciseCategory === 'core') {
+      console.log(`[CORE-REUSE] Blocking ${exerciseId} - core exercises never repeat within a week`);
+      return false;
+    }
+    
+    // Isolation and cardio exercises can repeat after 2+ days
+    if (exerciseCategory === 'isolation' || exerciseCategory === 'cardio') {
       const daysSince = currentDay - lastUsedDay;
       if (daysSince < 2) return false;
       
       // Also check muscle overlap even for reused isolation exercises
-      // NOTE: Core exercises are exempt since core work should be in every workout
       if (exerciseCategory === 'isolation' && primaryMuscles.length > 0) {
         const hasMuscleDuplicate = primaryMuscles.some(muscle => usedPrimaryMuscles.has(muscle));
         if (hasMuscleDuplicate) {
