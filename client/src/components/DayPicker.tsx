@@ -14,12 +14,17 @@ interface DayPickerProps {
 export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, onBack, onConfirm }: DayPickerProps) {
   const [selectedDates, setSelectedDates] = useState<string[]>(initialSelectedDates || []);
 
-  // Sync with initialSelectedDates when it changes (e.g., from async data load)
-  // Only runs when initialSelectedDates is defined to avoid infinite loops
+  // Sync with initialSelectedDates when it changes (e.g., from async data load or parent reset)
   useEffect(() => {
-    if (initialSelectedDates && initialSelectedDates.length > 0) {
-      setSelectedDates(initialSelectedDates);
-      onDatesSelected(initialSelectedDates);
+    if (initialSelectedDates !== undefined) {
+      const joinedDates = initialSelectedDates.join(',');
+      const currentJoinedDates = selectedDates.join(',');
+      
+      // Only update if different to avoid infinite loops
+      if (joinedDates !== currentJoinedDates) {
+        setSelectedDates(initialSelectedDates);
+        onDatesSelected(initialSelectedDates);
+      }
     }
   }, [initialSelectedDates?.join(',')]); // Use join to create stable dependency
 
