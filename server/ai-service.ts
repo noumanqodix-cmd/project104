@@ -1868,16 +1868,19 @@ export async function generateWorkoutProgram(
       
       // Movement-specific warmup selection based on actual workout patterns
       // Define warmup mapping based on movement patterns
+      // Names must match exactly with database exercise names
       const warmupMapping: Record<string, string[]> = {
-        horizontal_push: ['Band Pull-Aparts', 'Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch'],
-        vertical_push: ['Arm Circles', 'Band Shoulder Dislocates', 'Cat-Cow Stretch', 'Band Pull-Aparts'],
-        pull: ['Band Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Thoracic Rotation'],
-        squat: ['Dynamic Leg Swings', 'Hip Circles', 'Bodyweight Squats', 'Ankle Circles'],
-        lunge: ['Dynamic Leg Swings', 'Hip Circles', 'Walking Lunges', 'Hip Flexor Stretch'],
+        horizontal_push: ['Pull-Aparts', 'Arm Circles', 'Shoulder Dislocates', 'Cat-Cow Stretch'],
+        vertical_push: ['Arm Circles', 'Shoulder Dislocates', 'Cat-Cow Stretch', 'Pull-Aparts', 'Shoulder Pass-Throughs'],
+        horizontal_pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dynamic Shoulder Rolls'],
+        vertical_pull: ['Dead Hang', 'Scapular Pull-Ups', 'Arm Circles', 'Pull-Aparts'],
+        pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dynamic Shoulder Rolls'], // Legacy fallback
+        squat: ['Dynamic Leg Swings', 'Hip Circles', 'Box Step-Up', 'Ankle Circles'],
+        lunge: ['Dynamic Leg Swings', 'Hip Circles', 'Lateral Walks', 'Hip Flexor Stretch'],
         hinge: ['Dynamic Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
-        core: ['Cat-Cow Stretch', 'Torso Twists', 'Dead Bug', 'Bird Dog'],
-        rotation: ['Torso Twists', 'Thoracic Rotation', 'Cat-Cow Stretch'],
-        carry: ['Arm Circles', 'Band Shoulder Dislocates', 'Dynamic Shoulder Rolls'],
+        core: ['Cat-Cow Stretch', 'Bird Dog', 'Dead Bug'],
+        rotation: ['Arm Circles', 'Dynamic Shoulder Rolls', 'Cat-Cow Stretch'],
+        carry: ['Arm Circles', 'Shoulder Dislocates', 'Dynamic Shoulder Rolls'],
       };
       
       // Analyze the actual patterns used in this workout (from movementFocus array)
