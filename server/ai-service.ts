@@ -327,6 +327,28 @@ function identifyWeakMovementPatterns(assessment: FitnessAssessment, user: User)
   return weakPatterns;
 }
 
+// Helper function to select appropriate equipment for an exercise based on user's available equipment
+function selectExerciseEquipment(exercise: Exercise, userEquipment: string[]): string {
+  if (!exercise.equipment || exercise.equipment.length === 0) {
+    return "bodyweight";
+  }
+  
+  // First, try to find equipment the user actually has
+  for (const eq of exercise.equipment) {
+    if (userEquipment?.includes(eq) || eq === "bodyweight") {
+      return eq;
+    }
+  }
+  
+  // Fallback: if no match, prefer bodyweight if available
+  if (exercise.equipment.includes("bodyweight")) {
+    return "bodyweight";
+  }
+  
+  // Last resort: return first equipment option (shouldn't happen if filtering is correct)
+  return exercise.equipment[0];
+}
+
 // Helper function to find isolation exercise for superset pairing
 function findIsolationExercise(
   pattern: string,
@@ -1301,7 +1323,7 @@ export async function generateWorkoutProgram(
           const params = assignTrainingParameters(foundExercise, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
           const generatedExercise: GeneratedExercise = {
             exerciseName: foundExercise.name,
-            equipment: foundExercise.equipment?.[0] || "bodyweight",
+            equipment: selectExerciseEquipment(foundExercise, user.equipment || []),
             ...params,
             // METADATA: Track source exercise type for CNS reordering
             sourceExerciseCategory: foundExercise.exerciseCategory,
@@ -1360,7 +1382,7 @@ export async function generateWorkoutProgram(
           const params = assignTrainingParameters(coreEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
           const coreExercise: GeneratedExercise = {
             exerciseName: coreEx.name,
-            equipment: coreEx.equipment?.[0] || "bodyweight",
+            equipment: selectExerciseEquipment(coreEx, user.equipment || []),
             ...params,
             sourceExerciseCategory: coreEx.exerciseCategory,
             sourceMovementPattern: coreEx.movementPattern,
@@ -1446,7 +1468,7 @@ export async function generateWorkoutProgram(
             const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, exerciseRole);
             const genEx: GeneratedExercise = {
               exerciseName: ex.name,
-              equipment: ex.equipment?.[0] || "bodyweight",
+              equipment: selectExerciseEquipment(ex, user.equipment || []),
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
@@ -1579,7 +1601,7 @@ export async function generateWorkoutProgram(
         const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
         const genEx: GeneratedExercise = {
           exerciseName: ex.name,
-          equipment: ex.equipment?.[0] || "bodyweight",
+          equipment: selectExerciseEquipment(ex, user.equipment || []),
           ...params,
           sourceExerciseCategory: ex.exerciseCategory,
           sourceMovementPattern: ex.movementPattern,
@@ -1652,7 +1674,7 @@ export async function generateWorkoutProgram(
             const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
             const genEx: GeneratedExercise = {
               exerciseName: ex.name,
-              equipment: ex.equipment?.[0] || "bodyweight",
+              equipment: selectExerciseEquipment(ex, user.equipment || []),
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
@@ -1822,7 +1844,7 @@ export async function generateWorkoutProgram(
             
             const genEx: GeneratedExercise = {
               exerciseName: ex.name,
-              equipment: ex.equipment?.[0] || "bodyweight",
+              equipment: selectExerciseEquipment(ex, user.equipment || []),
               ...params,
               sourceExerciseCategory: ex.exerciseCategory,
               sourceMovementPattern: ex.movementPattern,
@@ -1923,7 +1945,7 @@ export async function generateWorkoutProgram(
         const params = assignTrainingParameters(warmupEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'warmup');
         warmupExercises_toAdd.push({
           exerciseName: warmupEx.name,
-          equipment: warmupEx.equipment?.[0] || "bodyweight",
+          equipment: selectExerciseEquipment(warmupEx, user.equipment || []),
           ...params,
           isWarmup: true,
           sourceExerciseCategory: warmupEx.exerciseCategory,
@@ -1941,7 +1963,7 @@ export async function generateWorkoutProgram(
             const params = assignTrainingParameters(additionalWarmup, fitnessLevel, selectedTemplate, latestAssessment, user, 'warmup');
             warmupExercises_toAdd.push({
               exerciseName: additionalWarmup.name,
-              equipment: additionalWarmup.equipment?.[0] || "bodyweight",
+              equipment: selectExerciseEquipment(additionalWarmup, user.equipment || []),
               ...params,
               isWarmup: true,
               sourceExerciseCategory: additionalWarmup.exerciseCategory,
@@ -2136,7 +2158,7 @@ export async function generateWorkoutProgram(
           const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioTimeBudget);
           const cardioExercise: GeneratedExercise = {
             exerciseName: cardioEx.name,
-            equipment: cardioEx.equipment?.[0] || "bodyweight",
+            equipment: selectExerciseEquipment(cardioEx, user.equipment || []),
             ...params,
             sourceExerciseCategory: cardioEx.exerciseCategory,
             sourceMovementPattern: cardioEx.movementPattern,
