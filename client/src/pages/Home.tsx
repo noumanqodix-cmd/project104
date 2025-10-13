@@ -79,8 +79,9 @@ export default function Home() {
   const { data: cycleCompletionCheck } = useQuery<{
     shouldPrompt: boolean;
     cycleNumber: number;
-    totalWorkoutsCompleted: number;
-    currentCycleDates: string[];
+    completedWorkouts: number;
+    totalCycleWorkouts: number;
+    selectedDates: string[];
   }>({
     queryKey: ["/api/cycles/completion-check"],
     enabled: !!activeProgram?.id && !!user,
@@ -839,7 +840,7 @@ export default function Home() {
       <CycleComplete
         open={showCycleCompleteDialog}
         cycleNumber={cycleCompletionCheck?.cycleNumber || 1}
-        totalWorkoutsCompleted={cycleCompletionCheck?.totalWorkoutsCompleted || 0}
+        totalWorkoutsCompleted={cycleCompletionCheck?.completedWorkouts || 0}
         onRepeatSameDays={() => {
           setShowCycleCompleteDialog(false);
           // Handled by CycleComplete component
