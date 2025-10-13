@@ -39,7 +39,8 @@ export type CardioType = typeof CARDIO_TYPES[number];
 export const MOVEMENT_PATTERNS = [
   'horizontal_push',
   'vertical_push',
-  'pull',
+  'vertical_pull',
+  'horizontal_pull',
   'squat',
   'lunge',
   'hinge',
