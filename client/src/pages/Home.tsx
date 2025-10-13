@@ -39,6 +39,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CycleComplete } from "@/components/CycleComplete";
+import { DayPicker } from "@/components/DayPicker";
 
 export default function Home() {
   const { toast } = useToast();
@@ -50,6 +51,8 @@ export default function Home() {
   const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
   const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
+  const [showRepeatDaysDialog, setShowRepeatDaysDialog] = useState(false);
+  const [selectedRepeatDates, setSelectedRepeatDates] = useState<string[]>([]);
   
   // Track previous missed workout count to prevent repeated rescheduling
   const previousMissedCountRef = useRef<number>(0);
@@ -223,6 +226,36 @@ export default function Home() {
     },
   });
 
+  // MUTATION: Repeat Cycle with New Dates - Regenerates program with newly selected dates
+  const repeatCycleMutation = useMutation({
+    mutationFn: async (selectedDates: string[]) => {
+      return await apiRequest("POST", "/api/programs/regenerate", {
+        startDate: formatLocalDate(getTodayLocal()),
+        selectedDates: selectedDates,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+      setShowRepeatDaysDialog(false);
+      setShowGenerationModal(true);
+      setGenerationStatus('success');
+      toast({
+        title: "New Cycle Started!",
+        description: "Your next 7-day cycle has been created with your selected workout dates.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Start New Cycle",
+        description: error.message || "Failed to create new cycle. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const generateProgramMutation = useMutation({
     mutationFn: async () => {
@@ -843,13 +876,62 @@ export default function Home() {
         totalWorkoutsCompleted={cycleCompletionCheck?.completedWorkouts || 0}
         onRepeatSameDays={() => {
           setShowCycleCompleteDialog(false);
-          // Handled by CycleComplete component
+          setSelectedRepeatDates([]);
+          setShowRepeatDaysDialog(true);
         }}
         onNewProgram={() => {
           setShowCycleCompleteDialog(false);
           setLocation("/settings");
         }}
       />
+
+      {/* Repeat Cycle - Select New Dates Dialog */}
+      <Dialog open={showRepeatDaysDialog} onOpenChange={setShowRepeatDaysDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Select Your Next Workout Dates
+            </DialogTitle>
+            <DialogDescription>
+              Choose {user?.daysPerWeek || 3} days from the next 7 days for your next cycle
+            </DialogDescription>
+          </DialogHeader>
+
+          <DayPicker
+            daysPerWeek={user?.daysPerWeek || 3}
+            initialSelectedDates={selectedRepeatDates}
+            onDatesSelected={setSelectedRepeatDates}
+          />
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowRepeatDaysDialog(false)}
+              data-testid="button-cancel-repeat"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedRepeatDates.length === (user?.daysPerWeek || 3)) {
+                  repeatCycleMutation.mutate(selectedRepeatDates);
+                } else {
+                  toast({
+                    title: "Invalid Selection",
+                    description: `Please select exactly ${user?.daysPerWeek || 3} workout dates.`,
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={selectedRepeatDates.length !== (user?.daysPerWeek || 3) || repeatCycleMutation.isPending}
+              data-testid="button-confirm-repeat"
+            >
+              {repeatCycleMutation.isPending ? "Creating..." : "Start New Cycle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cardio Type Selection Dialog */}
       <Dialog open={showCardioTypeDialog} onOpenChange={setShowCardioTypeDialog}>

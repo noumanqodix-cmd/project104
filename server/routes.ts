@@ -1907,9 +1907,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Used to trigger cycle completion prompt with options to repeat or create new program
   //
   // LOGIC:
-  // 1. Get user's selectedDates array (current cycle's scheduled dates)
-  // 2. Find all workout sessions scheduled on those dates
-  // 3. Check if ALL are completed (excluding rest days/cardio-only days)
+  // 1. Get user's active program
+  // 2. Find all non-archived workout sessions for that program
+  // 3. Check if ALL are completed (handles rescheduled workouts properly)
   // 4. Return shouldPrompt: true if cycle is complete
   //
   // RESPONSE:
@@ -1924,40 +1924,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
 
-      // Get user data to access selectedDates (current cycle)
+      // Get user data 
       const user = await storage.getUser(userId);
       if (!user) {
         return res.json({ shouldPrompt: false, reason: "no_user" });
       }
 
-      // Check if user has selectedDates (new cycle system)
-      if (!user.selectedDates || user.selectedDates.length === 0) {
-        return res.json({ shouldPrompt: false, reason: "no_cycle_dates" });
+      // Get active program
+      const activeProgram = await storage.getUserActiveProgram(userId);
+      if (!activeProgram) {
+        return res.json({ shouldPrompt: false, reason: "no_active_program" });
       }
 
-      // Get all user sessions
+      // Get all non-archived sessions
       const allSessions = await storage.getUserSessions(userId);
-
-      // Filter to sessions scheduled on current cycle dates (non-archived)
-      const cycleSessions = allSessions.filter(s => 
-        user.selectedDates?.includes(s.scheduledDate || '') && 
+      
+      // Get all non-archived workout sessions from current program
+      // This includes rescheduled workouts that may not match selectedDates
+      const currentCycleWorkouts = allSessions.filter(s => 
+        s.sessionType === "workout" && 
         s.isArchived === 0
       );
 
-      // Get only workout sessions (exclude rest days)
-      const workoutSessions = cycleSessions.filter(s => s.sessionType === "workout");
-      
       // Count completed workout sessions
-      const completedWorkouts = workoutSessions.filter(s => s.completed === 1);
+      const completedWorkouts = currentCycleWorkouts.filter(s => s.completed === 1);
 
       // Cycle is complete when ALL workout sessions are completed
-      const isCycleComplete = workoutSessions.length > 0 && completedWorkouts.length === workoutSessions.length;
+      const isCycleComplete = currentCycleWorkouts.length > 0 && 
+                             completedWorkouts.length === currentCycleWorkouts.length;
 
       res.json({
         shouldPrompt: isCycleComplete,
         cycleNumber: user.cycleNumber || 1,
         completedWorkouts: completedWorkouts.length,
-        totalCycleWorkouts: workoutSessions.length,
+        totalCycleWorkouts: currentCycleWorkouts.length,
         selectedDates: user.selectedDates,
         reason: isCycleComplete ? "cycle_complete" : "not_yet"
       });
