@@ -353,7 +353,7 @@ function calculateExerciseTime(params: {
   workSeconds?: number;
   restSeconds: number;
 }): number {
-  const TRANSITION_TIME = 0.5; // 30 seconds in minutes
+  const TRANSITION_TIME = 1.0; // 1 minute for setup between exercises
   const SECONDS_PER_REP = 2.5; // Average time per rep
   
   // Calculate work time per set
