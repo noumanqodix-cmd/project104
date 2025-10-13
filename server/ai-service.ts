@@ -1007,9 +1007,13 @@ export async function generateWorkoutProgram(
   console.log(`[TIME-ALLOC] Strength: ${strengthTimeBudget.toFixed(1)}min (${allocation.strength}%) → ${primaryCount} primaries (${primaryTime.toFixed(1)}min) + ${secondaryCount} secondaries (${(secondaryCount * secondaryCompoundTime).toFixed(1)}min)`);
   
   // Step 4: CARDIO ALLOCATION (percentage-based)
+  // Calculate cardio count based on time budget - avg 7 minutes per cardio exercise
   const templateWantsCardio = selectedTemplate.structure.workoutStructure.cardioExercises > 0;
-  const cardioCount = (templateWantsCardio && cardioTimeBudget > 0) ? 1 : 0;
-  console.log(`[TIME-ALLOC] Cardio: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%) → ${cardioCount} finisher`);
+  const avgCardioTime = 7; // Average minutes per cardio exercise
+  const calculatedCardioCount = Math.floor(cardioTimeBudget / avgCardioTime);
+  const cardioCount = (templateWantsCardio && cardioTimeBudget > 0) ? Math.max(1, calculatedCardioCount) : 0;
+  const cardioTimePerExercise = cardioCount > 0 ? cardioTimeBudget / cardioCount : 0;
+  console.log(`[TIME-ALLOC] Cardio: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%) → ${cardioCount} exercises @ ${cardioTimePerExercise.toFixed(1)}min each`);
   
   const mainCount = primaryCount + secondaryCount;
   
@@ -1017,7 +1021,7 @@ export async function generateWorkoutProgram(
                          (powerCount * powerExerciseTime) +
                          (primaryCount * primaryCompoundTime) +
                          (secondaryCount * secondaryCompoundTime) +
-                         (cardioCount * cardioTimeBudget);
+                         (cardioCount * cardioTimePerExercise);
   
   console.log(`[EXERCISE-CALC] For ${workoutDuration}min ${nutritionGoal.toUpperCase()} session: ${warmupCount}w + ${powerCount}p + ${primaryCount}pri + ${secondaryCount}sec + ${cardioCount}c = ${estimatedTotal.toFixed(1)}min. Supersets: ${useSupersets ? 'YES' : 'NO'}`);
   
@@ -1545,8 +1549,7 @@ export async function generateWorkoutProgram(
       };
 
       // 5. Smart isolation selection - prioritize theme patterns and untargeted muscles
-      // Target exactly 2 isolation exercises for muscle balance
-      const MAX_ISOLATIONS = 2;
+      // Fill isolation slots based on available strength time
       const isolationCandidates: { exercise: Exercise; priority: number; }[] = [];
 
       for (const pattern of preferredIsolationPatterns) {
@@ -1587,9 +1590,10 @@ export async function generateWorkoutProgram(
       isolationCandidates.sort((a, b) => b.priority - a.priority);
       console.log(`[ISOLATION-SELECTION] Found ${isolationCandidates.length} candidates for ${workoutTheme} theme`);
 
-      // Select top candidates up to MAX_ISOLATIONS (capped at 2)
+      // Select top candidates - no hard cap, limited by time and reserved slots
       for (const { exercise: ex, priority } of isolationCandidates) {
-        if (stageOutputs.isolations.length >= MAX_ISOLATIONS) break;
+        // Limit isolation to reserved superset slots (if applicable)
+        if (reservedSupersetSlots > 0 && stageOutputs.isolations.length >= reservedSupersetSlots) break;
         
         // RE-CHECK: Muscle tracking may have changed since building candidates list
         // This prevents duplicate muscle targeting (e.g., both Seated and Standing Calf Raise)
@@ -2155,7 +2159,7 @@ export async function generateWorkoutProgram(
         }
         
         for (const cardioEx of selectedCardio) {
-          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioTimeBudget);
+          const params = assignTrainingParameters(cardioEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'cardio', undefined, undefined, cardioTimePerExercise);
           const cardioExercise: GeneratedExercise = {
             exerciseName: cardioEx.name,
             equipment: selectExerciseEquipment(cardioEx, user.equipment || []),
