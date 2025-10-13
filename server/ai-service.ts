@@ -1118,17 +1118,19 @@ export async function generateWorkoutProgram(
   // LEGACY APPROACH: If using selectedDays, still generate full week (7 days) for backwards compatibility
   
   const totalWorkoutsToGenerate = useSelectedDates ? daysPerWeek : 7;
+  let sequentialWorkoutNumber = 0; // Track actual workout count (1st, 2nd, 3rd workout) independent of day-of-week
   
   for (let loopIndex = 1; loopIndex <= totalWorkoutsToGenerate; loopIndex++) {
     // NEW: Use sequential workout index (1, 2, 3, ..., N)
     // LEGACY: Map loopIndex to dayOfWeek for backwards compatibility
-    const workoutIndex = loopIndex;
     const dayOfWeek = useSelectedDates ? undefined : loopIndex; // Only set dayOfWeek for legacy mode
-    const currentDay = dayOfWeek ?? workoutIndex; // Use dayOfWeek if available, otherwise workoutIndex
-    const dayName = dayOfWeek ? dayNames[dayOfWeek] : `Workout ${workoutIndex}`;
+    const dayName = dayOfWeek ? dayNames[dayOfWeek] : `Workout ${loopIndex}`;
     const isScheduledDay = useSelectedDates ? true : scheduledDays.includes(dayOfWeek!);
     
     if (isScheduledDay) {
+      sequentialWorkoutNumber++; // Increment workout counter only on scheduled days
+      const workoutIndex = sequentialWorkoutNumber; // Use sequential number for pattern access (1, 2, 3, ...)
+      const currentDay = dayOfWeek ?? workoutIndex; // Use dayOfWeek if available, otherwise workoutIndex
       // WORKOUT DAY: Generate actual workout with exercises
       // STAGE-BASED GENERATION: Build workout in priority order without destructive reordering
       const stageOutputs = {
@@ -1900,6 +1902,8 @@ export async function generateWorkoutProgram(
           equipment: warmupEx.equipment?.[0] || "bodyweight",
           ...params,
           isWarmup: true,
+          sourceExerciseCategory: warmupEx.exerciseCategory,
+          sourceMovementPattern: warmupEx.movementPattern,
         });
       }
       
@@ -1916,6 +1920,8 @@ export async function generateWorkoutProgram(
               equipment: additionalWarmup.equipment?.[0] || "bodyweight",
               ...params,
               isWarmup: true,
+              sourceExerciseCategory: additionalWarmup.exerciseCategory,
+              sourceMovementPattern: additionalWarmup.movementPattern,
             });
             console.log(`[WARMUP-SUPERSET] Added ${additionalWarmup.name} to make even number for pairing`);
           }
@@ -2023,6 +2029,8 @@ export async function generateWorkoutProgram(
             exerciseName: powerEx.name,
             equipment: powerEx.equipment?.[0] || "bodyweight",
             ...params,
+            sourceExerciseCategory: powerEx.exerciseCategory,
+            sourceMovementPattern: powerEx.movementPattern,
           });
           
           // Track primary muscles
