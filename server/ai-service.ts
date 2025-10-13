@@ -2073,7 +2073,7 @@ export async function generateWorkoutProgram(
           const params = assignTrainingParameters(powerEx, fitnessLevel, selectedTemplate, latestAssessment, user, 'power');
           powerExercisesToAdd.push({
             exerciseName: powerEx.name,
-            equipment: powerEx.equipment?.[0] || "bodyweight",
+            equipment: selectExerciseEquipment(powerEx, user.equipment || []),
             ...params,
             sourceExerciseCategory: powerEx.exerciseCategory,
             sourceMovementPattern: powerEx.movementPattern,
