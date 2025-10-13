@@ -954,10 +954,10 @@ export async function generateWorkoutProgram(
   console.log(`[TIME-ALLOC] Warmup: ${warmupTimeBudget.toFixed(1)}min (${allocation.warmup}%) → ${warmupCount} exercises`);
   
   // Step 2: POWER EXERCISE ALLOCATION (percentage-based)
-  // Cap at 2-3 exercises to prevent CNS overload
+  // Cap at 2 exercises to prevent CNS overload
   const calculatedPowerCount = Math.floor(powerTimeBudget / powerExerciseTime);
-  const powerCount = Math.max(0, Math.min(3, calculatedPowerCount));
-  console.log(`[TIME-ALLOC] Power: ${powerTimeBudget.toFixed(1)}min (${allocation.power}%) → ${powerCount} exercises (capped at 3)`);
+  const powerCount = Math.max(0, Math.min(2, calculatedPowerCount));
+  console.log(`[TIME-ALLOC] Power: ${powerTimeBudget.toFixed(1)}min (${allocation.power}%) → ${powerCount} exercises (capped at 2)`);
   
   // Step 3: STRENGTH ALLOCATION (percentage-based)
   // Split strength budget between primary and secondary compounds
