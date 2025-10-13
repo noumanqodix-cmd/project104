@@ -114,7 +114,8 @@ export const fitnessAssessments = pgTable("fitness_assessments", {
   // Manual level overrides for each movement pattern
   horizontalPushOverride: text("horizontal_push_override"),
   verticalPushOverride: text("vertical_push_override"),
-  pullOverride: text("pull_override"),
+  verticalPullOverride: text("vertical_pull_override"),
+  horizontalPullOverride: text("horizontal_pull_override"),
   lowerBodyOverride: text("lower_body_override"),
   hingeOverride: text("hinge_override"),
   coreOverride: text("core_override"),
