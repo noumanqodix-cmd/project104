@@ -898,17 +898,17 @@ export async function generateWorkoutProgram(
     restSeconds: 30
   });
   
-  // Primary compound - time varies by fitness level due to set count
-  // Beginners: 4 sets @ 180s rest, Advanced: 5 sets @ 180s rest
+  // Primary compound - 3-4 sets based on fitness level
+  // Beginners: 3 sets @ 180s rest, Intermediate/Advanced: 4 sets @ 180s rest
   const primaryCompoundTime = calculateExerciseTime({
-    sets: fitnessLevel === "beginner" ? 4 : 5,
+    sets: fitnessLevel === "beginner" ? 3 : 4,
     repsMin: 4,
     repsMax: 6,
     restSeconds: 180
   });
   
-  // Secondary compound/hypertrophy - time varies by fitness level
-  // Beginners: 3 sets @ 90s rest, Advanced: 4 sets @ 90s rest
+  // Secondary compound/hypertrophy - 3-4 sets based on fitness level
+  // Beginners: 3 sets @ 90s rest, Intermediate/Advanced: 4 sets @ 90s rest
   const secondaryCompoundTime = calculateExerciseTime({
     sets: fitnessLevel === "beginner" ? 3 : 4,
     repsMin: 8,
@@ -938,9 +938,9 @@ export async function generateWorkoutProgram(
   console.log(`[CARDIO-CONFIG] Nutrition goal: ${nutritionGoal}, cardio types: ${cardioConfig.types.join(', ')}, allocated time: ${cardioTimeBudget.toFixed(1)}min (${allocation.cardio}%)`);
   
   // POWER EXERCISE TIME CALCULATION
-  // Power exercises use 60s rest for all levels for easier movements
+  // Power exercises use 2 sets @ 60s rest for all levels
   const powerExerciseTime = calculateExerciseTime({
-    sets: fitnessLevel === "beginner" ? 3 : fitnessLevel === "intermediate" ? 4 : 5,
+    sets: 2,  // 2 sets for all levels
     repsMin: fitnessLevel === "advanced" ? 1 : 2,
     repsMax: fitnessLevel === "beginner" ? 3 : 3,
     restSeconds: 60  // 60s rest for all levels
