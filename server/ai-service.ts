@@ -1442,70 +1442,130 @@ export async function generateWorkoutProgram(
       
       console.log(`[CNS-PHASE-1] Compounds complete: ${stageOutputs.compounds.length}/${compoundSlotsToFill} exercises`);
       
-      // PHASE 2: ISOLATION EXERCISES (Moderate CNS demand - only if time allows)
-      console.log(`[CNS-PHASE-2] Selecting ISOLATION exercises`);
-      const totalMainExercises = stageOutputs.compounds.length + stageOutputs.isolations.length;
-      const isolationTargetCount = mainCount; // Can add isolations up to main count target
+      // PHASE 2: SMART ISOLATION EXERCISES
+      // Match isolation to workout theme and prioritize untargeted muscles
+      console.log(`[CNS-PHASE-2] Selecting ISOLATION exercises with theme-based muscle balance`);
       
-      for (const tier of patternTiers) {
+      // 1. Determine workout theme based on compound patterns
+      const compoundPatterns = compoundExercises.map(c => c.pattern);
+      const pushPatterns = compoundPatterns.filter(p => ['horizontal_push', 'vertical_push'].includes(p)).length;
+      const pullPatterns = compoundPatterns.filter(p => ['pull', 'hinge'].includes(p)).length;
+      const legPatterns = compoundPatterns.filter(p => ['squat', 'lunge'].includes(p)).length;
+
+      let workoutTheme: 'PUSH' | 'PULL' | 'LEG' | 'MIXED';
+      if (pushPatterns > pullPatterns && pushPatterns > legPatterns) {
+        workoutTheme = 'PUSH';
+      } else if (pullPatterns > pushPatterns && pullPatterns > legPatterns) {
+        workoutTheme = 'PULL';
+      } else if (legPatterns > pushPatterns && legPatterns > pullPatterns) {
+        workoutTheme = 'LEG';
+      } else {
+        workoutTheme = 'MIXED';
+      }
+
+      // 2. Define theme-appropriate isolation patterns
+      const themeIsolationPatterns: { [key: string]: string[] } = {
+        PUSH: ['horizontal_push', 'vertical_push'],  // triceps, delts, chest
+        PULL: ['pull', 'hinge'],                     // biceps, lats, rear delts, traps
+        LEG: ['squat', 'lunge', 'hinge'],           // quads, hamstrings, calves, glutes
+        MIXED: ['horizontal_push', 'vertical_push', 'pull', 'squat', 'lunge', 'hinge']
+      };
+
+      const preferredIsolationPatterns = themeIsolationPatterns[workoutTheme];
+      console.log(`[ISOLATION-THEME] Workout theme: ${workoutTheme}, preferred patterns: ${preferredIsolationPatterns.join(', ')}`);
+
+      // 3. Track which muscles have been targeted by compounds
+      const targetedMuscles = new Set<string>();
+      compoundExercises.forEach(({ exercise }) => {
+        if (exercise.primaryMuscles) {
+          exercise.primaryMuscles.forEach(m => targetedMuscles.add(m));
+        }
+      });
+      console.log(`[MUSCLE-TRACKING] Muscles already targeted by compounds: ${Array.from(targetedMuscles).join(', ')}`);
+
+      // 4. Define agonist/antagonist pairs for balance
+      const antagonistPairs: { [key: string]: string[] } = {
+        biceps: ['triceps'],
+        triceps: ['biceps'],
+        quads: ['hamstrings'],
+        quadriceps: ['hamstrings'],
+        hamstrings: ['quads', 'quadriceps'],
+        chest: ['back', 'lats', 'upper back'],
+        back: ['chest'],
+        lats: ['chest', 'delts'],
+        'front delts': ['rear delts'],
+        'rear delts': ['front delts']
+      };
+
+      // 5. Smart isolation selection - prioritize theme patterns and untargeted muscles
+      const isolationTargetCount = mainCount;
+      const isolationCandidates: { exercise: Exercise; priority: number; }[] = [];
+
+      for (const pattern of preferredIsolationPatterns) {
+        const patternExercises = exercisesByPattern[pattern] || [];
+        const isolationOnly = patternExercises.filter(ex => ex.exerciseCategory === 'isolation');
+        
+        for (const ex of isolationOnly) {
+          if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) || 
+              !canUseOnLastDay(ex.id, isLastScheduledDay)) {
+            continue;
+          }
+          
+          let priority = 0;
+          
+          // Highest priority: targets untargeted muscle
+          const hasUntargetedMuscle = ex.primaryMuscles?.some(m => !targetedMuscles.has(m));
+          if (hasUntargetedMuscle) priority += 100;
+          
+          // Medium priority: targets antagonist of already-targeted muscle
+          const targetsAntagonist = ex.primaryMuscles?.some(muscle => {
+            return Array.from(targetedMuscles).some(targeted => {
+              const antagonists = antagonistPairs[targeted] || [];
+              return antagonists.includes(muscle);
+            });
+          });
+          if (targetsAntagonist) priority += 50;
+          
+          // Low priority: already targeted but still useful
+          if (!hasUntargetedMuscle && !targetsAntagonist) priority += 10;
+          
+          isolationCandidates.push({ exercise: ex, priority });
+        }
+      }
+
+      // Sort by priority (highest first)
+      isolationCandidates.sort((a, b) => b.priority - a.priority);
+      console.log(`[ISOLATION-SELECTION] Found ${isolationCandidates.length} candidates for ${workoutTheme} theme`);
+
+      // Select top candidates up to target count
+      for (const { exercise: ex, priority } of isolationCandidates) {
         const currentTotal = stageOutputs.compounds.length + stageOutputs.isolations.length;
         if (currentTotal >= isolationTargetCount) break;
         
-        const exercisesNeeded = isolationTargetCount - currentTotal;
-        const exercisesPerPattern = Math.ceil(exercisesNeeded / tier.patterns.length);
-        console.log(`[ISOLATION-TIER] ${tier.name} tier: need ${exercisesNeeded} more, ${exercisesPerPattern} per pattern from [${tier.patterns.join(', ')}]`);
+        const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
+        const genEx: GeneratedExercise = {
+          exerciseName: ex.name,
+          equipment: ex.equipment?.[0] || "bodyweight",
+          ...params,
+          sourceExerciseCategory: ex.exerciseCategory,
+          sourceMovementPattern: ex.movementPattern,
+        };
         
-        for (const pattern of tier.patterns) {
-          const currentTotal2 = stageOutputs.compounds.length + stageOutputs.isolations.length;
-          if (currentTotal2 >= isolationTargetCount) break;
-          
-          const patternExercises = exercisesByPattern[pattern] || [];
-          // Filter for ISOLATIONS only (already excludes core via category)
-          const isolationOnly = patternExercises.filter(ex => 
-            ex.exerciseCategory === 'isolation'
-          );
-          
-          const selected = selectExercisesByPattern(
-            isolationOnly, 
-            pattern, 
-            exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
-            (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
-              exerciseUsageMap.set(exId, dayOfWeek);
-              if (workoutIndex === 1) firstDayExercises.add(exId);
-              if (primaryMuscles && primaryMuscles.length > 0) {
-                primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
-              }
-              // Track compound pattern usage
-              if (exerciseCategory === 'compound' && exercisePattern) {
-                compoundPatternUsage.set(exercisePattern, dayOfWeek);
-              }
-            }
-          );
-          
-          for (const ex of selected) {
-            const currentTotal3 = stageOutputs.compounds.length + stageOutputs.isolations.length;
-            if (currentTotal3 >= isolationTargetCount) break;
-            
-            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
-            const genEx: GeneratedExercise = {
-              exerciseName: ex.name,
-              equipment: ex.equipment?.[0] || "bodyweight",
-              ...params,
-              sourceExerciseCategory: ex.exerciseCategory,
-              sourceMovementPattern: ex.movementPattern,
-            };
-            // STAGE-BASED: Push to appropriate array based on category
-            if (ex.exerciseCategory === 'compound') {
-              stageOutputs.compounds.push(genEx);
-            } else if (ex.exerciseCategory === 'isolation') {
-              stageOutputs.isolations.push(genEx);
-            } else if (ex.exerciseCategory === 'core' || ['core', 'rotation', 'carry'].includes(ex.movementPattern)) {
-              stageOutputs.core.push(genEx);
-            }
-            movementFocus.push(pattern);
-          }
+        stageOutputs.isolations.push(genEx);
+        movementFocus.push(ex.movementPattern);
+        
+        // Track exercise usage
+        exerciseUsageMap.set(ex.id, dayOfWeek);
+        if (workoutIndex === 1) firstDayExercises.add(ex.id);
+        if (ex.primaryMuscles && ex.primaryMuscles.length > 0) {
+          ex.primaryMuscles.forEach(muscle => {
+            usedPrimaryMuscles.add(muscle);
+            targetedMuscles.add(muscle);
+          });
         }
+        
+        const muscleInfo = ex.primaryMuscles?.join(', ') || 'unknown';
+        console.log(`[ISOLATION-ADDED] ${ex.name} (${ex.movementPattern}) - targets: ${muscleInfo}, priority: ${priority}`);
       }
       
       const totalAfterPhase2 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
