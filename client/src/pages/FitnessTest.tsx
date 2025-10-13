@@ -46,7 +46,8 @@ const getOverrideFieldName = (pattern: keyof MovementPatternLevels): string => {
   const fieldMap: Record<keyof MovementPatternLevels, string> = {
     horizontal_push: 'horizontalPushOverride',
     vertical_push: 'verticalPushOverride',
-    pull: 'pullOverride',
+    vertical_pull: 'pullOverride',
+    horizontal_pull: 'pullOverride',
     squat: 'lowerBodyOverride',
     lunge: 'lowerBodyOverride',
     hinge: 'hingeOverride',
@@ -145,6 +146,11 @@ export default function FitnessTest() {
   const saveTestMutation = useMutation({
     // The actual API call
     mutationFn: async (testData: FitnessTestResults | WeightsTestResults) => {
+      // Calculate previous levels before saving new test
+      const previousLevels = assessments && assessments.length > 0 && user
+        ? calculateMovementPatternLevels(assessments[0], user)
+        : null;
+
       // Build the assessment object to send to server
       const assessmentData: any = {
         experienceLevel: user?.fitnessLevel || 'beginner',  // Use current fitness level
@@ -177,17 +183,79 @@ export default function FitnessTest() {
       }
 
       // Send to server (same endpoint used during onboarding)
-      return await apiRequest('POST', '/api/fitness-assessments', assessmentData);
+      const response = await apiRequest('POST', '/api/fitness-assessments', assessmentData);
+      
+      // Return both response and previous levels for comparison
+      return { response, previousLevels };
     },
     // What to do if it succeeds
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });  // Reload assessments to show new test
+    onSuccess: async (data) => {
+      // Reload assessments to get new data
+      await queryClient.invalidateQueries({ queryKey: ["/api/fitness-assessments"] });
+      
+      // Wait a moment for the query to refetch
+      setTimeout(() => {
+        // Get updated assessments
+        const updatedAssessments = queryClient.getQueryData<FitnessAssessment[]>(["/api/fitness-assessments"]);
+        
+        if (updatedAssessments && updatedAssessments.length > 0 && user && data.previousLevels) {
+          // Calculate new levels
+          const newLevels = calculateMovementPatternLevels(updatedAssessments[0], user);
+          const previousLevels = data.previousLevels;
+          
+          // Check for level advancements
+          const advancements: string[] = [];
+          const patternLabels: Record<keyof MovementPatternLevels, string> = {
+            horizontal_push: 'Chest (Horizontal Push)',
+            vertical_push: 'Shoulders (Vertical Push)',
+            vertical_pull: 'Back (Vertical Pull)',
+            horizontal_pull: 'Back (Horizontal Pull)',
+            squat: 'Squat',
+            lunge: 'Lunge',
+            hinge: 'Hinge',
+            core: 'Core',
+            carry: 'Carry',
+            cardio: 'Cardio',
+            rotation: 'Rotation',
+          };
+          
+          // Compare each pattern
+          Object.keys(newLevels).forEach((pattern) => {
+            const key = pattern as keyof MovementPatternLevels;
+            const oldLevel = previousLevels[key];
+            const newLevel = newLevels[key];
+            
+            // Check if advanced from beginner to intermediate or intermediate to advanced
+            if ((oldLevel === 'beginner' && newLevel !== 'beginner') ||
+                (oldLevel === 'intermediate' && newLevel === 'advanced')) {
+              advancements.push(`${patternLabels[key]} → ${newLevel}`);
+            }
+          });
+          
+          // Show appropriate toast based on advancements
+          if (advancements.length > 0) {
+            toast({
+              title: "🎉 Level Up!",
+              description: `Congratulations! You've advanced and unlocked new exercises:\n${advancements.join('\n')}`,
+              duration: 6000,
+            });
+          } else {
+            toast({
+              title: "Test Complete!",
+              description: "Your fitness assessment has been saved successfully.",
+            });
+          }
+        } else {
+          // Fallback toast if we can't calculate levels
+          toast({
+            title: "Test Complete!",
+            description: "Your fitness assessment has been saved successfully.",
+          });
+        }
+      }, 500);
+      
       setIsRetaking(false);  // Exit retake mode
       setTestType(null);     // Clear selected test type
-      toast({
-        title: "Test Complete!",
-        description: "Your fitness assessment has been saved successfully.",
-      });
     },
     // What to do if it fails
     onError: (error: any) => {
@@ -428,11 +496,18 @@ export default function FitnessTest() {
         testId: 'vertical-push'
       },
       { 
-        levelKey: 'pull',
-        targetKey: 'pull',
-        label: 'Back (Pull)', 
-        description: 'Pull-ups, Barbell Row',
-        testId: 'pull'
+        levelKey: 'vertical_pull',
+        targetKey: 'lowerBody',
+        label: 'Back (Vertical Pull)', 
+        description: 'Pull-ups, Chin-ups',
+        testId: 'vertical-pull'
+      },
+      { 
+        levelKey: 'horizontal_pull',
+        targetKey: 'lowerBody',
+        label: 'Back (Horizontal Pull)', 
+        description: 'Barbell Row, Cable Row',
+        testId: 'horizontal-pull'
       },
       { 
         levelKey: 'squat',
