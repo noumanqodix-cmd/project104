@@ -472,6 +472,29 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     setRecommendedWeightIncrease(0);
     setRecommendedRepIncrease(0);
 
+    // Log the set to database
+    try {
+      const setData = {
+        sessionId: sessionId,
+        programExerciseId: currentExercise.id,
+        setNumber: currentSet,
+        weight: isDurationBased ? null : parseFloat(weightToUse),
+        reps: isDurationBased ? null : parseInt(actualReps),
+        durationSeconds: isDurationBased ? parseInt(actualDuration) : null,
+        rir: lastRir,
+        completed: 1,
+      };
+
+      await apiRequest("POST", "/api/workout-sets", setData);
+    } catch (error) {
+      console.error('Failed to log workout set:', error);
+      toast({
+        title: "Warning",
+        description: "Set data may not have been saved. Please try again.",
+        variant: "destructive",
+      });
+    }
+
     if (!isDurationBased) {
       const repsMin = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[0] : currentExercise.reps);
       const repsMax = parseInt(currentExercise.reps.includes('-') ? currentExercise.reps.split('-')[1] : currentExercise.reps);
