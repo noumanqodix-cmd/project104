@@ -35,6 +35,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
   - **7-Day Cycle System**: Users select specific calendar dates for their workouts. Upon cycle completion, the system prompts to "Repeat Same Days" or "New Program". Cycle number and total workouts completed are displayed for progress tracking.
   - **Daily Calendar Workflow**: Home page displays today's workout, allows adding cardio or marking rest days, and previews tomorrow's session.
   - **Automatic Missed Workout Rescheduling**: Automatically detects and moves missed workouts to today while preserving future workout dates.
+  - **Flexible Exercise Swap System**: Allows swapping exercises with ALL available equipment types plus bodyweight options (always available). Each equipment variant displays as a separate swap option. Swaps work in both active workout sessions and program view, with changes persisting immediately to database.
 - **Calorie Tracking System**: Incorporates MET calculations for calorie expenditure.
 - **Goal-Based Cardio Variety System**: Implements cardio type rotation based on nutrition goal (GAIN, MAINTAIN, LOSE).
 - **HIIT Interval Training System**: Supports HIIT with automated timers and custom intervals.

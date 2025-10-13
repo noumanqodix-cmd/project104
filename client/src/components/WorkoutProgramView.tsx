@@ -211,7 +211,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-xl font-semibold">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                        <h3 className="text-xl font-semibold">{ex.exercise.name}</h3>
                         {ex.exercise.exerciseCategory && (
                           <Badge 
                             variant={
@@ -233,6 +233,11 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                           </Badge>
                         )}
                       </div>
+                      {ex.equipment && (
+                        <p className="text-sm text-muted-foreground mb-2" data-testid="exercise-equipment">
+                          {ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1)}
+                        </p>
+                      )}
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">
@@ -339,7 +344,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-xl font-semibold">{formatExerciseName(ex.exercise.name, ex.equipment)}</h3>
+                        <h3 className="text-xl font-semibold">{ex.exercise.name}</h3>
                         {ex.exercise.exerciseCategory && (
                           <Badge 
                             variant={
@@ -361,6 +366,11 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
                           </Badge>
                         )}
                       </div>
+                      {ex.equipment && (
+                        <p className="text-sm text-muted-foreground mb-2" data-testid="exercise-equipment">
+                          {ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1)}
+                        </p>
+                      )}
                       {ex.exercise.primaryMuscles && ex.exercise.primaryMuscles.length > 0 && (
                         <div className="space-y-1">
                           <div className="flex gap-2 flex-wrap">

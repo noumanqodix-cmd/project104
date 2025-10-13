@@ -178,20 +178,6 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
 
   const canProceed = height && weight && birthMonth && birthDay && birthYear && dateOfBirth && goal;
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[NUTRITION] Form state:', {
-      height,
-      weight,
-      birthMonth,
-      birthDay,
-      birthYear,
-      dateOfBirth: dateOfBirth?.toISOString(),
-      goal,
-      canProceed
-    });
-  }, [height, weight, birthMonth, birthDay, birthYear, dateOfBirth, goal, canProceed]);
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <Card className="p-8 max-w-2xl w-full">

@@ -697,11 +697,14 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
   };
 
   const handleSwap = (newExercise: Exercise & { selectedEquipment?: string }) => {
+    // Use selectedEquipment if available, otherwise fall back to first equipment option
+    const selectedEquip = newExercise.selectedEquipment || newExercise.equipment[0] || 'bodyweight';
+    
     setExercises(prev =>
       prev.map(ex => ex.id === currentExercise.id ? {
         ...ex,
         name: newExercise.name,
-        equipment: newExercise.equipment || [],
+        equipment: [selectedEquip], // Use the selected equipment as array
         movementPattern: newExercise.movementPattern,
         formVideoUrl: newExercise.videoUrl || '#',
       } : ex)
@@ -709,6 +712,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     setProgramExercises(prev =>
       prev.map(pe => pe.id === currentExercise.id ? {
         ...pe,
+        equipment: selectedEquip, // Update the equipment for program exercise
         exercise: newExercise,
       } : pe)
     );
@@ -893,7 +897,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <h2 className="text-2xl font-bold">{formatExerciseName(currentProgramExercise?.exercise?.name || currentExercise.name, currentProgramExercise?.equipment)}</h2>
+                <h2 className="text-2xl font-bold">{currentProgramExercise?.exercise?.name || currentExercise.name}</h2>
                 {currentProgramExercise?.exercise?.exerciseCategory && (
                   <Badge 
                     variant={
@@ -915,6 +919,11 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
                   </Badge>
                 )}
               </div>
+              {currentProgramExercise?.equipment && (
+                <p className="text-sm text-muted-foreground mb-2" data-testid="exercise-equipment">
+                  {currentProgramExercise.equipment.charAt(0).toUpperCase() + currentProgramExercise.equipment.slice(1)}
+                </p>
+              )}
               {currentProgramExercise?.exercise?.primaryMuscles && currentProgramExercise.exercise.primaryMuscles.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex gap-2 flex-wrap">

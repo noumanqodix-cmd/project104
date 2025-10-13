@@ -2860,7 +2860,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : { 
             horizontal_push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             vertical_push: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
-            pull: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
+            vertical_pull: fitnessLevel as 'beginner' | 'intermediate' | 'advanced',
+            horizontal_pull: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             squat: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             lunge: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
             hinge: fitnessLevel as 'beginner' | 'intermediate' | 'advanced', 
@@ -2894,29 +2895,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return hasMatchingMuscle;
       });
 
-      // Build results with equipment variants
+      // Build results with ALL available equipment variants
       const results: Array<Exercise & { selectedEquipment?: string }> = [];
+      const userEquipment = user.equipment || [];
       
       for (const ex of similarExercises) {
-        if (ex.id === exerciseId) {
-          // Same exercise: show equipment variants different from current
-          const userEquipment = user.equipment || [];
-          const availableEquipment = ex.equipment.filter(eq => 
-            userEquipment.includes(eq) && eq !== currentEquipment
-          );
-          
-          // Add one entry per equipment variant
-          for (const equipment of availableEquipment) {
-            results.push({ ...ex, selectedEquipment: equipment });
+        // Get all equipment options that user has OR bodyweight (always available)
+        const availableEquipment = ex.equipment.filter(eq => 
+          eq === 'bodyweight' || userEquipment.includes(eq)
+        );
+        
+        if (availableEquipment.length === 0) {
+          // Skip exercises with no compatible equipment
+          continue;
+        }
+        
+        // Add one entry per available equipment variant
+        for (const equipment of availableEquipment) {
+          // Skip if this is the exact same exercise with same equipment (no point swapping to itself)
+          if (ex.id === exerciseId && equipment === currentEquipment) {
+            continue;
           }
-        } else {
-          // Different exercise: show with first available equipment option
-          const userEquipment = user.equipment || [];
-          const firstAvailable = ex.equipment.find(eq => userEquipment.includes(eq));
           
-          if (firstAvailable) {
-            results.push({ ...ex, selectedEquipment: firstAvailable });
-          }
+          results.push({ ...ex, selectedEquipment: equipment });
         }
       }
       
