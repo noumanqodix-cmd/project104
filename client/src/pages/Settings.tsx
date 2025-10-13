@@ -732,6 +732,53 @@ export default function Settings() {
             >
               {updateProgramSettingsMutation.isPending ? "Saving..." : "Update Program Settings"}
             </Button>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                <div>
+                  <p className="font-semibold">Regenerate Program</p>
+                  <p className="text-sm text-muted-foreground">
+                    Create a new science-backed program with different exercises while keeping your current settings
+                  </p>
+                </div>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    data-testid="button-regenerate-program"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate Program
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Regenerate Your Program?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will create a completely new science-backed workout program using your current settings. Your existing program and workout history will be preserved, but your current cycle will restart.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        setShowGenerationModal(true);
+                        setGenerationStatus('generating');
+                        generateNewProgramMutation.mutate();
+                      }}
+                      data-testid="button-confirm-regenerate"
+                    >
+                      Regenerate Program
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardContent>
         </Card>
 
