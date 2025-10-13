@@ -1498,7 +1498,8 @@ export async function generateWorkoutProgram(
       };
 
       // 5. Smart isolation selection - prioritize theme patterns and untargeted muscles
-      const isolationTargetCount = mainCount;
+      // Target exactly 2 isolation exercises for muscle balance
+      const MAX_ISOLATIONS = 2;
       const isolationCandidates: { exercise: Exercise; priority: number; }[] = [];
 
       for (const pattern of preferredIsolationPatterns) {
@@ -1537,10 +1538,9 @@ export async function generateWorkoutProgram(
       isolationCandidates.sort((a, b) => b.priority - a.priority);
       console.log(`[ISOLATION-SELECTION] Found ${isolationCandidates.length} candidates for ${workoutTheme} theme`);
 
-      // Select top candidates up to target count
+      // Select top candidates up to MAX_ISOLATIONS (capped at 2)
       for (const { exercise: ex, priority } of isolationCandidates) {
-        const currentTotal = stageOutputs.compounds.length + stageOutputs.isolations.length;
-        if (currentTotal >= isolationTargetCount) break;
+        if (stageOutputs.isolations.length >= MAX_ISOLATIONS) break;
         
         const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'isolation');
         const genEx: GeneratedExercise = {
