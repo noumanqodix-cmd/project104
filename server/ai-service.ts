@@ -815,28 +815,37 @@ export async function generateWorkoutProgram(
   
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
-      // 3-day program: Workout 1 → Workout 2 → Workout 3
-      // Horizontal Pull+Hinge → Horizontal Push+Squat → Vertical Push+Vertical Pull
-      1: { primary: ['horizontal_pull', 'hinge'], secondary: ['core', 'carry'] },
-      2: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
-      3: { primary: ['vertical_push', 'vertical_pull'], secondary: ['lunge', 'core'] }
+      // 3-day Full-Body Pattern Emphasis
+      // Day 1: Squat/Push Focus - squat, horizontal push, horizontal pull, lunge, carry/core
+      1: { primary: ['squat', 'horizontal_push', 'horizontal_pull'], secondary: ['lunge', 'carry', 'core'] },
+      // Day 2: Hinge/Pull Focus - hinge, vertical pull, vertical push, lunge, carry/anti-lateral
+      2: { primary: ['hinge', 'vertical_pull', 'vertical_push'], secondary: ['lunge', 'carry', 'core'] },
+      // Day 3: Balanced/Athletic - squat, horizontal push, hinge, pull variety, carry/rotational
+      3: { primary: ['squat', 'horizontal_push', 'hinge', 'horizontal_pull'], secondary: ['carry', 'rotation', 'core'] }
     },
     4: {
-      // 4-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4
-      // Horizontal Pull+Horizontal Push → Lower → Vertical Push+Vertical Pull → Lower
-      1: { primary: ['horizontal_pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
-      2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
-      3: { primary: ['vertical_push', 'vertical_pull'], secondary: ['core', 'carry'] },
-      4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
+      // 4-day Upper/Lower Split
+      // Day 1: Lower (Squat Dominant) - squat, lunge, quad-focused, carry/core
+      1: { primary: ['squat', 'lunge'], secondary: ['core', 'carry'] },
+      // Day 2: Upper (Push Focus) - horizontal push, vertical push, horizontal pull (light), core
+      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['horizontal_pull', 'core'] },
+      // Day 3: Lower (Hinge Dominant) - hinge, lunge, posterior chain, carry/anti-rotation
+      3: { primary: ['hinge', 'lunge'], secondary: ['carry', 'rotation', 'core'] },
+      // Day 4: Upper (Pull Focus) - vertical pull, horizontal pull, horizontal push, carry/core
+      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['horizontal_push', 'carry', 'core'] }
     },
     5: {
-      // 5-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4 → Workout 5
-      // Horizontal Push → Pull Day (both types) → Legs → Vertical Push+Vertical Pull → Lower (classic split)
-      1: { primary: ['horizontal_push'], secondary: ['rotation', 'core'] },
-      2: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['carry', 'core'] },
-      3: { primary: ['squat', 'lunge'], secondary: ['hinge', 'core'] },
-      4: { primary: ['vertical_push', 'vertical_pull'], secondary: ['core'] },
-      5: { primary: ['hinge', 'squat'], secondary: ['lunge', 'core'] }
+      // 5-day Pattern-Based Split
+      // Day 1: Squat Pattern - primary squat, secondary squat/lunge, core/bracing
+      1: { primary: ['squat'], secondary: ['lunge', 'core'] },
+      // Day 2: Push Patterns - horizontal push, vertical push, core/anti-extension
+      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['core'] },
+      // Day 3: Hinge Pattern - hinge, posterior accessory, carry/hip stability
+      3: { primary: ['hinge'], secondary: ['carry', 'core'] },
+      // Day 4: Pull Patterns - vertical pull, horizontal pull, core
+      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['core'] },
+      // Day 5: Unilateral/Athletic - lunge, hinge, rotational core, carry
+      5: { primary: ['lunge', 'hinge'], secondary: ['rotation', 'core', 'carry'] }
     }
   };
   
