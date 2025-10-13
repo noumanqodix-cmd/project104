@@ -791,9 +791,9 @@ export async function generateWorkoutProgram(
   
   // LEGACY: For backwards compatibility, support day-of-week scheduling
   const daySchedules: { [key: number]: number[] } = {
-    3: [1, 3, 5],       // Monday, Wednesday, Friday
-    4: [1, 2, 4, 5],    // Monday, Tuesday, Thursday, Friday
-    5: [1, 2, 3, 4, 5], // Monday-Friday
+    3: [1, 3, 5],       // Legacy: Mon/Wed/Fri (day-of-week numbers)
+    4: [1, 2, 4, 5],    // Legacy: Mon/Tue/Thu/Fri (day-of-week numbers)
+    5: [1, 2, 3, 4, 5], // Legacy: Mon-Fri (day-of-week numbers)
   };
 
   const scheduledDays = user.selectedDays && user.selectedDays.length === daysPerWeek 
@@ -1063,7 +1063,7 @@ export async function generateWorkoutProgram(
     // Power exercises still blocked for full week (high CNS demand)
     if (exerciseCategory === 'compound') {
       const daysSince = currentDay - lastUsedDay;
-      // Require 2+ day gap for compound reuse (e.g., Monday compound can be reused Thursday+)
+      // Require 2+ workout gap for compound reuse (e.g., workout 1 compound can be reused in workout 3+)
       if (daysSince < 2) {
         console.log(`[COMPOUND-REUSE] Blocking ${exerciseId} - only ${daysSince} days since last use (need 2+)`);
         return false;
