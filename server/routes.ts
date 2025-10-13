@@ -2179,9 +2179,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If we found a pre-scheduled session, update it instead of creating new
         if (existingScheduledSession) {
-          // Don't update scheduledDate - keep the original scheduled date
+          // Don't update scheduledDate, sessionType, or workoutType - keep original values
           // Only update status, completed, session metadata
-          const { scheduledDate, ...updateData } = validatedData;
+          const { scheduledDate, sessionType, workoutType, ...updateData } = validatedData;
           
           const updatedSession = await storage.updateWorkoutSession(existingScheduledSession.id, {
             ...updateData,
@@ -2647,7 +2647,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const session = await storage.updateWorkoutSession(req.params.sessionId, validatedData);
+      // Preserve sessionType and workoutType - don't allow client to overwrite
+      const { sessionType, workoutType, ...safeUpdateData } = validatedData;
+      
+      const session = await storage.updateWorkoutSession(req.params.sessionId, safeUpdateData);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
