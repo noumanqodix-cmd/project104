@@ -46,7 +46,8 @@ export type MovementPatternLevel = 'beginner' | 'intermediate' | 'advanced';
 export interface MovementPatternLevels {
   horizontal_push: MovementPatternLevel;
   vertical_push: MovementPatternLevel;
-  pull: MovementPatternLevel;
+  vertical_pull: MovementPatternLevel;
+  horizontal_pull: MovementPatternLevel;
   squat: MovementPatternLevel;
   lunge: MovementPatternLevel;
   hinge: MovementPatternLevel;
@@ -75,7 +76,8 @@ interface AssessmentData {
   farmersCarry1rm?: number | null;
   horizontalPushOverride?: string | null;
   verticalPushOverride?: string | null;
-  pullOverride?: string | null;
+  verticalPullOverride?: string | null;
+  horizontalPullOverride?: string | null;
   lowerBodyOverride?: string | null;
   hingeOverride?: string | null;
   coreOverride?: string | null;
@@ -101,7 +103,8 @@ export interface ProgressionTarget {
 export interface ProgressionTargets {
   horizontal_push: ProgressionTarget;
   vertical_push: ProgressionTarget;
-  pull: ProgressionTarget;
+  vertical_pull: ProgressionTarget;
+  horizontal_pull: ProgressionTarget;
   lowerBody: ProgressionTarget;
   hinge: ProgressionTarget;
   cardio: ProgressionTarget;
@@ -128,10 +131,18 @@ export function getProgressionTargets(userWeight?: number, unitPreference?: stri
       weightedIntermediate: `${(weight * 0.6).toFixed(0)}${weightUnit} (0.6×BW)`,
       weightedAdvanced: `${(weight * 0.9).toFixed(0)}${weightUnit} (0.9×BW)`,
     },
-    pull: {
+    vertical_pull: {
       bodyweightTest: 'Pullups',
       bodyweightIntermediate: '5+ pullups',
       bodyweightAdvanced: '10+ pullups',
+      weightedTest: 'N/A',
+      weightedIntermediate: 'N/A',
+      weightedAdvanced: 'N/A',
+    },
+    horizontal_pull: {
+      bodyweightTest: 'Inverted Rows',
+      bodyweightIntermediate: '10+ rows',
+      bodyweightAdvanced: '20+ rows',
       weightedTest: 'Barbell Row 1RM',
       weightedIntermediate: `${(weight * 1.0).toFixed(0)}${weightUnit} (1.0×BW)`,
       weightedAdvanced: `${(weight * 1.5).toFixed(0)}${weightUnit} (1.5×BW)`,
@@ -180,7 +191,8 @@ export function calculateMovementPatternLevels(
   // Calculate levels based purely on test metrics, allowing progression
   let horizontalPushLevel: MovementPatternLevel = 'beginner';
   let verticalPushLevel: MovementPatternLevel = 'beginner';
-  let pullLevel: MovementPatternLevel = 'beginner';
+  let verticalPullLevel: MovementPatternLevel = 'beginner';
+  let horizontalPullLevel: MovementPatternLevel = 'beginner';
   let squatLevel: MovementPatternLevel = 'beginner';
   let lungeLevel: MovementPatternLevel = 'beginner';
   let hingeLevel: MovementPatternLevel = 'beginner';
@@ -205,13 +217,16 @@ export function calculateMovementPatternLevels(
     verticalPushLevel = 'intermediate';
   }
   
-  // Pull pattern - based on pullups or row performance
+  // Vertical Pull pattern - based on pullups performance
   const pullups = assessment.pullups || 0;
   if (pullups >= 10) {
-    pullLevel = 'advanced';
+    verticalPullLevel = 'advanced';
   } else if (pullups >= 5) {
-    pullLevel = 'intermediate';
+    verticalPullLevel = 'intermediate';
   }
+  
+  // Horizontal Pull pattern - defaults to beginner (can be upgraded via row 1RM)
+  horizontalPullLevel = 'beginner';
   
   // Squat pattern - based on bodyweight squats or squat 1RM
   const squats = assessment.squats || 0;
@@ -338,16 +353,16 @@ export function calculateMovementPatternLevels(
       }
     }
     
-    // Barbell Row 1RM for pull level
+    // Barbell Row 1RM for horizontal pull level
     if (assessment.barbellRow1rm) {
       const row1rmKg = user.unitPreference === 'imperial' ? assessment.barbellRow1rm * 0.453592 : assessment.barbellRow1rm;
       const ratio = row1rmKg / weightInKg;
       if (ratio >= 1.5) {
-        pullLevel = 'advanced';
+        horizontalPullLevel = 'advanced';
       } else if (ratio >= 1.0) {
-        pullLevel = 'intermediate';
+        horizontalPullLevel = 'intermediate';
       } else if (ratio < 0.75) {
-        pullLevel = 'beginner';
+        horizontalPullLevel = 'beginner';
       }
     }
   }
@@ -369,7 +384,8 @@ export function calculateMovementPatternLevels(
   return {
     horizontal_push: getMaxLevel(horizontalPushLevel, assessment.horizontalPushOverride),
     vertical_push: getMaxLevel(verticalPushLevel, assessment.verticalPushOverride),
-    pull: getMaxLevel(pullLevel, assessment.pullOverride),
+    vertical_pull: getMaxLevel(verticalPullLevel, assessment.verticalPullOverride),
+    horizontal_pull: getMaxLevel(horizontalPullLevel, assessment.horizontalPullOverride),
     squat: getMaxLevel(squatLevel, assessment.lowerBodyOverride),
     lunge: getMaxLevel(lungeLevel, assessment.lowerBodyOverride),
     hinge: getMaxLevel(hingeLevel, assessment.hingeOverride),
@@ -402,7 +418,8 @@ export function getMovementDifficultiesMap(
   return {
     horizontal_push: getAllowedDifficulties(levels.horizontal_push),
     vertical_push: getAllowedDifficulties(levels.vertical_push),
-    pull: getAllowedDifficulties(levels.pull),
+    vertical_pull: getAllowedDifficulties(levels.vertical_pull),
+    horizontal_pull: getAllowedDifficulties(levels.horizontal_pull),
     squat: getAllowedDifficulties(levels.squat),
     lunge: getAllowedDifficulties(levels.lunge),
     hinge: getAllowedDifficulties(levels.hinge),
