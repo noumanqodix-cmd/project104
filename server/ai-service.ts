@@ -814,17 +814,19 @@ export async function generateWorkoutProgram(
   
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
-      // 3-day: Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull Mix
+      // 3-day (Mon/Wed/Fri): Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull
+      // Uses indices 1, 3, 5 for legacy day-of-week mode
       1: { primary: ['pull', 'hinge'], secondary: ['core', 'carry'] },
-      2: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
-      3: { primary: ['pull', 'vertical_push'], secondary: ['lunge', 'hinge', 'core'] }
+      3: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
+      5: { primary: ['vertical_push', 'pull'], secondary: ['lunge', 'core'] }
     },
     4: {
-      // 4-day: Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower (alternating emphasis)
+      // 4-day (Mon/Tue/Thu/Fri): Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower
+      // Uses indices 1, 2, 4, 5 for legacy day-of-week mode
       1: { primary: ['pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
       2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
-      3: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
-      4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
+      4: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
+      5: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
     },
     5: {
       // 5-day: Horizontal Push → Pull → Legs → Vertical Push+Pull → Lower (classic split)
@@ -1031,10 +1033,11 @@ export async function generateWorkoutProgram(
     
     const lastUsedDay = exerciseUsageMap.get(exerciseId);
     
-    // Not used yet - check muscle overlap for isolation/core exercises
+    // Not used yet - check muscle overlap for isolation exercises only
     if (lastUsedDay === undefined) {
-      // MUSCLE OVERLAP CHECK: Skip isolation/core exercises if their primary muscles are already primary targets in current workout
-      if ((exerciseCategory === 'isolation' || exerciseCategory === 'core') && primaryMuscles.length > 0) {
+      // MUSCLE OVERLAP CHECK: Skip isolation exercises if their primary muscles are already primary targets in current workout
+      // NOTE: Core exercises are exempt from this check since core work should be in every workout
+      if (exerciseCategory === 'isolation' && primaryMuscles.length > 0) {
         const hasMuscleDuplicate = primaryMuscles.some(muscle => usedPrimaryMuscles.has(muscle));
         if (hasMuscleDuplicate) {
           console.log(`[MUSCLE-FILTER] Skipping ${exerciseId} - primary muscle(s) [${primaryMuscles.join(', ')}] already targeted as primary in workout`);
@@ -1042,8 +1045,9 @@ export async function generateWorkoutProgram(
         }
       }
       
-      // CONSECUTIVE DAY RECOVERY: Skip isolation/core exercises targeting heavily worked muscles from previous day
-      if ((exerciseCategory === 'isolation' || exerciseCategory === 'core') && primaryMuscles.length > 0 && previousDayMuscles.size > 0) {
+      // CONSECUTIVE DAY RECOVERY: Skip isolation exercises targeting heavily worked muscles from previous day
+      // NOTE: Core exercises are exempt since core work should be in every workout
+      if (exerciseCategory === 'isolation' && primaryMuscles.length > 0 && previousDayMuscles.size > 0) {
         const targetsPreviousMuscles = primaryMuscles.some(muscle => previousDayMuscles.has(muscle));
         if (targetsPreviousMuscles) {
           console.log(`[RECOVERY-FILTER] Skipping ${exerciseId} - targets muscle(s) [${primaryMuscles.join(', ')}] heavily worked previous day`);
@@ -1078,8 +1082,9 @@ export async function generateWorkoutProgram(
       const daysSince = currentDay - lastUsedDay;
       if (daysSince < 2) return false;
       
-      // Also check muscle overlap even for reused isolation/core exercises
-      if ((exerciseCategory === 'isolation' || exerciseCategory === 'core') && primaryMuscles.length > 0) {
+      // Also check muscle overlap even for reused isolation exercises
+      // NOTE: Core exercises are exempt since core work should be in every workout
+      if (exerciseCategory === 'isolation' && primaryMuscles.length > 0) {
         const hasMuscleDuplicate = primaryMuscles.some(muscle => usedPrimaryMuscles.has(muscle));
         if (hasMuscleDuplicate) {
           console.log(`[MUSCLE-FILTER] Skipping ${exerciseId} (reuse) - primary muscle(s) [${primaryMuscles.join(', ')}] already targeted`);
@@ -1113,6 +1118,7 @@ export async function generateWorkoutProgram(
     // LEGACY: Map loopIndex to dayOfWeek for backwards compatibility
     const workoutIndex = loopIndex;
     const dayOfWeek = useSelectedDates ? undefined : loopIndex; // Only set dayOfWeek for legacy mode
+    const currentDay = dayOfWeek ?? workoutIndex; // Use dayOfWeek if available, otherwise workoutIndex
     const dayName = dayOfWeek ? dayNames[dayOfWeek] : `Workout ${workoutIndex}`;
     const isScheduledDay = useSelectedDates ? true : scheduledDays.includes(dayOfWeek!);
     
@@ -1226,7 +1232,7 @@ export async function generateWorkoutProgram(
           ['compound', 'isolation', 'core', 'power'].includes(ex.exerciseCategory) &&
           ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
           allowedDifficulties.includes(ex.difficulty) &&
-          canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
+          canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
           canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
@@ -1304,14 +1310,14 @@ export async function generateWorkoutProgram(
           
           // Mark as used in tracking systems
           weeklyMovementTracker.add(requiredMov.name);
-          exerciseUsageMap.set(foundExercise.id, dayOfWeek);
+          exerciseUsageMap.set(foundExercise.id, currentDay);
           if (workoutIndex === 1) {
             firstDayExercises.add(foundExercise.id);
           }
           
           // Track compound pattern usage
           if (foundExercise.exerciseCategory === 'compound') {
-            compoundPatternUsage.set(foundExercise.movementPattern, dayOfWeek);
+            compoundPatternUsage.set(foundExercise.movementPattern, currentDay);
           }
           
           // Track primary muscles for this workout
@@ -1323,11 +1329,12 @@ export async function generateWorkoutProgram(
         }
       }
       
-      // Check for core pattern requirement (any core exercise counts)
-      if (!hasUsedCoreMovement.used && (primaryPatterns.includes('core') || secondaryPatterns.includes('core'))) {
+      // Check for core pattern requirement - add core to EVERY workout that has it in patterns
+      // NOTE: Core should be in every workout, not just once per week
+      if (primaryPatterns.includes('core') || secondaryPatterns.includes('core')) {
         const coreExercises = exercisesByPattern['core'] || [];
         const coreEx = coreExercises.find(ex => 
-          canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
+          canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
           canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
@@ -1342,7 +1349,7 @@ export async function generateWorkoutProgram(
           };
           stageOutputs.core.push(coreExercise);
           movementFocus.push('core');
-          exerciseUsageMap.set(coreEx.id, dayOfWeek);
+          exerciseUsageMap.set(coreEx.id, currentDay);
           if (workoutIndex === 1) {
             firstDayExercises.add(coreEx.id);
           }
@@ -1389,16 +1396,16 @@ export async function generateWorkoutProgram(
             compoundOnly, 
             pattern, 
             exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (ex) => canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
             (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
-              exerciseUsageMap.set(exId, dayOfWeek);
+              exerciseUsageMap.set(exId, currentDay);
               if (workoutIndex === 1) firstDayExercises.add(exId);
               if (primaryMuscles && primaryMuscles.length > 0) {
                 primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
               }
               // Track compound pattern usage
               if (exerciseCategory === 'compound' && exercisePattern) {
-                compoundPatternUsage.set(exercisePattern, dayOfWeek);
+                compoundPatternUsage.set(exercisePattern, currentDay);
               }
             }
           );
@@ -1507,7 +1514,7 @@ export async function generateWorkoutProgram(
         const isolationOnly = patternExercises.filter(ex => ex.exerciseCategory === 'isolation');
         
         for (const ex of isolationOnly) {
-          if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) || 
+          if (!canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) || 
               !canUseOnLastDay(ex.id, isLastScheduledDay)) {
             continue;
           }
@@ -1555,7 +1562,7 @@ export async function generateWorkoutProgram(
         movementFocus.push(ex.movementPattern);
         
         // Track exercise usage
-        exerciseUsageMap.set(ex.id, dayOfWeek);
+        exerciseUsageMap.set(ex.id, currentDay);
         if (workoutIndex === 1) firstDayExercises.add(ex.id);
         if (ex.primaryMuscles && ex.primaryMuscles.length > 0) {
           ex.primaryMuscles.forEach(muscle => {
@@ -1597,16 +1604,16 @@ export async function generateWorkoutProgram(
             coreOnly, 
             pattern, 
             exercisesPerPattern, 
-            (ex) => canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (ex) => canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
             (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
-              exerciseUsageMap.set(exId, dayOfWeek);
+              exerciseUsageMap.set(exId, currentDay);
               if (workoutIndex === 1) firstDayExercises.add(exId);
               if (primaryMuscles && primaryMuscles.length > 0) {
                 primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
               }
               // Track compound pattern usage
               if (exerciseCategory === 'compound' && exercisePattern) {
-                compoundPatternUsage.set(exercisePattern, dayOfWeek);
+                compoundPatternUsage.set(exercisePattern, currentDay);
               }
             }
           );
@@ -1748,7 +1755,7 @@ export async function generateWorkoutProgram(
           // CNS-ORDERED FALLBACK: Only add NON-POWER compounds to maintain CNS progression
           const compoundsAvailable = patternExercises.filter(ex => 
             ex.exerciseCategory === 'compound' && // CRITICAL: Only compounds, not power
-            canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
+            canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
             canUseOnLastDay(ex.id, isLastScheduledDay)
           );
           
@@ -1764,7 +1771,7 @@ export async function generateWorkoutProgram(
             }
             
             // Re-check muscle constraint (in case multiple exercises from same pattern target same muscle)
-            if (!canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles)) {
+            if (!canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles)) {
               continue;
             }
             
@@ -1800,14 +1807,14 @@ export async function generateWorkoutProgram(
               stageOutputs.core.push(genEx);
             }
             movementFocus.push(pattern);
-            exerciseUsageMap.set(ex.id, dayOfWeek);
+            exerciseUsageMap.set(ex.id, currentDay);
             if (workoutIndex === 1) {
               firstDayExercises.add(ex.id);
             }
             
             // Track compound pattern usage
             if (ex.exerciseCategory === 'compound') {
-              compoundPatternUsage.set(ex.movementPattern, dayOfWeek);
+              compoundPatternUsage.set(ex.movementPattern, currentDay);
             }
             
             // Track primary muscles
@@ -1959,7 +1966,7 @@ export async function generateWorkoutProgram(
           ex.exerciseCategory === 'power' &&
           ex.equipment?.some((eq) => user.equipment?.includes(eq) || eq === "bodyweight") &&
           isExerciseAllowed(ex, movementDifficulties, fitnessLevel) &&
-          canUseExercise(ex.id, dayOfWeek, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
+          canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) &&
           canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
@@ -1973,7 +1980,7 @@ export async function generateWorkoutProgram(
           const matchingPowerEx = powerExercisesFiltered.find(ex => ex.movementPattern === pattern);
           if (matchingPowerEx) {
             selectedPowerExercises.push(matchingPowerEx);
-            exerciseUsageMap.set(matchingPowerEx.id, dayOfWeek);
+            exerciseUsageMap.set(matchingPowerEx.id, currentDay);
             if (workoutIndex === 1) {
               firstDayExercises.add(matchingPowerEx.id);
             }
@@ -1994,7 +2001,7 @@ export async function generateWorkoutProgram(
             for (const powerEx of tierPowerExercises) {
               if (selectedPowerExercises.length >= powerCount) break;
               selectedPowerExercises.push(powerEx);
-              exerciseUsageMap.set(powerEx.id, dayOfWeek);
+              exerciseUsageMap.set(powerEx.id, currentDay);
               if (workoutIndex === 1) {
                 firstDayExercises.add(powerEx.id);
               }
@@ -2030,7 +2037,7 @@ export async function generateWorkoutProgram(
         // Determine cardio type based on nutrition goal and workout rotation
         // For MAINTAIN and LOSE goals, rotate through available types to prevent adaptation
         const availableTypes = cardioConfig.types;
-        const workoutIndex = scheduledDays.indexOf(dayOfWeek);
+        const cardioWorkoutIndex = dayOfWeek ? scheduledDays.indexOf(dayOfWeek) : workoutIndex;
         
         let selectedCardioType: string;
         if (availableTypes.length === 1) {
@@ -2038,17 +2045,17 @@ export async function generateWorkoutProgram(
           selectedCardioType = "hiit";
         } else if (availableTypes.includes("hiit") && availableTypes.includes("steady-state") && availableTypes.length === 2) {
           // MAINTAIN: Rotate between HIIT (70%) and Steady-State (30%)
-          selectedCardioType = workoutIndex % 3 === 0 ? "steady-state" : "hiit";
+          selectedCardioType = cardioWorkoutIndex % 3 === 0 ? "steady-state" : "hiit";
         } else {
           // LOSE: Rotate through all 4 types (HIIT 40%, Steady 25%, Tempo 20%, Circuit 15%)
-          const rotation = workoutIndex % 20; // Use modulo 20 for percentage-based rotation
+          const rotation = cardioWorkoutIndex % 20; // Use modulo 20 for percentage-based rotation
           if (rotation < 8) selectedCardioType = "hiit";          // 40%
           else if (rotation < 13) selectedCardioType = "steady-state"; // 25%
           else if (rotation < 17) selectedCardioType = "tempo";         // 20%
           else selectedCardioType = "circuit";                          // 15%
         }
         
-        console.log(`[CARDIO-TYPE] ${nutritionGoal} goal - Selected ${selectedCardioType} cardio for workout ${workoutIndex + 1}`);
+        console.log(`[CARDIO-TYPE] ${nutritionGoal} goal - Selected ${selectedCardioType} cardio for workout ${cardioWorkoutIndex + 1}`);
         
         // Filter cardio exercises by selected type
         // Map cardio types to exercise names/categories
@@ -2077,10 +2084,10 @@ export async function generateWorkoutProgram(
         const selectedCardio: Exercise[] = [];
         for (const cardioEx of cardioPool) {
           if (selectedCardio.length >= cardioCount) break;
-          if (canUseExercise(cardioEx.id, dayOfWeek, cardioEx.movementPattern, cardioEx.exerciseCategory, cardioEx.primaryMuscles || [], usedPrimaryMuscles) && 
+          if (canUseExercise(cardioEx.id, currentDay, cardioEx.movementPattern, cardioEx.exerciseCategory, cardioEx.primaryMuscles || [], usedPrimaryMuscles) && 
               canUseOnLastDay(cardioEx.id, isLastScheduledDay)) {
             selectedCardio.push(cardioEx);
-            exerciseUsageMap.set(cardioEx.id, dayOfWeek);
+            exerciseUsageMap.set(cardioEx.id, currentDay);
             if (workoutIndex === 1) {
               firstDayExercises.add(cardioEx.id);
             }
