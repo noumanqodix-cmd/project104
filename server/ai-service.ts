@@ -309,9 +309,9 @@ function identifyWeakMovementPatterns(assessment: FitnessAssessment, user: User)
     weakPatterns.push('vertical_push');
   }
   
-  // Pull (back, biceps) - measured by pull-ups
+  // Vertical Pull (lats, biceps) - measured by pull-ups
   if (assessment.pullups !== null && assessment.pullups !== undefined && assessment.pullups < threshold.pullups) {
-    weakPatterns.push('pull');
+    weakPatterns.push('vertical_pull');
   }
   
   // Squat (quads, glutes) - measured by air squats
@@ -667,8 +667,8 @@ export async function generateWorkoutProgram(
       { name: "Lying Hip Bridge", pattern: "hinge" },  // Bodyweight exercise, no alternative needed
       { name: "Overhead Press", pattern: "vertical_push", alternatives: ["Pike Push-Up"] },  // Bodyweight shoulder press alternative
       { name: "Push-Up", pattern: "horizontal_push" },  // Already bodyweight
-      { name: "Pull-Up", pattern: "pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
-      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
+      { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Scapular Pull-Ups"] },  // Beginner pull-ups
+      { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Band-Resisted Fast Rows"] },  // Row variations
       { name: "Forward Lunge", pattern: "lunge", alternatives: ["Reverse Lunge Knee Drive", "Lateral Lunge"] },  // All use bodyweight
       { name: "Farmer's Carry", pattern: "carry" }  // Requires equipment (dumbbells/kettlebells/medicine ball)
       // Core: Any core exercise is acceptable (tracked by pattern)
@@ -678,8 +678,8 @@ export async function generateWorkoutProgram(
       { name: "Deadlift", pattern: "hinge" },
       { name: "Overhead Press", pattern: "vertical_push" },  // Barbell OHP
       { name: "Bench Press", pattern: "horizontal_push" },
-      { name: "Pull-Up", pattern: "pull" },
-      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
+      { name: "Pull-Up", pattern: "vertical_pull" },
+      { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
       { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
       // Core: Any core exercise is acceptable (tracked by pattern)
@@ -689,8 +689,8 @@ export async function generateWorkoutProgram(
       { name: "Deadlift", pattern: "hinge" },
       { name: "Overhead Press", pattern: "vertical_push" },
       { name: "Bench Press", pattern: "horizontal_push" },
-      { name: "Pull-Up", pattern: "pull" },
-      { name: "Bent-Over Row", pattern: "pull", alternatives: ["Barbell Row"] },
+      { name: "Pull-Up", pattern: "vertical_pull" },
+      { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
       { name: "Suitcase Carry", pattern: "carry", alternatives: ["Farmer's Carry"] }
       // Core: Any core exercise is acceptable (tracked by pattern)
@@ -714,7 +714,8 @@ export async function generateWorkoutProgram(
   console.log(`[DIFFICULTY] Movement pattern difficulties:`, {
     horizontal_push: movementDifficulties.horizontal_push,
     vertical_push: movementDifficulties.vertical_push,
-    pull: movementDifficulties.pull,
+    vertical_pull: movementDifficulties.vertical_pull,
+    horizontal_pull: movementDifficulties.horizontal_pull,
     squat: movementDifficulties.squat,
     lunge: movementDifficulties.lunge,
     hinge: movementDifficulties.hinge,
@@ -815,26 +816,26 @@ export async function generateWorkoutProgram(
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
       // 3-day program: Workout 1 → Workout 2 → Workout 3
-      // Pull+Hinge → Horizontal Push+Squat → Vertical Push+Pull
-      1: { primary: ['pull', 'hinge'], secondary: ['core', 'carry'] },
+      // Horizontal Pull+Hinge → Horizontal Push+Squat → Vertical Push+Vertical Pull
+      1: { primary: ['horizontal_pull', 'hinge'], secondary: ['core', 'carry'] },
       2: { primary: ['horizontal_push', 'squat'], secondary: ['core', 'rotation'] },
-      3: { primary: ['vertical_push', 'pull'], secondary: ['lunge', 'core'] }
+      3: { primary: ['vertical_push', 'vertical_pull'], secondary: ['lunge', 'core'] }
     },
     4: {
       // 4-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4
-      // Pull+Horizontal Push → Lower → Vertical Push+Pull → Lower
-      1: { primary: ['pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
+      // Horizontal Pull+Horizontal Push → Lower → Vertical Push+Vertical Pull → Lower
+      1: { primary: ['horizontal_pull', 'horizontal_push'], secondary: ['core', 'rotation'] },
       2: { primary: ['squat', 'hinge'], secondary: ['lunge', 'core'] },
-      3: { primary: ['vertical_push', 'pull'], secondary: ['core', 'carry'] },
+      3: { primary: ['vertical_push', 'vertical_pull'], secondary: ['core', 'carry'] },
       4: { primary: ['lunge', 'squat'], secondary: ['hinge', 'core'] }
     },
     5: {
       // 5-day program: Workout 1 → Workout 2 → Workout 3 → Workout 4 → Workout 5
-      // Horizontal Push → Pull → Legs → Vertical Push+Pull → Lower (classic split)
+      // Horizontal Push → Pull Day (both types) → Legs → Vertical Push+Vertical Pull → Lower (classic split)
       1: { primary: ['horizontal_push'], secondary: ['rotation', 'core'] },
-      2: { primary: ['pull'], secondary: ['carry', 'core'] },
+      2: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['carry', 'core'] },
       3: { primary: ['squat', 'lunge'], secondary: ['hinge', 'core'] },
-      4: { primary: ['vertical_push', 'pull'], secondary: ['core'] },
+      4: { primary: ['vertical_push', 'vertical_pull'], secondary: ['core'] },
       5: { primary: ['hinge', 'squat'], secondary: ['lunge', 'core'] }
     }
   };
@@ -1160,7 +1161,7 @@ export async function generateWorkoutProgram(
       // First select from priority patterns, then fill remaining time from other patterns
       const primaryPatterns = dayPlan?.primary || [];
       const secondaryPatterns = dayPlan?.secondary || [];
-      const allPatterns = ['horizontal_push', 'vertical_push', 'pull', 'squat', 'lunge', 'hinge', 'core', 'rotation', 'carry'];
+      const allPatterns = ['horizontal_push', 'vertical_push', 'vertical_pull', 'horizontal_pull', 'squat', 'lunge', 'hinge', 'core', 'rotation', 'carry'];
       const usedPatterns = new Set([...primaryPatterns, ...secondaryPatterns]);
       const fallbackPatterns = allPatterns.filter(p => !usedPatterns.has(p));
       
@@ -1464,7 +1465,7 @@ export async function generateWorkoutProgram(
       // 1. Determine workout theme based on compound patterns
       const compoundPatterns = compoundExercises.map(c => c.pattern);
       const pushPatterns = compoundPatterns.filter(p => ['horizontal_push', 'vertical_push'].includes(p)).length;
-      const pullPatterns = compoundPatterns.filter(p => ['pull', 'hinge'].includes(p)).length;
+      const pullPatterns = compoundPatterns.filter(p => ['vertical_pull', 'horizontal_pull', 'hinge'].includes(p)).length;
       const legPatterns = compoundPatterns.filter(p => ['squat', 'lunge'].includes(p)).length;
 
       let workoutTheme: 'PUSH' | 'PULL' | 'LEG' | 'MIXED';
@@ -1481,9 +1482,9 @@ export async function generateWorkoutProgram(
       // 2. Define theme-appropriate isolation patterns
       const themeIsolationPatterns: { [key: string]: string[] } = {
         PUSH: ['horizontal_push', 'vertical_push'],  // triceps, delts, chest
-        PULL: ['pull', 'hinge'],                     // biceps, lats, rear delts, traps
+        PULL: ['vertical_pull', 'horizontal_pull', 'hinge'],  // biceps, lats, rear delts, traps
         LEG: ['squat', 'lunge', 'hinge'],           // quads, hamstrings, calves, glutes
-        MIXED: ['horizontal_push', 'vertical_push', 'pull', 'squat', 'lunge', 'hinge']
+        MIXED: ['horizontal_push', 'vertical_push', 'vertical_pull', 'horizontal_pull', 'squat', 'lunge', 'hinge']
       };
 
       const preferredIsolationPatterns = themeIsolationPatterns[workoutTheme];
@@ -1677,10 +1678,12 @@ export async function generateWorkoutProgram(
         
         // Define antagonistic pattern pairs (can be done back-to-back with minimal fatigue)
         const antagonisticPairs: Record<string, string[]> = {
-          push: ['pull', 'hinge'],
-          pull: ['push', 'squat'],
-          squat: ['hinge', 'pull'],
-          hinge: ['squat', 'push'],
+          horizontal_push: ['vertical_pull', 'horizontal_pull', 'hinge'],
+          vertical_push: ['vertical_pull', 'horizontal_pull', 'hinge'],
+          vertical_pull: ['horizontal_push', 'vertical_push', 'squat'],
+          horizontal_pull: ['horizontal_push', 'vertical_push', 'squat'],
+          squat: ['hinge', 'vertical_pull', 'horizontal_pull'],
+          hinge: ['squat', 'horizontal_push', 'vertical_push'],
           lunge: ['core', 'rotation'],
           core: ['lunge', 'carry'],
           rotation: ['lunge', 'carry']
