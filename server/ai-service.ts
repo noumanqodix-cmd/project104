@@ -2037,14 +2037,14 @@ export async function generateWorkoutProgram(
       // Get warmup sequence for this workout focus
       const recommendedWarmupNames = warmupSequences[workoutFocus] || warmupSequences['athletic'];
       
-      console.log(`[WARMUP-FOCUS] Day ${workoutIndex} focus: ${workoutFocus}, selecting warmup sequence`);
+      console.log(`[WARMUP-FOCUS] Day ${workoutIndex} focus: ${workoutFocus}, selecting ALL ${recommendedWarmupNames.length} warmups from sequence`);
       
       const selectedWarmups: Exercise[] = [];
       const warmupNames = new Set<string>();
       
-      // Select warmups from the predefined sequence for this workout focus
+      // Add ALL warmups from the predefined sequence (no warmupCount limit)
+      // 3/4-day splits have 5 warmups, 5-day splits have 3 warmups
       for (const warmupName of recommendedWarmupNames) {
-        if (selectedWarmups.length >= warmupCount) break;
         if (warmupNames.has(warmupName)) continue;
         
         const warmupEx = warmupExercises.find(ex => ex.name === warmupName);
@@ -2052,17 +2052,8 @@ export async function generateWorkoutProgram(
         if (warmupEx) {
           selectedWarmups.push(warmupEx);
           warmupNames.add(warmupName);
-        }
-      }
-      
-      // Fallback: If not enough warmups found, add general ones
-      if (selectedWarmups.length < warmupCount) {
-        for (const warmupEx of warmupExercises) {
-          if (selectedWarmups.length >= warmupCount) break;
-          if (!warmupNames.has(warmupEx.name)) {
-            selectedWarmups.push(warmupEx);
-            warmupNames.add(warmupEx.name);
-          }
+        } else {
+          console.warn(`[WARMUP] Warning: Exercise "${warmupName}" not found in database`);
         }
       }
       
