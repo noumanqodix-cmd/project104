@@ -2729,6 +2729,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual workout rescheduling endpoint
+  app.patch("/api/workout-sessions/:sessionId/reschedule", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { newDate } = req.body;
+
+      if (!newDate) {
+        return res.status(400).json({ error: "newDate is required" });
+      }
+
+      // Get the session to verify ownership and validate
+      const session = await storage.getWorkoutSession(req.params.sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Verify ownership
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: "Not authorized to reschedule this session" });
+      }
+
+      // Validate session can be rescheduled
+      if (session.completed === 1) {
+        return res.status(400).json({ error: "Cannot reschedule completed workouts" });
+      }
+
+      if (session.status === 'partial') {
+        return res.status(400).json({ error: "Cannot reschedule partial workouts. Please finish or end the workout first." });
+      }
+
+      if (session.status === 'archived') {
+        return res.status(400).json({ error: "Cannot reschedule archived workouts" });
+      }
+
+      // Parse the new date
+      const newScheduledDate = parseLocalDate(newDate);
+      const newDateStr = formatLocalDate(newScheduledDate);
+
+      // Check for conflicts on the new date (only workout sessions, not rest days)
+      const conflictingSessions = await storage.getUserSessions(userId);
+      const hasConflict = conflictingSessions.some((s: any) => {
+        if (s.status === 'archived' || s.id === session.id) return false;
+        const displayDate = s.scheduledDate ? parseLocalDate(s.scheduledDate) : (s.sessionDate ? new Date(s.sessionDate) : null);
+        if (!displayDate) return false;
+        const dateStr = formatLocalDate(displayDate);
+        return s.sessionType === 'workout' && dateStr === newDateStr;
+      });
+
+      if (hasConflict) {
+        return res.status(409).json({ error: "Another workout is already scheduled for this date" });
+      }
+
+      // Update the session's scheduled date
+      const updatedSession = await storage.updateWorkoutSession(req.params.sessionId, {
+        scheduledDate: newDateStr
+      });
+
+      if (!updatedSession) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      console.log(`[RESCHEDULE] User ${userId} rescheduled session ${session.id} to ${newDateStr}`);
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Reschedule session error:", error);
+      res.status(500).json({ error: "Failed to reschedule session" });
+    }
+  });
+
   app.get("/api/workout-sessions/paginated", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user.claims.sub;
