@@ -281,6 +281,12 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         // Resume existing partial session
         setSessionId(partialSession.id);
         setSessionError("");
+        
+        // Restore timer from saved elapsed seconds
+        if (partialSession.elapsedSeconds) {
+          setWorkoutTime(partialSession.elapsedSeconds);
+        }
+        
         toast({
           title: "Resuming Workout",
           description: "Continuing from where you left off",

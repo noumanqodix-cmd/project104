@@ -289,6 +289,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   completed: integer("completed").notNull().default(0),
   status: text("status").notNull().default("in_progress"),
   durationMinutes: integer("duration_minutes"),
+  elapsedSeconds: integer("elapsed_seconds"), // Tracks timer state for partial workouts
   caloriesBurned: integer("calories_burned"),
   notes: text("notes"),
   isArchived: integer("is_archived").notNull().default(0),

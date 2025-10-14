@@ -423,6 +423,7 @@ function AppRoutes() {
                       completed: workoutSummaryData.incomplete ? 0 : 1,
                       status: workoutSummaryData.incomplete ? "partial" : "completed",
                       durationMinutes: Math.floor(workoutSummaryData.duration / 60),
+                      elapsedSeconds: workoutSummaryData.incomplete ? workoutSummaryData.duration : undefined, // Save timer state for partial workouts
                       notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
                       sessionDate: new Date(), // User's local time
                     });
