@@ -699,7 +699,7 @@ export async function generateWorkoutProgram(
       { name: "Back Squat", pattern: "squat", alternatives: ["Front Squat"] },
       { name: "Deadlift", pattern: "hinge" },
       { name: "Overhead Press", pattern: "vertical_push" },  // Barbell OHP
-      { name: "Bench Press", pattern: "horizontal_push" },
+      { name: "Chest Press", pattern: "horizontal_push", alternatives: ["Push-Up"] },
       { name: "Pull-Up", pattern: "vertical_pull", alternatives: ["Chin-Up", "Standing Dumbbell Pullover", "Resistance Band Lat Pulldown", "Pullover"] },
       { name: "Bent-Over Row", pattern: "horizontal_pull", alternatives: ["Barbell Row"] },
       { name: "Walking Lunge", pattern: "lunge", alternatives: ["Lunge"] },
