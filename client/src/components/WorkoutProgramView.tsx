@@ -64,7 +64,10 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
   });
 
   const isLoading = isLoadingActive || isLoadingFull;
-  const currentWorkout = fullProgram?.workouts[currentWorkoutIndex];
+  
+  // Filter out rest days - only count actual workout days
+  const actualWorkouts = fullProgram?.workouts.filter(w => w.workoutType !== null) || [];
+  const currentWorkout = actualWorkouts[currentWorkoutIndex];
 
   // Separate warmup and main exercises
   const warmupExercises = currentWorkout?.exercises.filter(
@@ -160,7 +163,7 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
       </header>
 
       {/* Workout Navigation */}
-      {fullProgram.workouts.length > 1 && (
+      {actualWorkouts.length > 1 && (
         <div className="border-b p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <Button
@@ -174,13 +177,13 @@ export default function WorkoutProgramView({ onBack, onSave }: WorkoutProgramVie
               Previous
             </Button>
             <span className="text-sm font-medium" data-testid="text-workout-navigation">
-              Workout {currentWorkoutIndex + 1} of {fullProgram.workouts.length}
+              Workout {currentWorkoutIndex + 1} of {actualWorkouts.length}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentWorkoutIndex(prev => Math.min(fullProgram.workouts.length - 1, prev + 1))}
-              disabled={currentWorkoutIndex === fullProgram.workouts.length - 1}
+              onClick={() => setCurrentWorkoutIndex(prev => Math.min(actualWorkouts.length - 1, prev + 1))}
+              disabled={currentWorkoutIndex === actualWorkouts.length - 1}
               data-testid="button-next-workout"
             >
               Next
