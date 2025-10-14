@@ -393,7 +393,7 @@ export default function Home() {
 
   // Fetch workout sets for partial sessions to count completed exercises
   const { data: partialWorkoutSets } = useQuery<any[]>({
-    queryKey: [`/api/workout-sets/${todaySession?.id}`],
+    queryKey: [`/api/workout-sessions/${todaySession?.id}/sets`],
     enabled: !!todaySession?.id && isTodayPartial,
   });
 

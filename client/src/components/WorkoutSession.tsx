@@ -220,7 +220,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
 
   // Fetch completed sets for partial session resume
   const { data: partialSessionSets } = useQuery<any[]>({
-    queryKey: [`/api/workout-sets/${sessionId}`],
+    queryKey: [`/api/workout-sessions/${sessionId}/sets`],
     enabled: !!sessionId && sessions?.some((s: any) => s.id === sessionId && s.status === 'partial'),
   });
 
@@ -311,7 +311,9 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     || currentExercise?.equipment?.some(eq => eq.toLowerCase().includes('cardio'))
     || (currentExercise?.durationSeconds !== null && currentExercise?.durationSeconds !== undefined && currentExercise.durationSeconds > 0);
   
-  const needsWeight = currentExercise ? requiresWeight(currentExercise.equipment) : true;
+  // Warmup exercises never require weight (they're bodyweight)
+  const isWarmupExercise = currentProgramExercise?.exercise?.exerciseCategory === 'warmup';
+  const needsWeight = currentExercise && !isWarmupExercise ? requiresWeight(currentExercise.equipment) : false;
   
   // Helper to check if current exercise is a warmup
   const isWarmup = () => {
