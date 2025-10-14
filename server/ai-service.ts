@@ -929,13 +929,8 @@ export async function generateWorkoutProgram(
   
   // Calculate exercise counts using PRECISE time estimates from calculateExerciseTime()
   
-  // Warmup exercise (2 sets, 12 reps avg, 30s rest): ~2min
-  const warmupTimePerExercise = calculateExerciseTime({
-    sets: 2,
-    repsMin: 10,
-    repsMax: 15,
-    restSeconds: 30
-  });
+  // Warmup exercise (1 set, 30 seconds each, superseted with no rest): 0.5min per exercise
+  const warmupTimePerExercise = 0.5; // 30 seconds = 0.5 minutes
   
   // Primary compound - 3-4 sets based on fitness level
   // Beginners: 3 sets @ 180s rest, Intermediate/Advanced: 4 sets @ 180s rest
