@@ -1621,6 +1621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user,
         latestAssessment,
         availableExercises,
+        selectedDates,  // Pass selectedDates for date-based scheduling
       });
       console.log("[TEMPLATE] Program regeneration completed successfully");
 
