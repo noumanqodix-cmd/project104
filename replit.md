@@ -1,7 +1,7 @@
 # FitForge - Personal Fitness Program Application
 
 ## Overview
-FitForge is a mobile-first fitness application that generates personalized workout programs based on user-defined fitness levels, available equipment, and schedule. It provides tools for workout tracking and progress monitoring, utilizing a template-based adaptive training system for intelligent program generation and progressive overload. The application features a flexible 7-day cycle system where users select specific calendar dates for workouts, and the system automatically reschedules missed workouts and detects cycle completion, aiming for quick data entry and functional clarity to help users achieve their fitness goals.
+FitForge is a science-backed fitness application that generates personalized workout programs using professional CNS-ordered programming (warmup → power → compounds → isolations → core → cardio). It trains 10 real-world functional movement patterns with adaptive difficulty, offering 3/4/5-day splits and 30/45/60/90-minute workout options. The application features intelligent equipment-based exercise swapping (perfect for travel), Zone 2 and HIIT cardio training, fitness assessments to unlock advanced movements, and a flexible 7-day cycle system with automatic missed workout rescheduling. Built on exercise science principles with AI-enhanced insights as supplemental features.
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
