@@ -1560,6 +1560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { startDate, selectedDates } = req.body;
+      console.log("[REGENERATE] Received request with selectedDates:", selectedDates, "length:", selectedDates?.length);
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });

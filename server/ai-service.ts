@@ -655,11 +655,17 @@ export async function generateWorkoutProgram(
   // Validate training frequency (only 3, 4, or 5 days supported)
   // Why these numbers? Research shows 3-5 days optimal for consistent progress
   // Less than 3 = not enough stimulus | More than 5 = recovery issues
-  let daysPerWeek = user.daysPerWeek || 3;
+  // If selectedDates is provided, use its length as the definitive daysPerWeek
+  let daysPerWeek = input.selectedDates && input.selectedDates.length > 0 
+    ? input.selectedDates.length 
+    : (user.daysPerWeek || 3);
+  
   if (![3, 4, 5].includes(daysPerWeek)) {
     console.warn(`[VALIDATION] Invalid daysPerWeek ${daysPerWeek}, defaulting to 3`);
     daysPerWeek = 3;  // Safe default for beginners
   }
+  
+  console.log(`[DAYS-PER-WEEK] Using daysPerWeek: ${daysPerWeek} (from ${input.selectedDates ? `selectedDates.length=${input.selectedDates.length}` : 'user.daysPerWeek'})`);
   
   // Determine fitness level (beginner, intermediate, or advanced)
   // This affects exercise selection, volume, and intensity
