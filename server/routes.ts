@@ -2523,13 +2523,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // STEP 3: Move ONLY the first missed workout to today
-      // Future workouts keep their original scheduled dates
+      // STEP 3: Move the first missed workout to today AND cascade reschedule all future workouts
       const firstMissedWorkout = missedWorkouts.sort((a: any, b: any) => {
         const dateA = parseLocalDate(a.scheduledDate);
         const dateB = parseLocalDate(b.scheduledDate);
         return dateA.getTime() - dateB.getTime();
       })[0];
+
+      // Calculate how many days the workout was missed by
+      const originalDate = parseLocalDate(firstMissedWorkout.scheduledDate!);
+      const daysMissed = Math.floor((today.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      console.log(`[RESET] Missed workout was ${daysMissed} days late, cascading reschedule...`);
 
       // Update the missed workout to today
       await storage.updateWorkoutSession(firstMissedWorkout.id, {
@@ -2538,10 +2543,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'scheduled'
       });
 
-      console.log(`[RESET] Moved 1 missed workout to ${currentDateString}, preserved future workout dates`);
+      // STEP 4: Cascade reschedule all future workouts (shift forward by daysMissed)
+      const futureWorkouts = allSessions.filter((session: any) => {
+        if (!session.scheduledDate) return false;
+        if (session.status === 'archived') return false;
+        if (session.id === firstMissedWorkout.id) return false; // Exclude the missed workout we just moved
+        
+        const sessionDate = parseLocalDate(session.scheduledDate);
+        return isAfterCalendarDay(sessionDate, originalDate) || isSameCalendarDay(sessionDate, originalDate);
+      });
+
+      let rescheduledCount = 1; // Count the missed workout we already moved
+      
+      for (const futureSession of futureWorkouts) {
+        const currentDate = parseLocalDate(futureSession.scheduledDate!);
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + daysMissed);
+        
+        const newDateString = formatLocalDate(newDate);
+        
+        await storage.updateWorkoutSession(futureSession.id, {
+          scheduledDate: newDateString,
+          sessionDayOfWeek: newDate.getDay() === 0 ? 7 : newDate.getDay(),
+        });
+        
+        rescheduledCount++;
+      }
+
+      console.log(`[RESET] Moved missed workout to ${currentDateString} and cascaded ${rescheduledCount - 1} future workouts forward by ${daysMissed} days`);
       res.json({ 
-        message: `Moved missed workout to today`,
-        rescheduledCount: 1
+        message: `Rescheduled ${rescheduledCount} workout(s)`,
+        rescheduledCount
       });
     } catch (error) {
       console.error("Reset from today error:", error);

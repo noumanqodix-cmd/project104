@@ -389,6 +389,25 @@ export default function Home() {
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
   const isTodayComplete = todaySession?.completed === 1;
+  const isTodayPartial = todaySession?.status === 'partial';
+
+  // Fetch workout sets for partial sessions to count completed exercises
+  const { data: partialWorkoutSets } = useQuery<any[]>({
+    queryKey: [`/api/workout-sets/${todaySession?.id}`],
+    enabled: !!todaySession?.id && isTodayPartial,
+  });
+
+  // Fetch program exercises to count total exercises for partial workouts
+  const { data: programExercises } = useQuery<any[]>({
+    queryKey: [`/api/program-exercises/${todayWorkout?.id}`],
+    enabled: !!todayWorkout?.id && isTodayPartial,
+  });
+
+  // Count completed exercises from partial workout
+  const partialExerciseCount = partialWorkoutSets ? 
+    new Set(partialWorkoutSets.map((s: any) => s.programExerciseId)).size : 0;
+  
+  const totalExercises = programExercises?.length || 0;
   
   // NEXT WORKOUT PREVIEW: Always show tomorrow's session (next calendar day), regardless of status
   const tomorrow = new Date(today);
@@ -559,6 +578,33 @@ export default function Home() {
                           : todayWorkout?.workoutName || "Workout completed"}
                     </p>
                   </div>
+                ) : isTodayPartial ? (
+                  <>
+                    <div className="text-center py-2">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 mb-3">
+                        <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-partial">
+                        Partially Complete
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {todayWorkout?.workoutName}
+                      </p>
+                      <p className="text-sm text-muted-foreground" data-testid="text-partial-progress">
+                        {partialExerciseCount} of {totalExercises} exercises completed
+                      </p>
+                    </div>
+
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={() => setLocation('/workout')}
+                      data-testid="button-resume-workout"
+                    >
+                      <PlayCircle className="h-5 w-5 mr-2" />
+                      Resume Workout
+                    </Button>
+                  </>
                 ) : isTodayRestDay ? (
                   <>
                     <div className="text-center py-2">

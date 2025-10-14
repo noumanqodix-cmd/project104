@@ -218,13 +218,79 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     previousWorkoutIdRef.current = currentWorkoutId;
   }, [currentWorkoutId]);
 
+  // Fetch completed sets for partial session resume
+  const { data: partialSessionSets } = useQuery<any[]>({
+    queryKey: [`/api/workout-sets/${sessionId}`],
+    enabled: !!sessionId && sessions?.some((s: any) => s.id === sessionId && s.status === 'partial'),
+  });
+
+  // Resume from correct position for partial workouts
+  useEffect(() => {
+    if (partialSessionSets && partialSessionSets.length > 0 && programExercises.length > 0) {
+      // Group sets by exercise to find last completed exercise
+      const exerciseMap = new Map<string, number>();
+      partialSessionSets.forEach((set: any) => {
+        const count = exerciseMap.get(set.programExerciseId) || 0;
+        exerciseMap.set(set.programExerciseId, count + 1);
+      });
+
+      // Find the last exercise with completed sets
+      let lastCompletedExerciseIndex = -1;
+      let lastCompletedSet = 0;
+      
+      for (let i = 0; i < programExercises.length; i++) {
+        const exerciseId = programExercises[i].id;
+        const setsCompleted = exerciseMap.get(exerciseId) || 0;
+        
+        if (setsCompleted > 0) {
+          lastCompletedExerciseIndex = i;
+          lastCompletedSet = setsCompleted;
+        }
+      }
+
+      // Determine where to resume
+      if (lastCompletedExerciseIndex >= 0) {
+        const lastExercise = programExercises[lastCompletedExerciseIndex];
+        const totalSetsForExercise = lastExercise.sets;
+        
+        if (lastCompletedSet >= totalSetsForExercise) {
+          // All sets complete for this exercise, move to next exercise
+          setCurrentExerciseIndex(lastCompletedExerciseIndex + 1);
+          setCurrentSet(1);
+        } else {
+          // Resume at the same exercise, next set
+          setCurrentExerciseIndex(lastCompletedExerciseIndex);
+          setCurrentSet(lastCompletedSet + 1);
+        }
+      }
+    }
+  }, [partialSessionSets, programExercises]);
+
   // Start the workout session when workout is loaded
   useEffect(() => {
-    if (currentWorkoutId && !sessionId && !sessionInitializedRef.current && !startSessionMutation.isPending) {
+    // CRITICAL: Wait for sessions to load before initializing to detect partial sessions
+    if (currentWorkoutId && !sessionId && !sessionInitializedRef.current && !startSessionMutation.isPending && sessions !== undefined) {
+      // Check if there's an existing partial session for this workout
+      const partialSession = sessions?.find((s: any) => 
+        s.programWorkoutId === currentWorkoutId && s.status === 'partial'
+      );
+
       sessionInitializedRef.current = true;
-      startSessionMutation.mutate(currentWorkoutId);
+      
+      if (partialSession) {
+        // Resume existing partial session
+        setSessionId(partialSession.id);
+        setSessionError("");
+        toast({
+          title: "Resuming Workout",
+          description: "Continuing from where you left off",
+        });
+      } else {
+        // Start new session
+        startSessionMutation.mutate(currentWorkoutId);
+      }
     }
-  }, [currentWorkoutId, sessionId]);
+  }, [currentWorkoutId, sessionId, sessions]);
 
   const currentExercise = exercises[currentExerciseIndex];
   const isLastSet = currentExercise && currentSet === currentExercise.sets;

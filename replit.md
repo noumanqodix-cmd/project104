@@ -5,11 +5,18 @@ FitForge is a science-backed fitness application that generates personalized wor
 
 ## Recent Changes (October 2025)
 
+**New Features - Partial Workout Completion & Cascading Reschedule:**
+- Partial Workout Resumption: Users can now end workouts early and resume them later the same day. Partial workouts save as `completed=0, status='partial'` and display progress (e.g., "3 of 9 exercises completed") with a "Resume Workout" button.
+- Smart Workout Resume: When resuming, the app loads completed sets from the database, skips finished exercises, and starts at the exact set where the user left off.
+- Cascading Reschedule Logic: When a missed workout moves to today, ALL future workouts automatically shift forward by the same number of days to maintain proper spacing and prevent compressed schedules.
+- Movement Pattern Completion: System ensures users complete all movement patterns in their 7-day cycle by requiring partial workouts to be finished, preventing muscle imbalances.
+
 **Bug Fixes - Warmup & Scheduling:**
 - Fixed warmup sequences to display all exercises (5 for 3/4-day splits, 3 for 5-day splits) instead of just 1 exercise
 - Corrected warmup time calculation from ~2 minutes to 30 seconds per exercise (1 set, superseted with no rest)
 - Fixed date-based scheduling bug where Wednesday incorrectly showed as rest day when selecting Mon-Tue-Wed-Thu
 - Program regeneration now properly passes selectedDates to ensure DATE-BASED mode is used (only selected dates are workout days)
+- Fixed onboarding flow to show professional comparison intro slides before assessment
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
@@ -46,7 +53,8 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
   - **Intelligent Muscle Tracking System**: Prevents muscle overwork through dual-layer tracking: blocks duplicate primary muscle targeting within a session and prevents isolation of heavily worked muscles on consecutive days.
   - **7-Day Cycle System**: Users select specific calendar dates for their workouts. Upon cycle completion, the system prompts to "Repeat Same Days" or "New Program". Cycle number and total workouts completed are displayed for progress tracking.
   - **Daily Calendar Workflow**: Home page displays today's workout, allows adding cardio or marking rest days, and previews tomorrow's session.
-  - **Automatic Missed Workout Rescheduling**: Automatically detects and moves missed workouts to today while preserving future workout dates.
+  - **Partial Workout System**: Workouts ended early save as `completed=0, status='partial'` to allow same-day resuming. Partial workouts display progress tracking (completed exercises count) and show "Resume Workout" button. When resuming, system loads completed sets from database, skips finished exercises, and continues from exact position where user left off.
+  - **Automatic Missed Workout Rescheduling with Cascading**: Automatically detects missed workouts (including partial workouts when day changes) and moves them to today. All future workouts automatically shift forward by the same number of days to maintain proper spacing and prevent schedule compression.
   - **Flexible Exercise Swap System**: Allows swapping exercises with ALL available equipment types plus bodyweight options (always available). Each equipment variant displays as a separate swap option. Swaps work in both active workout sessions and program view, with changes persisting immediately to database.
 - **Calorie Tracking System**: Incorporates MET calculations for calorie expenditure.
 - **Goal-Based Cardio Variety System**: Implements cardio type rotation based on nutrition goal (GAIN, MAINTAIN, LOSE).
