@@ -909,7 +909,7 @@ export async function generateWorkoutProgram(
   };
   
   // Get allocation percentages for current goal and duration
-  const nutritionGoal = user.nutritionGoal || "maintain";
+  const nutritionGoal = (user.nutritionGoal || "maintain").toLowerCase();
   const getDurationKey = (duration: number): number => {
     if (duration <= 35) return 30;
     if (duration <= 52) return 45;
