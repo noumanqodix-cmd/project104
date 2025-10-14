@@ -2508,7 +2508,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "No missed workouts to reschedule", rescheduledCount: 0 });
       }
 
-      // STEP 2: Move ONLY the first missed workout to today
+      // STEP 2: Check if there's already a session for today
+      const todaySession = allSessions.find((session: any) => 
+        session.scheduledDate === currentDateString && session.isArchived === 0
+      );
+
+      if (todaySession) {
+        console.log(`[RESET] Session already exists for today (${currentDateString}), skipping reschedule`);
+        return res.json({ 
+          message: "Session already scheduled for today",
+          rescheduledCount: 0
+        });
+      }
+
+      // STEP 3: Move ONLY the first missed workout to today
       // Future workouts keep their original scheduled dates
       const firstMissedWorkout = missedWorkouts.sort((a: any, b: any) => {
         const dateA = parseLocalDate(a.scheduledDate);
