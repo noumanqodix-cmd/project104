@@ -1974,7 +1974,7 @@ export async function generateWorkoutProgram(
           'Squats',                     // × 15
           'Arm Circles',                // + band pull-aparts × 20
           'Walking Lunges',             // with rotation × 8/side
-          'Torso Twists',               // × 10/side
+          'Plank Shoulder Taps',        // × 10/side
           'Cat-Cow Stretch'             // World's greatest stretch × 5/side (using Cat-Cow as substitute)
         ],
         hinge: [
@@ -1989,7 +1989,7 @@ export async function generateWorkoutProgram(
           'Squats',                     // Deep squat with thoracic reach × 5
           'Inchworm',                   // to push-up × 6
           'Walking Lunges',             // Alternating side lunges × 10/side
-          'Torso Twists'                // shoulder reach × 10/side
+          'Plank Shoulder Taps'         // shoulder reach × 10/side
         ],
         
         // 4-Day Split (5 warmups each = 2.5 min total)

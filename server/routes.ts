@@ -1948,8 +1948,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         s.isArchived === 0
       );
 
-      // Count completed workout sessions
-      const completedWorkouts = currentCycleWorkouts.filter(s => s.completed === 1);
+      // Count completed workout sessions (only fully completed, not ended early)
+      const completedWorkouts = currentCycleWorkouts.filter(s => 
+        s.completed === 1 && s.status !== 'incomplete'
+      );
 
       // Cycle is complete when ALL workout sessions are completed
       const isCycleComplete = currentCycleWorkouts.length > 0 && 
