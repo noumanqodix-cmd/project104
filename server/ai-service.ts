@@ -832,42 +832,46 @@ export async function generateWorkoutProgram(
   // WEEK-LEVEL PATTERN DISTRIBUTION
   // Design entire week's pattern emphasis before selecting exercises
   // This ensures variety and proper recovery between similar movement patterns
-  type DayPlan = { primary: string[], secondary: string[] };
+  type DayPlan = { 
+    primary: string[], 
+    secondary: string[], 
+    workoutFocus: 'squat' | 'push' | 'hinge' | 'pull' | 'athletic' | 'lower_squat' | 'upper_push' | 'lower_hinge' | 'upper_pull' | 'unilateral'
+  };
   type WeeklyDistribution = Record<number, Record<number, DayPlan>>;
   
   const weeklyPatternDistribution: WeeklyDistribution = {
     3: {
-      // 3-day Full-Body Pattern Emphasis
-      // Day 1: Squat/Push Focus - squat, horizontal push, horizontal pull, lunge, carry/core
-      1: { primary: ['squat', 'horizontal_push', 'horizontal_pull'], secondary: ['lunge', 'carry', 'core'] },
-      // Day 2: Hinge/Pull Focus - hinge, vertical pull, vertical push, lunge, carry/anti-lateral
-      2: { primary: ['hinge', 'vertical_pull', 'vertical_push'], secondary: ['lunge', 'carry', 'core'] },
-      // Day 3: Balanced/Athletic - squat, horizontal push, hinge, pull variety, carry/rotational
-      3: { primary: ['squat', 'horizontal_push', 'hinge', 'horizontal_pull'], secondary: ['carry', 'rotation', 'core'] }
+      // 3-Day Compound Lift Split (Full-Body Pattern Emphasis)
+      // Day 1: Squat/Push Focus - CNS Goal: Lower-body dominant neural drive (quad & press focus)
+      1: { primary: ['squat', 'horizontal_push', 'horizontal_pull'], secondary: ['lunge', 'carry', 'core'], workoutFocus: 'squat' },
+      // Day 2: Hinge/Pull Focus - CNS Goal: Posterior-chain & pulling dominance
+      2: { primary: ['hinge', 'vertical_pull', 'vertical_push'], secondary: ['lunge', 'carry', 'core'], workoutFocus: 'hinge' },
+      // Day 3: Balanced/Athletic Focus - CNS Goal: Mixed emphasis, athletic integration
+      3: { primary: ['squat', 'horizontal_push', 'hinge', 'horizontal_pull'], secondary: ['carry', 'rotation', 'core'], workoutFocus: 'athletic' }
     },
     4: {
-      // 4-day Upper/Lower Split
-      // Day 1: Lower (Squat Dominant) - squat, lunge, quad-focused, carry/core
-      1: { primary: ['squat', 'lunge'], secondary: ['core', 'carry'] },
-      // Day 2: Upper (Push Focus) - horizontal push, vertical push, horizontal pull (light), core
-      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['horizontal_pull', 'core'] },
-      // Day 3: Lower (Hinge Dominant) - hinge, lunge, posterior chain, carry/anti-rotation
-      3: { primary: ['hinge', 'lunge'], secondary: ['carry', 'rotation', 'core'] },
-      // Day 4: Upper (Pull Focus) - vertical pull, horizontal pull, horizontal push, carry/core
-      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['horizontal_push', 'carry', 'core'] }
+      // 4-Day Compound Lift Split (Upper/Lower Pattern Split)
+      // Day 1: Lower (Squat Dominant)
+      1: { primary: ['squat', 'lunge'], secondary: ['carry', 'core'], workoutFocus: 'lower_squat' },
+      // Day 2: Upper (Push Focus)
+      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['horizontal_pull', 'core'], workoutFocus: 'upper_push' },
+      // Day 3: Lower (Hinge Dominant)
+      3: { primary: ['hinge', 'lunge'], secondary: ['carry', 'core'], workoutFocus: 'lower_hinge' },
+      // Day 4: Upper (Pull Focus)
+      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['horizontal_push', 'core'], workoutFocus: 'upper_pull' }
     },
     5: {
-      // 5-day Pattern-Based Split
-      // Day 1: Squat Pattern - primary squat, secondary squat/lunge, core/bracing
-      1: { primary: ['squat'], secondary: ['lunge', 'core'] },
-      // Day 2: Push Patterns - horizontal push, vertical push, core/anti-extension
-      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['core'] },
-      // Day 3: Hinge Pattern - hinge, posterior accessory, carry/hip stability
-      3: { primary: ['hinge'], secondary: ['carry', 'core'] },
-      // Day 4: Pull Patterns - vertical pull, horizontal pull, core
-      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['core'] },
-      // Day 5: Unilateral/Athletic - lunge, hinge, rotational core, carry
-      5: { primary: ['lunge', 'hinge'], secondary: ['rotation', 'core', 'carry'] }
+      // 5-Day Compound Lift Split (Pattern-Based + CNS Hierarchy)
+      // Day 1: Squat
+      1: { primary: ['squat'], secondary: ['lunge', 'core'], workoutFocus: 'squat' },
+      // Day 2: Push
+      2: { primary: ['horizontal_push', 'vertical_push'], secondary: ['core'], workoutFocus: 'push' },
+      // Day 3: Hinge
+      3: { primary: ['hinge'], secondary: ['carry', 'core'], workoutFocus: 'hinge' },
+      // Day 4: Pull
+      4: { primary: ['vertical_pull', 'horizontal_pull'], secondary: ['core'], workoutFocus: 'pull' },
+      // Day 5: Unilateral/Athletic Core
+      5: { primary: ['lunge', 'hinge'], secondary: ['rotation', 'core', 'carry'], workoutFocus: 'unilateral' }
     }
   };
   
@@ -1186,6 +1190,7 @@ export async function generateWorkoutProgram(
       // Use workoutIndex for pattern selection (1, 2, 3, ... N)
       const weekPlan = weeklyPatternDistribution[daysPerWeek];
       const dayPlan = weekPlan[workoutIndex];
+      const workoutFocus = dayPlan?.workoutFocus || 'athletic';  // Get workout focus early for all systems
       
       if (!dayPlan) {
         console.warn(`[WEEK-PLAN] No pattern distribution found for workout ${workoutIndex} in ${daysPerWeek}-day program, using default`);
@@ -1631,10 +1636,77 @@ export async function generateWorkoutProgram(
       const totalAfterPhase2 = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
       console.log(`[CNS-PHASE-2] Isolations complete: ${stageOutputs.isolations.length} isolations, ${totalAfterPhase2} total exercises`);
       
-      // PHASE 3: CORE/ACCESSORY EXERCISES (Lower CNS demand, stability focus)
-      console.log(`[CNS-PHASE-3] Selecting CORE/ACCESSORY exercises`);
+      // PHASE 3: CORE/ACCESSORY EXERCISES (Anti-Movement Pattern Focus)
+      // Select core exercises based on workout focus using anti-movement patterns
+      console.log(`[CNS-PHASE-3] Selecting CORE/ACCESSORY with anti-movement pattern focus`);
+      
+      // Define anti-movement core patterns based on workout focus
+      const antiMovementMapping: Record<string, string[]> = {
+        // 3-Day Split
+        squat: ['core'],           // Anti-extension (planks, rollouts, dead bug)
+        hinge: ['carry'],          // Anti-lateral flexion (suitcase carry, side plank)
+        athletic: ['rotation'],    // Anti-rotation (Pallof press, cable rotation)
+        
+        // 4-Day Split
+        lower_squat: ['core'],
+        upper_push: ['core'],
+        lower_hinge: ['carry'],
+        upper_pull: ['rotation'],
+        
+        // 5-Day Split
+        push: ['core'],
+        pull: ['rotation'],
+        unilateral: ['rotation', 'carry'],
+      };
+      
+      const preferredCorePatterns = antiMovementMapping[workoutFocus] || ['core'];
+      console.log(`[ANTI-MOVEMENT] ${workoutFocus} focus → Anti-movement patterns: ${preferredCorePatterns.join(', ')}`);
+      
       const coreTargetCount = mainCount + 2; // Can add a few core exercises beyond main count
       
+      // Priority 1: Add preferred anti-movement pattern exercises first
+      for (const pattern of preferredCorePatterns) {
+        const totalExercises = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
+        if (totalExercises >= coreTargetCount) break;
+        
+        const patternExercises = exercisesByPattern[pattern] || [];
+        const coreOnly = patternExercises.filter(ex => ['core', 'rotation', 'carry'].includes(ex.movementPattern));
+        
+        if (coreOnly.length > 0) {
+          const selected = selectExercisesByPattern(
+            coreOnly, 
+            pattern, 
+            1,  // One exercise per preferred anti-movement pattern
+            (ex) => canUseExercise(ex.id, currentDay, ex.movementPattern, ex.exerciseCategory, ex.primaryMuscles || [], usedPrimaryMuscles) && canUseOnLastDay(ex.id, isLastScheduledDay),
+            (exId, primaryMuscles, exercisePattern, exerciseCategory) => {
+              exerciseUsageMap.set(exId, currentDay);
+              if (workoutIndex === 1) firstDayExercises.add(exId);
+              if (primaryMuscles && primaryMuscles.length > 0) {
+                primaryMuscles.forEach(muscle => usedPrimaryMuscles.add(muscle));
+              }
+              if (exerciseCategory === 'compound' && exercisePattern) {
+                compoundPatternUsage.set(exercisePattern, currentDay);
+              }
+            }
+          );
+          
+          for (const ex of selected) {
+            const params = assignTrainingParameters(ex, fitnessLevel, selectedTemplate, latestAssessment, user, 'core-accessory');
+            const genEx: GeneratedExercise = {
+              exerciseName: ex.name,
+              equipment: selectExerciseEquipment(ex, user.equipment || []),
+              ...params,
+              sourceExerciseCategory: ex.exerciseCategory,
+              sourceMovementPattern: ex.movementPattern,
+            };
+            stageOutputs.core.push(genEx);
+            movementFocus.push(pattern);
+            console.log(`[ANTI-MOVEMENT] Added ${ex.name} (${pattern}) for ${workoutFocus} focus`);
+          }
+        }
+      }
+      
+      // Priority 2: Fill remaining slots with tiered patterns (fallback)
       for (const tier of patternTiers) {
         const totalExercises = stageOutputs.compounds.length + stageOutputs.isolations.length + stageOutputs.core.length;
         if (totalExercises >= coreTargetCount) break;
@@ -1892,47 +1964,49 @@ export async function generateWorkoutProgram(
         console.log(`[TIME-CHECK] Strength duration OK: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min (gap: ${strengthDurationGap.toFixed(1)}min)`);
       }
       
-      // Movement-specific warmup selection based on actual workout patterns
-      // Define warmup mapping based on movement patterns
-      // Names must match exactly with database exercise names
-      const warmupMapping: Record<string, string[]> = {
-        horizontal_push: ['Pull-Aparts', 'Arm Circles', 'Shoulder Dislocates', 'Cat-Cow Stretch'],
-        vertical_push: ['Arm Circles', 'Shoulder Dislocates', 'Cat-Cow Stretch', 'Pull-Aparts', 'Shoulder Pass-Throughs'],
-        horizontal_pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dynamic Shoulder Rolls'],
-        vertical_pull: ['Dead Hang', 'Scapular Pull-Ups', 'Arm Circles', 'Pull-Aparts'],
-        pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dynamic Shoulder Rolls'], // Legacy fallback
-        squat: ['Dynamic Leg Swings', 'Hip Circles', 'Box Step-Up', 'Ankle Circles'],
-        lunge: ['Dynamic Leg Swings', 'Hip Circles', 'Lateral Walks', 'Hip Flexor Stretch'],
-        hinge: ['Dynamic Leg Swings', 'Hip Circles', 'Good Mornings', 'Cat-Cow Stretch'],
-        core: ['Cat-Cow Stretch', 'Bird Dog', 'Dead Bug'],
-        rotation: ['Arm Circles', 'Dynamic Shoulder Rolls', 'Cat-Cow Stretch'],
-        carry: ['Arm Circles', 'Shoulder Dislocates', 'Dynamic Shoulder Rolls'],
+      // SCIENCE-BASED DYNAMIC WARMUP SEQUENCES
+      // Each workout focus type gets a specific warmup circuit designed for CNS preparation
+      // Warmups are treated as supersets with no rest between exercises
+      const warmupSequences: Record<string, string[]> = {
+        // 3-Day Split
+        squat: ['Bodyweight Squat', 'Arm Circles', 'Walking Lunge', 'Cat-Cow Stretch'],  // Squat/Push Focus
+        hinge: ['Lying Hip Bridge', 'Dynamic Leg Swings', 'Scapular Pull-Ups', 'Arm Circles'],  // Hinge/Pull Focus
+        athletic: ['Bodyweight Squat', 'Cat-Cow Stretch'],  // Balanced/Athletic Focus
+        
+        // 4-Day Split
+        lower_squat: ['Bodyweight Squat', 'Hip Circles', 'Arm Circles'],  // Lower (Squat Dominant)
+        upper_push: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch'],  // Upper (Push Focus)
+        lower_hinge: ['Lying Hip Bridge', 'Dynamic Leg Swings', 'Hip Circles', 'Bird Dog'],  // Lower (Hinge Dominant)
+        upper_pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dead Bug'],  // Upper (Pull Focus)
+        
+        // 5-Day Split
+        push: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch'],  // Push Day
+        pull: ['Pull-Aparts', 'Arm Circles'],  // Pull Day
+        unilateral: ['Cat-Cow Stretch', 'Bodyweight Squat'],  // Unilateral/Athletic Core
       };
       
-      // Analyze the actual patterns used in this workout (from movementFocus array)
-      const workoutPatterns = Array.from(new Set(movementFocus.filter(p => p !== 'cardio')));
+      // Get warmup sequence for this workout focus
+      const recommendedWarmupNames = warmupSequences[workoutFocus] || warmupSequences['athletic'];
+      
+      console.log(`[WARMUP-FOCUS] Day ${workoutIndex} focus: ${workoutFocus}, selecting warmup sequence`);
+      
       const selectedWarmups: Exercise[] = [];
       const warmupNames = new Set<string>();
       
-      // Priority: Select warmups that match this workout's actual movement patterns
-      for (const pattern of workoutPatterns) {
+      // Select warmups from the predefined sequence for this workout focus
+      for (const warmupName of recommendedWarmupNames) {
         if (selectedWarmups.length >= warmupCount) break;
+        if (warmupNames.has(warmupName)) continue;
         
-        const recommendedWarmupNames = warmupMapping[pattern] || [];
-        for (const warmupName of recommendedWarmupNames) {
-          if (selectedWarmups.length >= warmupCount) break;
-          if (warmupNames.has(warmupName)) continue;
-          
-          const warmupEx = warmupExercises.find(ex => ex.name === warmupName);
-          
-          if (warmupEx) {
-            selectedWarmups.push(warmupEx);
-            warmupNames.add(warmupName);
-          }
+        const warmupEx = warmupExercises.find(ex => ex.name === warmupName);
+        
+        if (warmupEx) {
+          selectedWarmups.push(warmupEx);
+          warmupNames.add(warmupName);
         }
       }
       
-      // Fallback: If not enough pattern-specific warmups found, add general ones
+      // Fallback: If not enough warmups found, add general ones
       if (selectedWarmups.length < warmupCount) {
         for (const warmupEx of warmupExercises) {
           if (selectedWarmups.length >= warmupCount) break;
@@ -2014,15 +2088,33 @@ export async function generateWorkoutProgram(
       // Insert warmups at the beginning
       stageOutputs.warmups.push(...warmupExercises_toAdd);
       
-      console.log(`[WARMUP] Selected ${selectedWarmups.length} warmups for ${workoutPatterns.join(', ')} patterns: ${selectedWarmups.map(w => w.name).join(', ')}`);
+      console.log(`[WARMUP] Selected ${selectedWarmups.length} warmups for ${workoutFocus} focus: ${selectedWarmups.map(w => w.name).join(', ')}`);
       
-      // POWER EXERCISE SELECTION - PATTERN-MATCHED TO COMPOUNDS
-      // Power movements should match compound movement patterns for CNS preparation
-      // (e.g., power hinge before compound hinge, power squat before compound squat)
+      // POWER EXERCISE SELECTION - WORKOUT-FOCUS-BASED CNS PREPARATION
+      // Power movements are matched to workout focus for optimal CNS preparation
+      // Squat/Push → Jump patterns, Hinge/Pull → Explosive hinge, Athletic → Rotational
       if (powerCount > 0) {
-        // Extract compound patterns from Phase 1 selection
-        const compoundPatterns = Array.from(new Set(compoundExercises.map(c => c.pattern)));
-        console.log(`[POWER-MATCH] Compound patterns for this workout: ${compoundPatterns.join(', ')}`);
+        // Define preferred power patterns based on workout focus
+        const powerPatternMapping: Record<string, string[]> = {
+          // 3-Day Split
+          squat: ['squat', 'horizontal_push'],  // Jump patterns or chest pass
+          hinge: ['hinge', 'vertical_pull'],    // Explosive hinge (swings)
+          athletic: ['rotation', 'squat'],      // Rotational throws, broad jumps
+          
+          // 4-Day Split
+          lower_squat: ['squat'],               // Vertical jumps, box jumps
+          upper_push: ['horizontal_push'],      // Plyo push, med ball chest pass
+          lower_hinge: ['hinge'],               // Hip-dominant jumps, KB swing
+          upper_pull: ['vertical_pull'],        // Med ball slam, pull-up jump
+          
+          // 5-Day Split
+          push: ['horizontal_push'],            // Plyo push, med ball throws
+          pull: ['vertical_pull', 'hinge'],     // Explosive pull, high pull, slam
+          unilateral: ['rotation', 'squat'],    // Rotational med ball throw
+        };
+        
+        const preferredPowerPatterns = powerPatternMapping[workoutFocus] || ['squat'];
+        console.log(`[POWER-MATCH] ${workoutFocus} focus → Preferred power patterns: ${preferredPowerPatterns.join(', ')}`);
         
         const powerExercisesFiltered = availableExercises.filter(ex => 
           ex.exerciseCategory === 'power' &&
@@ -2032,11 +2124,11 @@ export async function generateWorkoutProgram(
           canUseOnLastDay(ex.id, isLastScheduledDay)
         );
         
-        // Select power exercises that MATCH compound patterns (pattern-specific CNS prep)
+        // Select power exercises that MATCH workout focus (pattern-specific CNS prep)
         const selectedPowerExercises: Exercise[] = [];
         
-        // First priority: Power exercises matching compound patterns
-        for (const pattern of compoundPatterns) {
+        // First priority: Power exercises matching workout focus preferred patterns
+        for (const pattern of preferredPowerPatterns) {
           if (selectedPowerExercises.length >= powerCount) break;
           
           const matchingPowerEx = powerExercisesFiltered.find(ex => ex.movementPattern === pattern);
@@ -2046,7 +2138,7 @@ export async function generateWorkoutProgram(
             if (workoutIndex === 1) {
               firstDayExercises.add(matchingPowerEx.id);
             }
-            console.log(`[POWER-MATCH] Selected ${matchingPowerEx.name} (${pattern}) to prep for compound ${pattern} work`);
+            console.log(`[POWER-MATCH] Selected ${matchingPowerEx.name} (${pattern}) for ${workoutFocus} focus`);
           }
         }
         
