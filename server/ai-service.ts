@@ -1964,25 +1964,79 @@ export async function generateWorkoutProgram(
         console.log(`[TIME-CHECK] Strength duration OK: ${actualStrengthDuration.toFixed(1)}min/${strengthTimeBudget.toFixed(1)}min (gap: ${strengthDurationGap.toFixed(1)}min)`);
       }
       
-      // SCIENCE-BASED DYNAMIC WARMUP SEQUENCES
-      // Each workout focus type gets a specific warmup circuit designed for CNS preparation
-      // Warmups are treated as supersets with no rest between exercises
+      // SCIENCE-BASED DYNAMIC WARMUP SEQUENCES (Exact specifications from user)
+      // Each workout focus gets a specific warmup circuit designed for CNS preparation
+      // Warmups are 1 set each, 30 seconds per exercise, superseted with no rest
       const warmupSequences: Record<string, string[]> = {
-        // 3-Day Split
-        squat: ['Bodyweight Squat', 'Arm Circles', 'Walking Lunge', 'Cat-Cow Stretch'],  // Squat/Push Focus
-        hinge: ['Lying Hip Bridge', 'Dynamic Leg Swings', 'Scapular Pull-Ups', 'Arm Circles'],  // Hinge/Pull Focus
-        athletic: ['Bodyweight Squat', 'Cat-Cow Stretch'],  // Balanced/Athletic Focus
+        // 3-Day Split (5 warmups each = 2.5 min total)
+        squat: [
+          'Bodyweight Squat',           // × 15
+          'Arm Circles',                // + band pull-aparts × 20
+          'Walking Lunge',              // with rotation × 8/side
+          'Plank Shoulder Tap',         // × 10/side
+          'Cat-Cow Stretch'             // World's greatest stretch × 5/side (using Cat-Cow as substitute)
+        ],
+        hinge: [
+          'Lying Hip Bridge',           // × 15
+          'Dynamic Leg Swings',         // × 10
+          'Scapular Pull-Ups',          // × 10
+          'Arm Circles',                // Arm sweeps (Y-T-W) × 10 each
+          'Hip Circles'                 // Hip airplanes × 6/side (using Hip Circles as substitute)
+        ],
+        athletic: [
+          'Jumping Jacks',              // × 30s
+          'Bodyweight Squat',           // Deep squat with thoracic reach × 5
+          'Inchworm',                   // to push-up × 6
+          'Walking Lunge',              // Alternating side lunges × 10/side
+          'Plank Shoulder Tap'          // shoulder reach × 10/side
+        ],
         
-        // 4-Day Split
-        lower_squat: ['Bodyweight Squat', 'Hip Circles', 'Arm Circles'],  // Lower (Squat Dominant)
-        upper_push: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch'],  // Upper (Push Focus)
-        lower_hinge: ['Lying Hip Bridge', 'Dynamic Leg Swings', 'Hip Circles', 'Bird Dog'],  // Lower (Hinge Dominant)
-        upper_pull: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch', 'Dead Bug'],  // Upper (Pull Focus)
+        // 4-Day Split (5 warmups each = 2.5 min total)
+        lower_squat: [
+          'Bodyweight Squat',           // × 15
+          'Hip Circles',                // Hip openers × 10/side
+          'Cossack Squat',              // × 6/side
+          'Arm Circles',                // Arm swings × 15
+          'High Knees'                  // Marching high knees × 30s
+        ],
+        upper_push: [
+          'Pull-Aparts',                // × 15
+          'Arm Circles',                // × 20
+          'Push-Up',                    // Scapular push-ups × 10
+          'Cat-Cow Stretch',            // × 5
+          'Inchworm'                    // Plank to down dog × 6
+        ],
+        lower_hinge: [
+          'Lying Hip Bridge',           // × 15
+          'Dynamic Leg Swings',         // × 10
+          'Hip Circles',                // × 10
+          'Walking Lunge',              // × 10/side
+          'Bird Dog'                    // × 8/side
+        ],
+        upper_pull: [
+          'Pull-Aparts',                // Band rows × 10
+          'Arm Circles',                // × 20
+          'Cat-Cow Stretch',            // Thread-the-needle stretch × 5/side
+          'Shoulder Rolls',             // × 10 each
+          'Dead Bug'                    // × 8/side
+        ],
         
-        // 5-Day Split
-        push: ['Pull-Aparts', 'Arm Circles', 'Cat-Cow Stretch'],  // Push Day
-        pull: ['Pull-Aparts', 'Arm Circles'],  // Pull Day
-        unilateral: ['Cat-Cow Stretch', 'Bodyweight Squat'],  // Unilateral/Athletic Core
+        // 5-Day Split (3 warmups each = 1.5 min total)
+        push: [
+          'Arm Circles',                // + band pull-aparts × 20
+          'Plank Shoulder Tap',         // × 10/side
+          'Inchworm'                    // to push-up × 6
+        ],
+        pull: [
+          'Scapular Pull-Ups',          // × 8
+          'Pull-Aparts',                // × 15
+          'Cat-Cow Stretch'             // Thoracic rotations × 5/side
+        ],
+        unilateral: [
+          'Walking Lunge',              // Lateral lunges × 10/side
+          'Cat-Cow Stretch',            // World's greatest stretch × 5/side
+          'Torso Rotations'             // Standing torso rotations × 10
+        ]
       };
       
       // Get warmup sequence for this workout focus
