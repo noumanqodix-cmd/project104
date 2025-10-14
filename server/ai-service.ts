@@ -1978,7 +1978,7 @@ export async function generateWorkoutProgram(
           'Cat-Cow Stretch'             // World's greatest stretch × 5/side (using Cat-Cow as substitute)
         ],
         hinge: [
-          'Good Mornings',              // × 15
+          'Lying Hip Bridge',           // × 15
           'Dynamic Leg Swings',         // × 10
           'Scapular Pull-Ups',          // × 10
           'Arm Circles',                // Arm sweeps (Y-T-W) × 10 each
@@ -1987,7 +1987,7 @@ export async function generateWorkoutProgram(
         athletic: [
           'Lateral Walks',              // × 30s
           'Squats',                     // Deep squat with thoracic reach × 5
-          'Shoulder Dislocates',        // to push-up × 6
+          'Inchworm',                   // to push-up × 6
           'Walking Lunges',             // Alternating side lunges × 10/side
           'Torso Twists'                // shoulder reach × 10/side
         ],
@@ -2003,12 +2003,12 @@ export async function generateWorkoutProgram(
         upper_push: [
           'Pull-Aparts',                // × 15
           'Arm Circles',                // × 20
-          'Shoulder Pass-Throughs',     // Scapular push-ups × 10
+          'Push-Up',                    // Scapular push-ups × 10
           'Cat-Cow Stretch',            // × 5
-          'Thoracic Rotation'           // Plank to down dog × 6
+          'Inchworm'                    // Plank to down dog × 6
         ],
         lower_hinge: [
-          'Good Mornings',              // × 15
+          'Lying Hip Bridge',           // × 15
           'Dynamic Leg Swings',         // × 10
           'Hip Circles',                // × 10
           'Walking Lunges',             // × 10/side
@@ -2026,7 +2026,7 @@ export async function generateWorkoutProgram(
         push: [
           'Arm Circles',                // + band pull-aparts × 20
           'Torso Twists',               // × 10/side
-          'Shoulder Dislocates'         // to push-up × 6
+          'Inchworm'                    // to push-up × 6
         ],
         pull: [
           'Scapular Pull-Ups',          // × 8
