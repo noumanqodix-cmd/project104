@@ -26,6 +26,7 @@
 
 import { useState } from "react";
 import { useLocation } from "wouter";
+import IntroSlides from "./IntroSlides";
 import QuestionnaireFlow, { type QuestionnaireData } from "./QuestionnaireFlow";
 import NutritionAssessment, { type NutritionData } from "./NutritionAssessment";
 import TestTypeSelector from "./TestTypeSelector";
@@ -38,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatLocalDate, getTodayLocal } from "@shared/dateUtils";
 
 // Defines which step of onboarding the user is on
-type AssessmentStep = "questionnaire" | "nutrition" | "testSelection" | "fitnessTest" | "weightsTest" | "dateSelection";
+type AssessmentStep = "intro" | "questionnaire" | "nutrition" | "testSelection" | "fitnessTest" | "weightsTest" | "dateSelection";
 
 export default function OnboardingAssessment() {
   // ==========================================
@@ -49,8 +50,8 @@ export default function OnboardingAssessment() {
   const { toast } = useToast();  // Popup notification function
   
   // STATE: Which step is user currently on?
-  // Flow: questionnaire → nutrition → testSelection → fitnessTest/weightsTest → dateSelection
-  const [currentStep, setCurrentStep] = useState<AssessmentStep>("questionnaire");
+  // Flow: intro → questionnaire → nutrition → testSelection → fitnessTest/weightsTest → dateSelection
+  const [currentStep, setCurrentStep] = useState<AssessmentStep>("intro");
   
   // STATE: Data collected from questionnaire step
   // Includes: experience level, equipment, schedule (days/week, duration)
@@ -206,6 +207,15 @@ export default function OnboardingAssessment() {
 
   const renderStep = () => {
     switch (currentStep) {
+      case "intro":
+        return (
+          <IntroSlides
+            onComplete={() => {
+              setCurrentStep("questionnaire");
+            }}
+          />
+        );
+
       case "questionnaire":
         return (
           <QuestionnaireFlow
@@ -213,7 +223,7 @@ export default function OnboardingAssessment() {
               setQuestionnaireData(data);
               setCurrentStep("nutrition");
             }}
-            onBack={() => setLocation("/")}
+            onBack={() => setCurrentStep("intro")}
           />
         );
 
