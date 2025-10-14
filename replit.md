@@ -3,6 +3,14 @@
 ## Overview
 FitForge is a science-backed fitness application that generates personalized workout programs using professional CNS-ordered programming (warmup → power → compounds → isolations → core → cardio). It trains 10 real-world functional movement patterns with adaptive difficulty, offering 3/4/5-day splits and 30/45/60/90-minute workout options. The application features intelligent equipment-based exercise swapping (perfect for travel), Zone 2 and HIIT cardio training, fitness assessments to unlock advanced movements, and a flexible 7-day cycle system with automatic missed workout rescheduling. Built on exercise science principles with AI-enhanced insights as supplemental features.
 
+## Recent Changes (October 2025)
+
+**Bug Fixes - Warmup & Scheduling:**
+- Fixed warmup sequences to display all exercises (5 for 3/4-day splits, 3 for 5-day splits) instead of just 1 exercise
+- Corrected warmup time calculation from ~2 minutes to 30 seconds per exercise (1 set, superseted with no rest)
+- Fixed date-based scheduling bug where Wednesday incorrectly showed as rest day when selecting Mon-Tue-Wed-Thu
+- Program regeneration now properly passes selectedDates to ensure DATE-BASED mode is used (only selected dates are workout days)
+
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
 - Testing preference: Only use browser-based testing when absolutely necessary (UI/UX validation, multi-page workflows, JavaScript-dependent features). Prefer faster methods like API testing, database queries, log inspection, and LSP diagnostics for backend/schema changes.
@@ -21,7 +29,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
 - **Template-Based Adaptive Training System**:
   - **Program Generation**: Algorithms select from prebuilt templates (Strength Primary, Cardio Primary, Hybrid Balance) to create custom 8-week programs based on user input.
   - **Science-Based Weekly Workout Structure**: Each workout day has a specific focus (squat, push, hinge, pull, athletic, unilateral). 3-Day: Squat/Push → Hinge/Pull → Balanced. 4-Day: Lower Squat → Upper Push → Lower Hinge → Upper Pull. 5-Day: Squat → Push → Hinge → Pull → Unilateral. Workout focus drives warmup, power, and core exercise selection for optimal training stimulus.
-  - **Focus-Specific Warmup Sequences**: Deterministic warmup circuits matched to workout focus (not random). Squat/Push days use bodyweight squats and arm circles, Hinge/Pull days use hip bridges and scapular pull-ups, Athletic days use dynamic movements. Warmups automatically superseted in pairs for time efficiency.
+  - **Focus-Specific Warmup Sequences**: Deterministic warmup circuits matched to workout focus (not random). 3/4-day splits have 5 warmups per workout (2.5 min total at 30 sec each), 5-day splits have 3 warmups (1.5 min total). Each warmup is 1 set, 30 seconds, superseted with no rest. Squat/Push days use bodyweight squats and arm circles, Hinge/Pull days use hip bridges and scapular pull-ups, Athletic days use dynamic movements. Example 4-day upper_push: Pull-Aparts, Arm Circles, Push-Up, Cat-Cow Stretch, Inchworm.
   - **Workout-Focus-Based Power Selection**: Power movements match workout focus for CNS preparation. Squat/Push days use jump patterns, Hinge/Pull days use explosive hinge/pull movements, Athletic days use rotational throws. Power exercises capped at 2 maximum per workout for CNS safety.
   - **Anti-Movement Core Programming**: Core exercises selected based on anti-movement principles. Squat/Push days prioritize anti-extension (planks, rollouts), Hinge days use anti-lateral flexion (carries, side planks), Athletic days focus on anti-rotation (Pallof press, rotational movements).
   - **Week-Level Program Planning**: Plans entire week's movement pattern distribution before selecting exercises. Uses a 3-tier priority system (PRIMARY, SECONDARY, FALLBACK) for exercise selection.
