@@ -1971,62 +1971,62 @@ export async function generateWorkoutProgram(
       const warmupSequences: Record<string, string[]> = {
         // 3-Day Split (5 warmups each = 2.5 min total)
         squat: [
-          'Bodyweight Squat',           // × 15
+          'Squats',                     // × 15
           'Arm Circles',                // + band pull-aparts × 20
-          'Walking Lunge',              // with rotation × 8/side
-          'Plank Shoulder Tap',         // × 10/side
+          'Walking Lunges',             // with rotation × 8/side
+          'Torso Twists',               // × 10/side
           'Cat-Cow Stretch'             // World's greatest stretch × 5/side (using Cat-Cow as substitute)
         ],
         hinge: [
-          'Lying Hip Bridge',           // × 15
+          'Good Mornings',              // × 15
           'Dynamic Leg Swings',         // × 10
           'Scapular Pull-Ups',          // × 10
           'Arm Circles',                // Arm sweeps (Y-T-W) × 10 each
           'Hip Circles'                 // Hip airplanes × 6/side (using Hip Circles as substitute)
         ],
         athletic: [
-          'Jumping Jacks',              // × 30s
-          'Bodyweight Squat',           // Deep squat with thoracic reach × 5
-          'Inchworm',                   // to push-up × 6
-          'Walking Lunge',              // Alternating side lunges × 10/side
-          'Plank Shoulder Tap'          // shoulder reach × 10/side
+          'Lateral Walks',              // × 30s
+          'Squats',                     // Deep squat with thoracic reach × 5
+          'Shoulder Dislocates',        // to push-up × 6
+          'Walking Lunges',             // Alternating side lunges × 10/side
+          'Torso Twists'                // shoulder reach × 10/side
         ],
         
         // 4-Day Split (5 warmups each = 2.5 min total)
         lower_squat: [
-          'Bodyweight Squat',           // × 15
+          'Squats',                     // × 15
           'Hip Circles',                // Hip openers × 10/side
-          'Cossack Squat',              // × 6/side
+          'Walking Lunges',             // × 6/side
           'Arm Circles',                // Arm swings × 15
-          'High Knees'                  // Marching high knees × 30s
+          'Ankle Circles'               // Ankle mobility × 30s
         ],
         upper_push: [
           'Pull-Aparts',                // × 15
           'Arm Circles',                // × 20
-          'Push-Up',                    // Scapular push-ups × 10
+          'Shoulder Pass-Throughs',     // Scapular push-ups × 10
           'Cat-Cow Stretch',            // × 5
-          'Inchworm'                    // Plank to down dog × 6
+          'Thoracic Rotation'           // Plank to down dog × 6
         ],
         lower_hinge: [
-          'Lying Hip Bridge',           // × 15
+          'Good Mornings',              // × 15
           'Dynamic Leg Swings',         // × 10
           'Hip Circles',                // × 10
-          'Walking Lunge',              // × 10/side
+          'Walking Lunges',             // × 10/side
           'Bird Dog'                    // × 8/side
         ],
         upper_pull: [
           'Pull-Aparts',                // Band rows × 10
           'Arm Circles',                // × 20
           'Cat-Cow Stretch',            // Thread-the-needle stretch × 5/side
-          'Shoulder Rolls',             // × 10 each
+          'Dynamic Shoulder Rolls',     // × 10 each
           'Dead Bug'                    // × 8/side
         ],
         
         // 5-Day Split (3 warmups each = 1.5 min total)
         push: [
           'Arm Circles',                // + band pull-aparts × 20
-          'Plank Shoulder Tap',         // × 10/side
-          'Inchworm'                    // to push-up × 6
+          'Torso Twists',               // × 10/side
+          'Shoulder Dislocates'         // to push-up × 6
         ],
         pull: [
           'Scapular Pull-Ups',          // × 8
@@ -2034,9 +2034,9 @@ export async function generateWorkoutProgram(
           'Cat-Cow Stretch'             // Thoracic rotations × 5/side
         ],
         unilateral: [
-          'Walking Lunge',              // Lateral lunges × 10/side
+          'Walking Lunges',             // Lateral lunges × 10/side
           'Cat-Cow Stretch',            // World's greatest stretch × 5/side
-          'Torso Rotations'             // Standing torso rotations × 10
+          'Torso Twists'                // Standing torso rotations × 10
         ]
       };
       
