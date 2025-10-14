@@ -40,6 +40,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CycleComplete } from "@/components/CycleComplete";
 import { DayPicker } from "@/components/DayPicker";
+import { WeeklyScheduleView } from "@/components/WeeklyScheduleView";
+import { RescheduleDialog } from "@/components/RescheduleDialog";
 
 export default function Home() {
   const { toast } = useToast();
@@ -53,6 +55,8 @@ export default function Home() {
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
   const [showRepeatDaysDialog, setShowRepeatDaysDialog] = useState(false);
   const [selectedRepeatDates, setSelectedRepeatDates] = useState<string[]>([]);
+  const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
+  const [sessionToReschedule, setSessionToReschedule] = useState<WorkoutSession | null>(null);
   
   // Track previous missed workout count to prevent repeated rescheduling
   const previousMissedCountRef = useRef<number>(0);
@@ -136,6 +140,31 @@ export default function Home() {
       toast({
         title: "Error",
         description: "Failed to add cardio session. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ sessionId, newDate }: { sessionId: string; newDate: Date }) => {
+      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}/reschedule`, {
+        newDate: formatLocalDate(newDate),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
+      toast({
+        title: "Workout Rescheduled",
+        description: "Your workout has been moved to the new date.",
+      });
+      setShowRescheduleDialog(false);
+      setSessionToReschedule(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Reschedule",
+        description: error.message || "Failed to reschedule workout. Please try again.",
         variant: "destructive",
       });
     },
@@ -772,6 +801,18 @@ export default function Home() {
               </Card>
             )}
 
+            {/* Weekly Schedule View */}
+            {sessions && programWorkouts && (
+              <WeeklyScheduleView
+                sessions={sessions}
+                programWorkouts={programWorkouts}
+                onReschedule={(session) => {
+                  setSessionToReschedule(session);
+                  setShowRescheduleDialog(true);
+                }}
+              />
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Current Program</CardTitle>
@@ -1062,6 +1103,17 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reschedule Workout Dialog */}
+      <RescheduleDialog
+        open={showRescheduleDialog}
+        onOpenChange={setShowRescheduleDialog}
+        session={sessionToReschedule}
+        workout={sessionToReschedule ? programWorkouts?.find(w => w.id === sessionToReschedule.programWorkoutId) || null : null}
+        sessions={sessions || []}
+        onConfirm={(sessionId, newDate) => rescheduleMutation.mutate({ sessionId, newDate })}
+        isPending={rescheduleMutation.isPending}
+      />
     </div>
   );
 }
