@@ -286,8 +286,7 @@ export const workoutSessions = pgTable("workout_sessions", {
   sessionDayOfWeek: integer("session_day_of_week"),
   sessionType: text("session_type").notNull().default("rest"),
   workoutType: text("workout_type"),
-  completed: integer("completed").notNull().default(0),
-  status: text("status").notNull().default("in_progress"),
+  status: text("status").notNull().default("scheduled"), // scheduled → in_progress → partial/complete
   durationMinutes: integer("duration_minutes"),
   elapsedSeconds: integer("elapsed_seconds"), // Tracks timer state for partial workouts
   caloriesBurned: integer("calories_burned"),
@@ -324,8 +323,7 @@ export const insertWorkoutSessionSchema = createInsertSchema(workoutSessions).om
 });
 
 export const patchWorkoutSessionSchema = z.object({
-  completed: z.union([z.boolean(), z.number()]).transform(val => val ? 1 : 0).optional(),
-  status: z.string().optional(),
+  status: z.enum(["scheduled", "in_progress", "partial", "complete", "skipped"]).optional(),
   sessionType: z.enum(["workout", "rest"]).optional(),
   workoutType: z.enum(["strength", "cardio", "hiit", "mobility"]).optional(),
   durationMinutes: z.number().optional(),

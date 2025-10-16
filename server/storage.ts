@@ -414,7 +414,7 @@ export class DbStorage implements IStorage {
     const sessions = await db.select().from(workoutSessions)
       .where(and(
         eq(workoutSessions.userId, userId),
-        eq(workoutSessions.completed, 1)
+        eq(workoutSessions.status, 'complete')
       ));
     
     // Filter by date and sum calories
@@ -445,10 +445,11 @@ export class DbStorage implements IStorage {
     }
 
     // Delete all incomplete sessions for this program
+    const { inArray: inArrayOp } = await import("drizzle-orm");
     await db.delete(workoutSessions)
       .where(and(
-        inArray(workoutSessions.programWorkoutId, programWorkoutIds),
-        eq(workoutSessions.completed, 0)
+        inArrayOp(workoutSessions.programWorkoutId, programWorkoutIds),
+        inArrayOp(workoutSessions.status, ['scheduled', 'partial'])
       ));
   }
 
@@ -461,7 +462,7 @@ export class DbStorage implements IStorage {
       .where(and(
         eq(workoutSessions.userId, userId),
         gte(workoutSessions.scheduledDate, fromDate),
-        eq(workoutSessions.completed, 1),
+        eq(workoutSessions.status, 'complete'),
         eq(workoutSessions.isArchived, 0) // Only archive non-archived sessions
       ))
       .returning();
@@ -472,11 +473,12 @@ export class DbStorage implements IStorage {
   async deleteIncompleteSessions(userId: string, fromDate: string): Promise<number> {
     // Delete all INCOMPLETE sessions from the specified date onwards
     // This cleans up pending workouts when regenerating a program
+    const { inArray: inArrayOp } = await import("drizzle-orm");
     const result = await db.delete(workoutSessions)
       .where(and(
         eq(workoutSessions.userId, userId),
         gte(workoutSessions.scheduledDate, fromDate),
-        eq(workoutSessions.completed, 0)
+        inArrayOp(workoutSessions.status, ['scheduled', 'partial'])
       ))
       .returning();
     

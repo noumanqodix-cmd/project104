@@ -105,7 +105,6 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
     mutationFn: async (programWorkoutId: string) => {
       const response = await apiRequest("POST", "/api/workout-sessions", {
         programWorkoutId,
-        completed: 0,
         status: "in_progress",
       });
       return await response.json();
@@ -146,7 +145,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
       
       // Find today's session using calendar-based scheduling (prioritize today, then upcoming, then past due)
       const todaySession = sessions
-        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        ?.filter((s: any) => s.status !== 'complete' && s.scheduledDate)
         .sort((a: any, b: any) => {
           const dateA = new Date(a.scheduledDate).getTime();
           const dateB = new Date(b.scheduledDate).getTime();

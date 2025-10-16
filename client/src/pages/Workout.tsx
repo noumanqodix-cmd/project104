@@ -49,7 +49,7 @@ export default function WorkoutPage({ onComplete }: WorkoutPageProps) {
     return isSameCalendarDay(sessionDate, today);
   });
 
-  const isCompleted = todaySession?.completed === 1;
+  const isCompleted = todaySession?.status === 'complete';
 
   if (loadingHomeData || !user) {
     return (

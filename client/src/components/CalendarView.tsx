@@ -75,8 +75,8 @@ export function CalendarView({ sessions }: CalendarViewProps) {
     
     if (daySessions.length === 0) return '';
     
-    // Highest priority: Check if completed (using backend completed flag)
-    const hasCompleted = daySessions.some(s => s.completed && s.status !== 'skipped');
+    // Highest priority: Check if completed (using backend status field)
+    const hasCompleted = daySessions.some(s => s.status === 'complete');
     if (hasCompleted) return 'bg-green-500/20 hover:bg-green-500/30 border-green-500/50';
     
     // Second priority: Check if skipped (using backend status field)
@@ -241,18 +241,18 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                         </h3>
                         <span className={cn(
                           "text-xs px-2 py-1 rounded-full",
-                          session.completed && session.status !== 'skipped' && "bg-green-500/20 text-green-700 dark:text-green-300",
+                          session.status === 'complete' && "bg-green-500/20 text-green-700 dark:text-green-300",
                           session.status === 'skipped' && "bg-red-500/20 text-red-700 dark:text-red-300",
                           session.sessionType === "rest" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                          !session.completed && session.status !== 'skipped' && session.sessionType !== "rest" && "bg-muted text-muted-foreground"
+                          session.status !== 'complete' && session.status !== 'skipped' && session.sessionType !== "rest" && "bg-muted text-muted-foreground"
                         )}>
-                          {session.completed && session.status !== 'skipped' ? 'Completed' :
+                          {session.status === 'complete' ? 'Completed' :
                            session.status === 'skipped' ? 'Skipped' :
                            session.sessionType === "rest" ? 'Rest' : 'Scheduled'}
                         </span>
                       </div>
                       
-                      {session.completed && (
+                      {session.status === 'complete' && (
                         <div className="flex gap-4 text-sm text-muted-foreground">
                           {session.durationMinutes && (
                             <div className="flex items-center gap-1">

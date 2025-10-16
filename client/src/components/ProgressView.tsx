@@ -33,7 +33,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
   const stats = useMemo(() => {
     if (!sortedSessions || sortedSessions.length === 0) return null;
 
-    const completedSessions = sortedSessions.filter(s => s.completed === 1);
+    const completedSessions = sortedSessions.filter(s => s.status === 'complete');
     const totalWorkouts = completedSessions.length;
 
     const today = new Date();
@@ -79,7 +79,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
   const strengthData = useMemo(() => {
     if (!sortedSessions || sortedSessions.length === 0) return [];
 
-    const completedSessions = sortedSessions.filter(s => s.completed === 1);
+    const completedSessions = sortedSessions.filter(s => s.status === 'complete');
 
     if (completedSessions.length === 0) return [];
 
@@ -131,7 +131,7 @@ export default function ProgressView({ onBack }: ProgressViewProps) {
   const caloriesData = useMemo(() => {
     if (!sortedSessions || sortedSessions.length === 0) return [];
 
-    const completedSessions = sortedSessions.filter(s => s.completed === 1 && s.caloriesBurned);
+    const completedSessions = sortedSessions.filter(s => s.status === 'complete' && s.caloriesBurned);
 
     if (completedSessions.length === 0) return [];
 

@@ -44,7 +44,7 @@ export default function Dashboard({
 
   const isLoading = isLoadingProgram || isLoadingFull || isLoadingSessions;
 
-  const completedWorkouts = workoutSessions?.filter(s => s.completed === 1)?.length || 0;
+  const completedWorkouts = workoutSessions?.filter(s => s.status === 'complete')?.length || 0;
   const totalWorkouts = (fullProgram?.durationWeeks || 0) * (fullProgram?.workouts?.length || 0);
   
   // Calculate current week from calendar dates

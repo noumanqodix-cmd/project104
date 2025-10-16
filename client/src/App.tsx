@@ -420,8 +420,7 @@ function AppRoutes() {
                     
                     await saveWorkoutMutation.mutateAsync({
                       sessionId: workoutSummaryData.sessionId,
-                      completed: workoutSummaryData.incomplete ? 0 : 1,
-                      status: workoutSummaryData.incomplete ? "partial" : "completed",
+                      status: workoutSummaryData.incomplete ? "partial" : "complete",
                       durationMinutes: Math.floor(workoutSummaryData.duration / 60),
                       elapsedSeconds: workoutSummaryData.incomplete ? workoutSummaryData.duration : undefined, // Save timer state for partial workouts
                       notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,

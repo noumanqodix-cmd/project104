@@ -98,7 +98,7 @@ export default function Home() {
   const completeRestDayMutation = useMutation({
     mutationFn: async ({ sessionId }: { sessionId: string }) => {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
-        completed: 1,
+        status: "complete",
         sessionDate: new Date(),
       });
     },
@@ -364,7 +364,7 @@ export default function Home() {
     }
   }, [cycleCompletionCheck?.shouldPrompt]);
 
-  const completedSessions = sessions?.filter((s: any) => s.completed) || [];
+  const completedSessions = sessions?.filter((s: any) => s.status === 'complete') || [];
   const totalCompletedSessions = completedSessions.length;
 
   const formatDate = (dateString: string | Date) => {
@@ -417,7 +417,7 @@ export default function Home() {
 
   const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
-  const isTodayComplete = todaySession?.completed === 1;
+  const isTodayComplete = todaySession?.status === 'complete';
   const isTodayPartial = todaySession?.status === 'partial';
 
   // Fetch workout sets for partial sessions to count completed exercises
@@ -455,7 +455,7 @@ export default function Home() {
   const isProgramComplete = () => {
     if (!sessions || sessions.length === 0) return false;
     // Program is complete if all sessions are completed
-    return sessions.every((s: any) => s.completed === 1);
+    return sessions.every((s: any) => s.status === 'complete');
   };
 
   const programComplete = isProgramComplete();

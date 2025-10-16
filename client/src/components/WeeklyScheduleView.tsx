@@ -62,7 +62,7 @@ export function WeeklyScheduleView({ sessions, programWorkouts, onReschedule }: 
       return { label: "In Progress", variant: "default" as const, icon: <Clock className="h-3 w-3" />, className: "" };
     }
     
-    if (session.completed === 1) {
+    if (session.status === 'complete') {
       return { 
         label: "Completed", 
         variant: "outline" as const, 
@@ -81,7 +81,7 @@ export function WeeklyScheduleView({ sessions, programWorkouts, onReschedule }: 
   
   const canReschedule = (session: WorkoutSession | undefined, date: Date) => {
     if (!session) return false;
-    if (session.completed === 1) return false;
+    if (session.status === 'complete') return false;
     if (session.status === 'partial') return false; // Can't reschedule partial workouts
     // Can reschedule upcoming workouts (not today, not past)
     return !isSameCalendarDay(date, today) && !isBeforeCalendarDay(date, today);

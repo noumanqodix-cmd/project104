@@ -65,7 +65,7 @@ export default function WorkoutPreview() {
       
       // Find next scheduled session
       const nextSession = workoutSessions
-        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        ?.filter((s: any) => s.status !== 'complete' && s.scheduledDate)
         .sort((a: any, b: any) => {
           const dateA = new Date(a.scheduledDate).getTime();
           const dateB = new Date(b.scheduledDate).getTime();
@@ -123,7 +123,7 @@ export default function WorkoutPreview() {
       today.setHours(0, 0, 0, 0);
       
       const nextSession = workoutSessions
-        ?.filter((s: any) => s.completed === 0 && s.scheduledDate)
+        ?.filter((s: any) => s.status !== 'complete' && s.scheduledDate)
         .sort((a: any, b: any) => {
           const dateA = new Date(a.scheduledDate).getTime();
           const dateB = new Date(b.scheduledDate).getTime();

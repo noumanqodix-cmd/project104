@@ -96,8 +96,7 @@ export default function CardioWorkoutSession({ sessionId, onComplete, user }: Ca
       const caloriesBurned = calculateZone2Calories(preciseMinutes); // Use precise value for calories
 
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
-        completed: 1,
-        status: "completed",
+        status: "complete",
         durationMinutes,
         caloriesBurned,
         sessionDate: new Date(), // User's local time

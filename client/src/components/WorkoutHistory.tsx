@@ -36,7 +36,7 @@ export default function WorkoutHistory({ onBack }: WorkoutHistoryProps) {
     }
   }, [paginatedData, offset]);
 
-  const completedSessions = allSessions.filter(s => s.completed) || [];
+  const completedSessions = allSessions.filter(s => s.status === 'complete') || [];
   const hasMore = paginatedData ? (offset + limit) < paginatedData.total : false;
 
   if (isLoading) {

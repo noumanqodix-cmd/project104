@@ -5,8 +5,16 @@ FitForge is a science-backed fitness application that generates personalized wor
 
 ## Recent Changes (October 2025)
 
+**Architecture Refactoring - Session Status Single Source of Truth (October 16, 2025):**
+- Eliminated redundant `completed` integer field from workout_sessions table
+- `status` field is now the single source of truth with values: 'scheduled', 'in_progress', 'partial', 'complete', 'skipped'
+- Status flow: scheduled (not started) → in_progress (actively working out) → partial (ended early, can resume) OR complete (finished)
+- Fixed critical data contradiction bug where sessions could have `completed=1` AND `status='incomplete'` simultaneously
+- Updated all backend queries and frontend components to use status-based logic
+- Benefits: Simpler code, impossible to have contradictory states, single source of truth
+
 **New Features - Partial Workout Completion & Cascading Reschedule:**
-- Partial Workout Resumption: Users can now end workouts early and resume them later the same day. Partial workouts save as `completed=0, status='partial'` and display progress (e.g., "3 of 9 exercises completed") with a "Resume Workout" button.
+- Partial Workout Resumption: Users can now end workouts early and resume them later the same day. Partial workouts save as `status='partial'` and display progress (e.g., "3 of 9 exercises completed") with a "Resume Workout" button.
 - Smart Workout Resume: When resuming, the app loads completed sets from the database, skips finished exercises, and starts at the exact set where the user left off. The workout timer continues from where it stopped when the workout was ended early (timer state saved in `elapsedSeconds` field).
 - Cascading Reschedule Logic: When a missed workout moves to today, ALL future workouts automatically shift forward by the same number of days to maintain proper spacing and prevent compressed schedules.
 - Movement Pattern Completion: System ensures users complete all movement patterns in their 7-day cycle by requiring partial workouts to be finished, preventing muscle imbalances.
@@ -53,7 +61,7 @@ The backend is an Express.js server developed with TypeScript, handling JSON req
   - **Intelligent Muscle Tracking System**: Prevents muscle overwork through dual-layer tracking: blocks duplicate primary muscle targeting within a session and prevents isolation of heavily worked muscles on consecutive days.
   - **7-Day Cycle System**: Users select specific calendar dates for their workouts. Upon cycle completion, the system prompts to "Repeat Same Days" or "New Program". Cycle number and total workouts completed are displayed for progress tracking.
   - **Daily Calendar Workflow**: Home page displays today's workout, allows adding cardio or marking rest days, and previews tomorrow's session.
-  - **Partial Workout System**: Workouts ended early save as `completed=0, status='partial'` to allow same-day resuming. Partial workouts display progress tracking (completed exercises count) and show "Resume Workout" button. When resuming, system loads completed sets from database, skips finished exercises, continues from exact position where user left off, and restores the workout timer from saved `elapsedSeconds` field.
+  - **Partial Workout System**: Workouts ended early save as `status='partial'` to allow same-day resuming. Partial workouts display progress tracking (completed exercises count) and show "Resume Workout" button. When resuming, system loads completed sets from database, skips finished exercises, continues from exact position where user left off, and restores the workout timer from saved `elapsedSeconds` field. Session status values: 'scheduled' (not started), 'in_progress' (actively working out), 'partial' (ended early), 'complete' (finished), 'skipped' (user chose to skip).
   - **Automatic Missed Workout Rescheduling with Cascading**: Automatically detects missed workouts (including partial workouts when day changes) and moves them to today. All future workouts automatically shift forward by the same number of days to maintain proper spacing and prevent schedule compression.
   - **Flexible Exercise Swap System**: Allows swapping exercises with ALL available equipment types plus bodyweight options (always available). Each equipment variant displays as a separate swap option. Swaps work in both active workout sessions and program view, with changes persisting immediately to database.
 - **Calorie Tracking System**: Incorporates MET calculations for calorie expenditure.

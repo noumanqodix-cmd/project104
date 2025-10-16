@@ -123,7 +123,6 @@ async function generateWorkoutSchedule(
             sessionDayOfWeek: schemaDayOfWeek,
             sessionType: (workout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
             workoutType: workout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
-            completed: 0,
             status: "scheduled" as const,
           });
         }
@@ -178,7 +177,6 @@ async function generateWorkoutSchedule(
             sessionDayOfWeek: schemaDayOfWeek,
             sessionType: (programWorkout.workoutType ? 'workout' : 'rest') as 'workout' | 'rest',
             workoutType: programWorkout.workoutType as 'strength' | 'cardio' | 'hiit' | 'mobility' | undefined,
-            completed: 0,
             status: "scheduled" as const,
           });
         }
@@ -1950,7 +1948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Count completed workout sessions (only fully completed, not ended early)
       const completedWorkouts = currentCycleWorkouts.filter(s => 
-        s.completed === 1 && s.status !== 'incomplete'
+        s.status === 'complete'
       );
 
       // Cycle is complete when ALL workout sessions are completed
@@ -2169,9 +2167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const incompleteSessions = userSessions
           .filter((s: any) => {
             return s.programWorkoutId === validatedData.programWorkoutId && 
-                   s.completed === 0 && 
-                   s.scheduledDate !== null &&
-                   s.status === 'scheduled'; // Only pre-scheduled sessions
+                   s.status === 'scheduled' && 
+                   s.scheduledDate !== null;
           })
           .sort((a: any, b: any) => {
             const dateA = parseLocalDate(a.scheduledDate).getTime();
@@ -2196,7 +2193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // If no incomplete sessions found, this workout is complete - don't create duplicates
-        if (validatedData.completed === 1) {
+        if (validatedData.status === 'complete') {
           return res.status(400).json({ 
             error: "No incomplete sessions available for this workout" 
           });
@@ -2647,7 +2644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Archival happens automatically when viewing home page on a new day
 
       // Calculate calories burned if workout is being completed
-      if (validatedData.completed === 1 && validatedData.durationMinutes && !validatedData.caloriesBurned) {
+      if (validatedData.status === 'complete' && validatedData.durationMinutes && !validatedData.caloriesBurned) {
         try {
           // Get user data for weight
           const user = await storage.getUser(userId);
@@ -2705,9 +2702,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update user's totalWorkoutsCompleted if workout is being completed for the first time
-      console.log(`[WORKOUT-CHECK] Completion check - validatedData.completed: ${validatedData.completed}, oldSession.completed: ${oldSession.completed}, session.sessionType: ${session.sessionType}`);
+      console.log(`[WORKOUT-CHECK] Completion check - validatedData.status: ${validatedData.status}, oldSession.status: ${oldSession.status}, session.sessionType: ${session.sessionType}`);
       
-      if (validatedData.completed === 1 && oldSession.completed === 0 && session.sessionType === "workout") {
+      if (validatedData.status === 'complete' && oldSession.status !== 'complete' && session.sessionType === "workout") {
         const user = await storage.getUser(userId);
         if (user) {
           const updatedTotalWorkouts = (user.totalWorkoutsCompleted || 0) + 1;
@@ -2751,7 +2748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate session can be rescheduled
-      if (session.completed === 1) {
+      if (session.status === 'complete') {
         return res.status(400).json({ error: "Cannot reschedule completed workouts" });
       }
 

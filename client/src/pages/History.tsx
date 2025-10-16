@@ -34,7 +34,7 @@ export default function History() {
   });
 
   // Calculate stats across ALL completed sessions (cumulative across all cycles/programs)
-  const completedSessions = sessions?.filter(s => s.completed && s.status !== 'skipped') || [];
+  const completedSessions = sessions?.filter(s => s.status === 'complete') || [];
 
   const totalStats = {
     totalSessions: completedSessions.length,
