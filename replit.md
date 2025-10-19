@@ -5,6 +5,14 @@ FitForge is a science-backed fitness application that generates personalized wor
 
 ## Recent Changes (October 2025)
 
+**Marketing Intro Updates (October 19, 2025):**
+- Added Free vs Premium tier comparison slide to onboarding flow (IntroSlides.tsx)
+- Free tier showcases 7 core features: CNS ordering, 10 movement patterns, equipment swapping, partial workouts, auto-rescheduling, monthly fitness test, monthly program generation
+- Premium tier shows unlimited tests/programs, advanced reporting, skip rest (ad-free), progress/regress levels, custom programs, custom exercises, favorite/hide exercises
+- Enhanced CNS programming explanation with 5 advanced cardio types: HIIT (VO₂ max), Power Intervals (lactate threshold), Tempo Circuits (aerobic endurance), Functional Circuits (dynamic capacity), Zone 2 (fat metabolism/recovery)
+- Added science-backed messaging explaining why FitForge's cardio aligns with CNS recovery state vs traditional cardio that drains performance
+- Free tier presented as complete and valuable (not limited), Premium positioned as power-user upgrade
+
 **Architecture Refactoring - Session Status Single Source of Truth (October 16, 2025):**
 - Eliminated redundant `completed` integer field from workout_sessions table
 - `status` field is now the single source of truth with values: 'scheduled', 'in_progress', 'partial', 'complete', 'skipped'
