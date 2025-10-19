@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Sparkles, Crown } from "lucide-react";
 
 interface IntroSlidesProps {
   onComplete: () => void;
@@ -119,6 +119,120 @@ export default function IntroSlides({ onComplete }: IntroSlidesProps) {
       ),
     },
     {
+      title: "Choose Your Experience",
+      content: (
+        <div className="space-y-6">
+          <p className="text-lg text-muted-foreground text-center max-w-3xl mx-auto">
+            Start free with all core features. Upgrade to Premium when you're ready for unlimited flexibility.
+          </p>
+          
+          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6">
+            {/* Free Tier */}
+            <Card className="p-6 border-2">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <h3 className="text-2xl font-bold">Free</h3>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Science-backed CNS ordering</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">10 functional movement patterns</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Smart equipment swapping</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Partial workout resume</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Automatic workout rescheduling</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Monthly fitness test (1 per month)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Monthly program generation (1 per month)</span>
+                </div>
+              </div>
+
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                <p className="text-sm text-center font-medium">Perfect for getting started</p>
+              </div>
+            </Card>
+
+            {/* Premium Tier */}
+            <Card className="p-6 border-2 border-primary relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold">
+                POPULAR
+              </div>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <Crown className="h-6 w-6 text-primary" />
+                <h3 className="text-2xl font-bold">Premium</h3>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm"><strong>Everything in Free</strong></span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm"><strong>Unlimited</strong> fitness tests</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm"><strong>Unlimited</strong> program generation</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Advanced reporting & analytics</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Skip or shorten rest (ad-free experience)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Progress or regress fitness test levels</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Create your own custom programs</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Add your own custom exercises</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Favorite or hide exercises</span>
+                </div>
+              </div>
+
+              <div className="bg-primary text-primary-foreground rounded-lg p-3">
+                <p className="text-sm text-center font-medium">For power users who want full control</p>
+              </div>
+            </Card>
+          </div>
+
+          <p className="text-sm text-muted-foreground text-center">
+            All users start with Free. Upgrade anytime from your account settings.
+          </p>
+        </div>
+      ),
+    },
+    {
       title: "Science-Backed Training",
       content: (
         <div className="space-y-6 max-w-3xl mx-auto">
@@ -189,13 +303,27 @@ export default function IntroSlides({ onComplete }: IntroSlidesProps) {
                   <span className="text-sm font-bold text-primary">5</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Zone 2 or HIIT Cardio</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Goal-based cardio to support your nutrition targets without interfering with strength gains
+                  <h3 className="font-semibold mb-1">Advanced Cardio Training</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Cardio matched to your nervous system's recovery state—not just random treadmill work
                   </p>
+                  <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                    <li>• <strong>HIIT</strong> - Explosive intervals for VO₂ max and power</li>
+                    <li>• <strong>Power Intervals</strong> - Lactate threshold training</li>
+                    <li>• <strong>Tempo Circuits</strong> - Aerobic endurance in the sweet spot</li>
+                    <li>• <strong>Functional Circuits</strong> - Dynamic movement capacity</li>
+                    <li>• <strong>Zone 2 Steady State</strong> - Fat metabolism and recovery</li>
+                  </ul>
                 </div>
               </div>
             </Card>
+          </div>
+
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+            <p className="text-sm text-center">
+              <strong>Why it works:</strong> Traditional cardio drains your CNS, degrades muscle, and slows recovery. 
+              Our method aligns cardio intensity with your nervous system state—so every session builds performance instead of breaking it down.
+            </p>
           </div>
         </div>
       ),
