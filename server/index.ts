@@ -4,6 +4,8 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 
 const app = express();
@@ -66,11 +68,22 @@ app.get('/favicon.ico', (req, res) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+if (process.env.NODE_ENV === "production") {
+  // Serve static frontend files in production
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const buildPath = path.join(__dirname, "../dist/public");
+  app.use(express.static(buildPath));
+
+  // SPA catch-all
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(buildPath, "index.html"));
+  });
+} else {
+  // Development: use Vite dev server
+  await setupVite(app, server);
+}
+
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5005 if not specified.
