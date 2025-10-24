@@ -54,7 +54,7 @@ function OnboardingFlow() {
         return (
           <WelcomePage
             onGetStarted={() => setLocation("/onboarding-assessment")}
-            onLogin={() => setLocation("/home")}
+            onLogin={() => setLocation("/login")}
           />
         );
 

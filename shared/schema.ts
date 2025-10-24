@@ -1,7 +1,7 @@
 // ==========================================
 // DATABASE SCHEMA - All Tables and Data Structures
 // ==========================================
-// This file defines the structure of every database table in FitForge
+// This file defines the structure of every database table in Morphit
 // Think of it as the blueprint for how data is organized and stored
 //
 // MAIN TABLES:

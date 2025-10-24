@@ -1,5 +1,5 @@
 // ==========================================
-// API ROUTES - Server Endpoints for FitForge
+// API ROUTES - Server Endpoints for Morphit
 // ==========================================
 // This file defines all API endpoints that the frontend can call
 // Think of it as the "menu" of actions the app can perform

@@ -1,7 +1,7 @@
 // ==========================================
 // DATABASE STORAGE LAYER
 // ==========================================
-// This file provides all database operations (CRUD) for FitForge
+// This file provides all database operations (CRUD) for Morphit
 // Think of it as the "data access layer" - it's the ONLY place that talks to the database
 //
 // ARCHITECTURE:

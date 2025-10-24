@@ -226,7 +226,7 @@ async function runSingleTest(daysPerWeek: 3 | 4 | 5, availableExercises: Exercis
 
 async function runAllTests() {
   console.log('\n╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║     FITFORGE PROGRAM GENERATION TEST SUITE                    ║');
+  console.log('║     Morphit PROGRAM GENERATION TEST SUITE                    ║');
   console.log('║     Testing: 3, 4, 5 Days/Week | Dumbbells Only | 60 Min      ║');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
 

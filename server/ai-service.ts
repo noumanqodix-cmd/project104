@@ -1,5 +1,5 @@
 // ==========================================
-// WORKOUT PROGRAM GENERATOR - THE "BRAIN" OF FITFORGE
+// WORKOUT PROGRAM GENERATOR - THE "BRAIN" OF Morphit
 // ==========================================
 // This file contains the core algorithm that creates personalized workout programs
 // It's like having a personal trainer that knows your fitness level, available equipment,

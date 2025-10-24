@@ -1,4 +1,4 @@
-// Shared constants for FitForge application
+// Shared constants for Morphit application
 // Single source of truth for enums and reference data
 
 // Nutrition Goals

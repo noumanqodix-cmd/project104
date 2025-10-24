@@ -1,7 +1,7 @@
-# FitForge - Personal Fitness Program Application
+# Morphit - Personal Fitness Program Application
 
 ## Overview
-FitForge is a science-backed fitness application that generates personalized workout programs using professional CNS-ordered programming (warmup → power → compounds → isolations → core → cardio). It trains 10 real-world functional movement patterns with adaptive difficulty, offering 3/4/5-day splits and 30/45/60/90-minute workout options. The application features intelligent equipment-based exercise swapping (perfect for travel), Zone 2 and HIIT cardio training, fitness assessments to unlock advanced movements, and a flexible 7-day cycle system with automatic missed workout rescheduling. Built on exercise science principles with AI-enhanced insights as supplemental features.
+Morphit is a science-backed fitness application that generates personalized workout programs using professional CNS-ordered programming (warmup → power → compounds → isolations → core → cardio). It trains 10 real-world functional movement patterns with adaptive difficulty, offering 3/4/5-day splits and 30/45/60/90-minute workout options. The application features intelligent equipment-based exercise swapping (perfect for travel), Zone 2 and HIIT cardio training, fitness assessments to unlock advanced movements, and a flexible 7-day cycle system with automatic missed workout rescheduling. Built on exercise science principles with AI-enhanced insights as supplemental features.
 
 ## Recent Changes (October 2025)
 
