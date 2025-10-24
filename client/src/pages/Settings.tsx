@@ -427,23 +427,8 @@ export default function Settings() {
   const weightUnit = unitPreference === "imperial" ? "lbs" : "kg";
   const heightUnit = unitPreference === "imperial" ? "in" : "cm";
 
-  // Get the session from localStorage
-  const getStoredSession = () => {
-    const keys = Object.keys(localStorage);
-    const supabaseKey = keys.find((key) => key.includes("supabase.auth.token"));
-
-    if (supabaseKey) {
-      const sessionData = localStorage.getItem(supabaseKey);
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        console.log("Session from localStorage:", parsed);
-        return parsed;
-      }
-    }
-  };
-
+  
   // Or use Supabase's built-in method (recommended)
-
   async function handleSession() {
     const {
       data: { session },
