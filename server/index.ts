@@ -14,15 +14,30 @@ dotenv.config();
 
 // Initialize Supabase client
 let supabase: any = null;
+
 try {
+  console.log("🔍 Starting Supabase client initialization...");
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+  console.log("🧩 Environment Variables Check:");
+  console.log("  SUPABASE_URL:", supabaseUrl ? "✅ Found" : "❌ Missing");
+  console.log("  SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Found" : "❌ Missing");
+
   if (supabaseUrl && supabaseAnonKey) {
+    console.log("🚀 Creating Supabase client...");
     supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log("✅ Supabase client successfully created!");
+  } else {
+    console.warn("⚠️ Missing environment variables. Supabase client not created.");
   }
 } catch (error) {
-  console.warn('Failed to initialize Supabase client:', error);
+  console.error("❌ Failed to initialize Supabase client:", error);
+} finally {
+  console.log("🧾 Supabase client status:", supabase ? "Initialized ✅" : "Not initialized ❌");
 }
+
 
 app.use(cors({
   origin: true,
