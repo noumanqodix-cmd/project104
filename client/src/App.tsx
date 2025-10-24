@@ -14,7 +14,6 @@ import NutritionAssessment from "./components/NutritionAssessment";
 import EquipmentSelector from "./components/EquipmentSelector";
 import AvailabilityForm from "./components/AvailabilityForm";
 import SubscriptionSelector from "./components/SubscriptionSelector";
-import SignUpPage from "./components/SignUpPage";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
 import WorkoutSession from "./components/WorkoutSession";
@@ -40,6 +39,7 @@ import SmartProgression from "./pages/SmartProgression";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ToastContainer } from "react-toastify";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -225,39 +225,8 @@ function OnboardingFlow() {
         );
 
       case "signup":
-        return (
-          <SignUpPage
-            generatedProgram={generatedProgram}
-            questionnaireData={questionnaireData}
-            onGenerateProgram={async () => {
-              // Generate program using the same logic as preview
-              const response = await fetch("/api/programs/preview", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  experienceLevel: questionnaireData.experienceLevel,
-                  fitnessTest: questionnaireData.fitnessTest,
-                  weightsTest: questionnaireData.weightsTest,
-                  nutritionGoal: questionnaireData.nutritionGoal,
-                  equipment: questionnaireData.equipment || [],
-                  workoutDuration:
-                    questionnaireData.availability?.minutesPerSession,
-                  daysPerWeek: questionnaireData.availability?.daysPerWeek,
-                  selectedDays: questionnaireData.availability?.selectedDays,
-                  unitPreference:
-                    questionnaireData.unitPreference || "imperial",
-                }),
-              });
-
-              if (response.ok) {
-                const program = await response.json();
-                setGeneratedProgram(program);
-              } else {
-                throw new Error("Failed to generate program");
-              }
-            }}
-          />
-        );
+        // SignUpPage removed. You may want to redirect or show a different component here.
+        return null;
 
       default:
         return (
@@ -554,6 +523,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ToastContainer />
         <TooltipProvider>
           <AppRoutes />
         </TooltipProvider>
