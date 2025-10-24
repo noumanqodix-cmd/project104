@@ -47,6 +47,8 @@ import { randomUUID } from "crypto";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  // Create a new user record. Implementations may upsert if needed.
+  createUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   
   createFitnessAssessment(assessment: InsertFitnessAssessment): Promise<FitnessAssessment>;
@@ -138,6 +140,19 @@ export class DbStorage implements IStorage {
       })
       .returning();
     return result[0];
+  }
+
+  // Convenience: createUser delegates to upsertUser so callers can rely on a
+  // simple "create" API while the storage layer handles upsert semantics.
+  async createUser(userData: UpsertUser): Promise<User> {
+    // Ensure timestamps exist for databases that expect them
+    const dataWithTimestamps = {
+      ...userData,
+      createdAt: (userData as any).createdAt || new Date(),
+      updatedAt: (userData as any).updatedAt || new Date(),
+    } as UpsertUser;
+
+    return this.upsertUser(dataWithTimestamps);
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
