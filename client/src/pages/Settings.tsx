@@ -389,7 +389,7 @@ export default function Settings() {
               <User className="h-5 w-5" />
               <CardTitle>Account Information</CardTitle>
             </div>
-            <CardDescription>Your Replit Auth profile details</CardDescription>
+            <CardDescription>Your Supabase Auth profile details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
@@ -411,8 +411,8 @@ export default function Settings() {
             <Separator />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Account managed by Replit Auth</p>
-                <p className="text-sm text-muted-foreground">Profile details are synced from your Replit account</p>
+                <p className="text-sm font-medium">Account managed by Supabase Auth</p>
+                <p className="text-sm text-muted-foreground">Profile details are synced from your Supabase account</p>
               </div>
             </div>
           </CardContent>

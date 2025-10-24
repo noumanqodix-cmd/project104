@@ -5,7 +5,7 @@
 // Think of it as the blueprint for how data is organized and stored
 //
 // MAIN TABLES:
-// 1. sessions - User login sessions (Replit Auth)
+// 1. sessions - User login sessions (Supabase Auth)
 // 2. users - User profiles (height, weight, preferences, goals)
 // 3. fitnessAssessments - Fitness test results (push-ups, 1RMs, etc.)
 // 4. exercises - Exercise library (196 exercises with details)
@@ -36,7 +36,7 @@ import { z } from "zod";
 // ==========================================
 
 // TABLE: sessions
-// Stores user login sessions for Replit Auth
+// Stores user login sessions for Supabase Auth
 // Sessions expire after a certain time for security
 export const sessions = pgTable(
   "sessions",

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Debug logs before initialization
 console.log("🔍 [Supabase Init] Starting client setup...");
@@ -10,20 +10,8 @@ console.log("🧩 [Supabase Env Check]");
 console.log("  VITE_SUPABASE_URL:", supabaseUrl ? "✅ Found" : "❌ Missing");
 console.log("  VITE_SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Found" : "❌ Missing");
 
-let supabase = null;
-
-try {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("⚠️ [Supabase Warning] Missing environment variables. Check your .env file and Vite config.");
-  } else {
-    console.log("🚀 [Supabase Init] Creating Supabase client...");
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-    console.log("✅ [Supabase Init] Client successfully created!");
-  }
-} catch (error) {
-  console.error("❌ [Supabase Error] Failed to initialize client:", error);
-}
-
-console.log("🧾 [Supabase Status]:", supabase ? "Initialized ✅" : "Not initialized ❌");
-
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+console.log("🚀 [Supabase Init] Creating Supabase client...");
+console.log("✅ [Supabase Init] Client successfully created!");
+console.log("🧾 [Supabase Status]: Initialized ✅");
 export { supabase };
