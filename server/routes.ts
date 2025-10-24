@@ -45,6 +45,7 @@ import { determineIntensityFromProgramType, calculateCaloriesBurned, poundsToKg 
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import { parseLocalDate, formatLocalDate, isSameCalendarDay, isBeforeCalendarDay, isAfterCalendarDay } from "@shared/dateUtils";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Guard against duplicate route registration (prevents errors during hot reload)
 let routesRegistered = false;
@@ -198,7 +199,7 @@ async function generateWorkoutSchedule(
   }
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, supabase: SupabaseClient): Promise<Server> {
   // Guard against duplicate route registration
   if (routesRegistered) {
     console.log("[ROUTES] Routes already registered, skipping duplicate registration");
@@ -262,6 +263,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user metrics:", error);
       res.status(500).json({ message: "Failed to update metrics" });
+    }
+  });
+
+  // POST /api/auth/sync-user - Sync Supabase user with our database
+  app.post('/api/auth/sync-user', async (req: Request & { user?: any }, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { email, firstName, lastName } = req.body;
+
+      // Check if user exists in our database
+      let user = await storage.getUser(userId);
+      
+      if (!user) {
+        // Create new user record
+        user = await storage.createUser({
+          id: userId,
+          email: email || req.user.email,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          subscriptionTier: 'free',
+          unitPreference: 'imperial',
+          equipment: ['bodyweight'],
+        });
+        console.log(`Created new user record for ${userId}`);
+      } else {
+        // Update existing user if needed
+        const updates: any = {};
+        if (email && user.email !== email) updates.email = email;
+        if (firstName && user.firstName !== firstName) updates.firstName = firstName;
+        if (lastName && user.lastName !== lastName) updates.lastName = lastName;
+        
+        if (Object.keys(updates).length > 0) {
+          user = await storage.updateUser(userId, updates);
+          console.log(`Updated user record for ${userId}`);
+        }
+      }
+
+      res.json({ user });
+    } catch (error) {
+      console.error("Sync user error:", error);
+      res.status(500).json({ error: "Failed to sync user" });
+    }
+  });
+
+  // ==========================================
+  // SUPABASE AUTH ROUTES (Development Mode - Mock)
+  // ==========================================
+
+  // POST /api/auth/signup - Sign up with email and password
+  app.post('/api/auth/signup', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Mock signup for development
+      console.log(`Mock signup for ${email}`);
+      
+      res.json({ 
+        user: { 
+          id: 'mock-user-id', 
+          email,
+          created_at: new Date().toISOString()
+        }, 
+        session: { 
+          access_token: 'mock-token',
+          refresh_token: 'mock-refresh-token'
+        }
+      });
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(500).json({ error: "Failed to sign up" });
+    }
+  });
+
+  // POST /api/auth/login - Sign in with email and password
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Mock login for development
+      console.log(`Mock login for ${email}`);
+      
+      res.json({ 
+        user: { 
+          id: 'mock-user-id', 
+          email
+        }, 
+        session: { 
+          access_token: 'mock-token',
+          refresh_token: 'mock-refresh-token'
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Failed to log in" });
+    }
+  });
+
+  // POST /api/auth/logout - Sign out
+  app.post('/api/auth/logout', async (req: Request, res: Response) => {
+    try {
+      // Mock logout
+      console.log('Mock logout');
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Failed to log out" });
+    }
+  });
+
+  // GET /api/auth/me - Get current user
+  app.get('/api/auth/me', async (req: Request, res: Response) => {
+    try {
+      // Mock user
+      res.json({ 
+        user: { 
+          id: 'mock-user-id', 
+          email: 'test@example.com'
+        }
+      });
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ error: "Failed to get user" });
     }
   });
 
@@ -820,7 +955,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/user/profile", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
       const updates = req.body;
       const user = await storage.getUser(userId);
       
@@ -1860,7 +1999,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/home-data", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
 
       // Remove any duplicate sessions before loading data (safety net)
       const duplicatesRemoved = await storage.removeDuplicateSessions(userId);

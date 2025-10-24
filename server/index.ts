@@ -6,10 +6,23 @@ import { setupVite, serveStatic, log } from "./vite";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createClient } from '@supabase/supabase-js';
 
 
 const app = express();
 dotenv.config();
+
+// Initialize Supabase client
+let supabase: any = null;
+try {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseAnonKey) {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+  }
+} catch (error) {
+  console.warn('Failed to initialize Supabase client:', error);
+}
 
 app.use(cors({
   origin: true,
@@ -18,6 +31,23 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Authentication middleware
+app.use(async (req: Request & { user?: any }, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (!error && user) {
+        req.user = user;
+      }
+    } catch (error) {
+      // Invalid token, continue without user
+    }
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -55,7 +85,7 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const server = await registerRoutes(app, supabase);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

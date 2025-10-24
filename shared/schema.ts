@@ -73,6 +73,7 @@ export const users = pgTable("users", {
   cycleNumber: integer("cycle_number").default(1),  // NEW: Tracks which 7-day cycle user is on
   totalWorkoutsCompleted: integer("total_workouts_completed").default(0),  // NEW: Total workouts completed across all cycles
   fitnessLevel: text("fitness_level"),
+  signupDate: timestamp("signup_date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

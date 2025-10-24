@@ -37,6 +37,9 @@ import Landing from "./pages/Landing";
 import About from "./pages/About";
 import HowItWorks from "./pages/HowItWorks";
 import SmartProgression from "./pages/SmartProgression";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import { AuthProvider } from "./contexts/AuthContext";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -85,7 +88,10 @@ function OnboardingFlow() {
         return (
           <FitnessTestForm
             onComplete={(results) => {
-              setQuestionnaireData({ ...questionnaireData, fitnessTest: results });
+              setQuestionnaireData({
+                ...questionnaireData,
+                fitnessTest: results,
+              });
               setCurrentStep("nutrition");
             }}
             onBack={() => setCurrentStep("testSelection")}
@@ -96,7 +102,10 @@ function OnboardingFlow() {
         return (
           <WeightsTestForm
             onComplete={(results) => {
-              setQuestionnaireData({ ...questionnaireData, weightsTest: results });
+              setQuestionnaireData({
+                ...questionnaireData,
+                weightsTest: results,
+              });
               setCurrentStep("nutrition");
             }}
             onBack={() => setCurrentStep("testSelection")}
@@ -108,7 +117,7 @@ function OnboardingFlow() {
           <NutritionAssessment
             onComplete={(data) => {
               // Flatten nutrition data into questionnaireData
-              setQuestionnaireData({ 
+              setQuestionnaireData({
                 ...questionnaireData,
                 height: data.height,
                 weight: data.weight,
@@ -137,7 +146,10 @@ function OnboardingFlow() {
         return (
           <AvailabilityForm
             onComplete={(data) => {
-              setQuestionnaireData({ ...questionnaireData, availability: data });
+              setQuestionnaireData({
+                ...questionnaireData,
+                availability: data,
+              });
               setCurrentStep("subscription");
             }}
           />
@@ -147,10 +159,14 @@ function OnboardingFlow() {
         return (
           <SubscriptionSelector
             onSelect={async (tier, billingPeriod) => {
-              const updatedData = { ...questionnaireData, subscriptionTier: tier, billingPeriod };
+              const updatedData = {
+                ...questionnaireData,
+                subscriptionTier: tier,
+                billingPeriod,
+              };
               setQuestionnaireData(updatedData);
               setCurrentStep("programPreview");
-              
+
               // Generate program preview
               setIsGeneratingPreview(true);
               try {
@@ -163,7 +179,8 @@ function OnboardingFlow() {
                     weightsTest: updatedData.weightsTest,
                     nutritionGoal: updatedData.nutritionGoal,
                     equipment: updatedData.equipment || [],
-                    workoutDuration: updatedData.availability?.minutesPerSession,
+                    workoutDuration:
+                      updatedData.availability?.minutesPerSession,
                     daysPerWeek: updatedData.availability?.daysPerWeek,
                     selectedDays: updatedData.availability?.selectedDays,
                     unitPreference: updatedData.unitPreference || "imperial",
@@ -189,8 +206,12 @@ function OnboardingFlow() {
             <div className="min-h-screen bg-background flex items-center justify-center">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-                <p className="text-xl font-semibold">Generating Your Personalized Program...</p>
-                <p className="text-muted-foreground mt-2">This may take a moment</p>
+                <p className="text-xl font-semibold">
+                  Generating Your Personalized Program...
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  This may take a moment
+                </p>
               </div>
             </div>
           );
@@ -219,10 +240,12 @@ function OnboardingFlow() {
                   weightsTest: questionnaireData.weightsTest,
                   nutritionGoal: questionnaireData.nutritionGoal,
                   equipment: questionnaireData.equipment || [],
-                  workoutDuration: questionnaireData.availability?.minutesPerSession,
+                  workoutDuration:
+                    questionnaireData.availability?.minutesPerSession,
                   daysPerWeek: questionnaireData.availability?.daysPerWeek,
                   selectedDays: questionnaireData.availability?.selectedDays,
-                  unitPreference: questionnaireData.unitPreference || "imperial",
+                  unitPreference:
+                    questionnaireData.unitPreference || "imperial",
                 }),
               });
 
@@ -254,7 +277,11 @@ function BodyweightTestRoute() {
 
   const saveFitnessAssessmentMutation = useMutation({
     mutationFn: async (assessmentData: any) => {
-      const response = await apiRequest("POST", "/api/fitness-assessments", assessmentData);
+      const response = await apiRequest(
+        "POST",
+        "/api/fitness-assessments",
+        assessmentData
+      );
       return await response.json();
     },
     onSuccess: () => {
@@ -283,7 +310,11 @@ function WeightsTestRoute() {
 
   const saveFitnessAssessmentMutation = useMutation({
     mutationFn: async (assessmentData: any) => {
-      const response = await apiRequest("POST", "/api/fitness-assessments", assessmentData);
+      const response = await apiRequest(
+        "POST",
+        "/api/fitness-assessments",
+        assessmentData
+      );
       return await response.json();
     },
     onSuccess: () => {
@@ -315,166 +346,197 @@ function AppRoutes() {
 
   const saveWorkoutMutation = useMutation({
     mutationFn: async ({ sessionId, ...workoutData }: any) => {
-      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, workoutData);
+      return await apiRequest(
+        "PATCH",
+        `/api/workout-sessions/${sessionId}`,
+        workoutData
+      );
     },
     onSuccess: async () => {
-      console.log('[APP] Workout saved, refreshing all data...');
-      
+      console.log("[APP] Workout saved, refreshing all data...");
+
       // Force immediate refetch of all critical data (don't just invalidate)
       await queryClient.refetchQueries({ queryKey: ["/api/home-data"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cycles/completion-check"] });
+      await queryClient.refetchQueries({
+        queryKey: ["/api/cycles/completion-check"],
+      });
       await queryClient.refetchQueries({ queryKey: ["/api/workout-sessions"] });
-      
-      console.log('[APP] All data refreshed successfully');
+
+      console.log("[APP] All data refreshed successfully");
     },
   });
 
-  const showBottomNav = location.startsWith("/home") || 
-                        location.startsWith("/history") || 
-                        location.startsWith("/fitness-test") || 
-                        location.startsWith("/body") ||
-                        location.startsWith("/workout-preview") ||
-                        location.startsWith("/program") ||
-                        location.startsWith("/test/");
+  const showBottomNav =
+    location.startsWith("/home") ||
+    location.startsWith("/history") ||
+    location.startsWith("/fitness-test") ||
+    location.startsWith("/body") ||
+    location.startsWith("/workout-preview") ||
+    location.startsWith("/program") ||
+    location.startsWith("/test/");
 
   return (
     <>
-        <Switch>
-          <Route path="/home">
-            <Home />
-          </Route>
+      <Switch>
+        <Route path="/home">
+          <Home />
+        </Route>
 
-          <Route path="/history">
-            <History />
-          </Route>
+        <Route path="/history">
+          <History />
+        </Route>
 
-          <Route path="/body">
-            <Body />
-          </Route>
+        <Route path="/body">
+          <Body />
+        </Route>
 
-          <Route path="/settings">
-            <Settings />
-          </Route>
+        <Route path="/settings">
+          <Settings />
+        </Route>
 
-          <Route path="/fitness-test">
-            <FitnessTest />
-          </Route>
+        <Route path="/fitness-test">
+          <FitnessTest />
+        </Route>
 
-          <Route path="/workout-preview">
-            <WorkoutPreview />
-          </Route>
+        <Route path="/workout-preview">
+          <WorkoutPreview />
+        </Route>
 
-          <Route path="/test/bodyweight">
-            <BodyweightTestRoute />
-          </Route>
+        <Route path="/test/bodyweight">
+          <BodyweightTestRoute />
+        </Route>
 
-          <Route path="/test/weights">
-            <WeightsTestRoute />
-          </Route>
+        <Route path="/test/weights">
+          <WeightsTestRoute />
+        </Route>
 
-          <Route path="/dashboard">
-            <Dashboard
-              onStartWorkout={() => setLocation("/workout")}
-              onViewProgram={() => setLocation("/program")}
-              onViewHistory={() => setLocation("/history")}
-              onViewProgress={() => setLocation("/progress")}
-            />
-          </Route>
+        <Route path="/dashboard">
+          <Dashboard
+            onStartWorkout={() => setLocation("/workout")}
+            onViewProgram={() => setLocation("/program")}
+            onViewHistory={() => setLocation("/history")}
+            onViewProgress={() => setLocation("/progress")}
+          />
+        </Route>
 
-          <Route path="/program">
-            <WorkoutProgramView
-              onBack={() => setLocation("/home")}
-              onSave={() => {
+        <Route path="/program">
+          <WorkoutProgramView
+            onBack={() => setLocation("/home")}
+            onSave={() => {
+              setLocation("/home");
+            }}
+          />
+        </Route>
+
+        <Route path="/workout">
+          <WorkoutPage
+            onComplete={(summary) => {
+              console.log(
+                "[APP] Workout onComplete called with summary:",
+                summary
+              );
+              setWorkoutSummaryData(summary);
+              console.log("[APP] Navigating to /summary");
+              setLocation("/summary");
+            }}
+          />
+        </Route>
+
+        <Route path="/summary">
+          {workoutSummaryData ? (
+            <WorkoutSummary
+              {...workoutSummaryData}
+              onFinish={async (difficulty) => {
+                if (workoutSummaryData) {
+                  if (!workoutSummaryData.sessionId) {
+                    toast({
+                      title: "Cannot Save Workout",
+                      description:
+                        "Workout session not properly initialized. Progress was not saved.",
+                      variant: "destructive",
+                    });
+                    setLocation("/home");
+                    return;
+                  }
+
+                  await saveWorkoutMutation.mutateAsync({
+                    sessionId: workoutSummaryData.sessionId,
+                    status: workoutSummaryData.incomplete
+                      ? "partial"
+                      : "complete",
+                    durationMinutes: Math.floor(
+                      workoutSummaryData.duration / 60
+                    ),
+                    elapsedSeconds: workoutSummaryData.incomplete
+                      ? workoutSummaryData.duration
+                      : undefined, // Save timer state for partial workouts
+                    notes: workoutSummaryData.incomplete
+                      ? `Ended early - completed ${
+                          workoutSummaryData.completedExercises || 0
+                        } exercises`
+                      : undefined,
+                    sessionDate: new Date(), // User's local time
+                  });
+                }
+
                 setLocation("/home");
               }}
             />
-          </Route>
+          ) : (
+            <div className="min-h-screen bg-background flex items-center justify-center p-6">
+              <Card className="p-8 max-w-md text-center">
+                <h2 className="text-2xl font-bold mb-2">No Workout Data</h2>
+                <p className="text-muted-foreground mb-4">
+                  Workout summary data is missing. Returning to home.
+                </p>
+                <Button
+                  onClick={() => setLocation("/home")}
+                  data-testid="button-back-home"
+                >
+                  Back to Home
+                </Button>
+              </Card>
+            </div>
+          )}
+        </Route>
 
-          <Route path="/workout">
-            <WorkoutPage
-              onComplete={(summary) => {
-                console.log('[APP] Workout onComplete called with summary:', summary);
-                setWorkoutSummaryData(summary);
-                console.log('[APP] Navigating to /summary');
-                setLocation("/summary");
-              }}
-            />
-          </Route>
+        <Route path="/workout-history">
+          <WorkoutHistory onBack={() => setLocation("/home")} />
+        </Route>
 
-          <Route path="/summary">
-            {workoutSummaryData ? (
-              <WorkoutSummary
-                {...workoutSummaryData}
-                onFinish={async (difficulty) => {
-                  if (workoutSummaryData) {
-                    if (!workoutSummaryData.sessionId) {
-                      toast({
-                        title: "Cannot Save Workout",
-                        description: "Workout session not properly initialized. Progress was not saved.",
-                        variant: "destructive",
-                      });
-                      setLocation("/home");
-                      return;
-                    }
-                    
-                    await saveWorkoutMutation.mutateAsync({
-                      sessionId: workoutSummaryData.sessionId,
-                      status: workoutSummaryData.incomplete ? "partial" : "complete",
-                      durationMinutes: Math.floor(workoutSummaryData.duration / 60),
-                      elapsedSeconds: workoutSummaryData.incomplete ? workoutSummaryData.duration : undefined, // Save timer state for partial workouts
-                      notes: workoutSummaryData.incomplete ? `Ended early - completed ${workoutSummaryData.completedExercises || 0} exercises` : undefined,
-                      sessionDate: new Date(), // User's local time
-                    });
-                  }
-                  
-                  setLocation("/home");
-                }}
-              />
-            ) : (
-              <div className="min-h-screen bg-background flex items-center justify-center p-6">
-                <Card className="p-8 max-w-md text-center">
-                  <h2 className="text-2xl font-bold mb-2">No Workout Data</h2>
-                  <p className="text-muted-foreground mb-4">
-                    Workout summary data is missing. Returning to home.
-                  </p>
-                  <Button onClick={() => setLocation("/home")} data-testid="button-back-home">
-                    Back to Home
-                  </Button>
-                </Card>
-              </div>
-            )}
-          </Route>
+        <Route path="/progress">
+          <ProgressView onBack={() => setLocation("/home")} />
+        </Route>
 
-          <Route path="/workout-history">
-            <WorkoutHistory onBack={() => setLocation("/home")} />
-          </Route>
+        <Route path="/onboarding-assessment">
+          <OnboardingAssessment />
+        </Route>
 
-          <Route path="/progress">
-            <ProgressView onBack={() => setLocation("/home")} />
-          </Route>
+        <Route path="/about">
+          <About />
+        </Route>
 
+        <Route path="/how-it-works">
+          <HowItWorks />
+        </Route>
 
-          <Route path="/onboarding-assessment">
-            <OnboardingAssessment />
-          </Route>
+        <Route path="/science">
+          <SmartProgression />
+        </Route>
 
-          <Route path="/about">
-            <About />
-          </Route>
+        <Route path="/register">
+          <Register />
+        </Route>
 
-          <Route path="/how-it-works">
-            <HowItWorks />
-          </Route>
+        <Route path="/login">
+          <Login />
+        </Route>
 
-          <Route path="/science">
-            <SmartProgression />
-          </Route>
+        <Route path="/">
+          <Landing />
+        </Route>
+      </Switch>
 
-          <Route path="/">
-            <Landing />
-          </Route>
-        </Switch>
-      
       {showBottomNav && <BottomNavigation />}
       <Toaster />
     </>
@@ -491,9 +553,11 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AppRoutes />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <AppRoutes />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
