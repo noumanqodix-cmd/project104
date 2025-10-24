@@ -20,12 +20,16 @@ const Register = () => {
     e.preventDefault();
     setError(null);
 
+    console.log("🟦 Form submitted with:", { email, password, confirmPassword });
+
     if (password !== confirmPassword) {
+      console.warn("⚠️ Password mismatch");
       setError("Passwords do not match");
       return;
     }
 
     if (password.length < 6) {
+      console.warn("⚠️ Weak password (less than 6 chars)");
       setError("Password must be at least 6 characters");
       return;
     }
@@ -33,22 +37,50 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      let { data, error } = await supabase.auth.signUp({
-        email: email,
-        password: password,
+      console.log("➡️ Signing up user via Supabase Auth...");
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       });
 
+      console.log("🟩 Auth Response:", { data, error });
+
       if (error) {
+        console.error("❌ Supabase Auth Error:", error.message);
         setError(error.message);
-      } else if (data.user) {
-        alert(
-          "Registration successful! Please check your email to verify your account."
-        );
+        return;
       }
-    } catch (error) {
-      console.error("Signup error:", error);
+
+      if (data.user) {
+        console.log("✅ User created successfully:", data.user);
+
+        console.log("➡️ Inserting user into custom table 'user_signups'...");
+        const { error: insertError } = await supabase
+          .from("user_signups")
+          .insert([
+            {
+              id: data.user.id, // same as Supabase Auth user UUID
+              email: data.user.email,
+              password_hash: password, // ⚠️ raw password for now
+              verified: false,
+            },
+          ]);
+
+        if (insertError) {
+          console.error("❌ Database insert error:", insertError.message);
+        } else {
+          console.log("🟢 User inserted successfully into user_signups");
+        }
+
+        alert("Registration successful! Please check your email to verify your account.");
+      } else {
+        console.warn("⚠️ No user returned in Supabase response");
+      }
+    } catch (err) {
+      console.error("🔥 Signup process failed:", err);
       setError("Network error. Please try again.");
     } finally {
+      console.log("🟨 Signup process finished");
       setIsLoading(false);
     }
   };
@@ -62,9 +94,7 @@ const Register = () => {
           </div>
         </div>
 
-        <h2 className="text-3xl font-bold text-center mb-2">
-          Create Your Account
-        </h2>
+        <h2 className="text-3xl font-bold text-center mb-2">Create Your Account</h2>
         <p className="text-muted-foreground text-center mb-8">
           Get started with your personalized fitness journey
         </p>

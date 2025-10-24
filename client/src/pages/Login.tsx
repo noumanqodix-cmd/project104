@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
-import { useLocation } from 'wouter';
+import React, { useState } from "react";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dumbbell, AlertCircle } from "lucide-react";
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [, setLocation] = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
     setIsLoading(true);
 
     try {
@@ -29,12 +28,18 @@ const Login = () => {
 
       if (error) {
         setError(error.message);
-      } else if (data.user) {
-        setLocation('/home');
+        return;
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Network error. Please try again.');
+
+      if (data?.session) {
+        console.log("Session:", data.session); // session object
+        // Supabase client persists sessions by default. Avoid duplicating
+        // session storage in localStorage here — let AuthContext manage it.
+        setLocation("/home");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -87,16 +92,16 @@ const Login = () => {
           )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Signing In...' : 'Sign In'}
+            {isLoading ? "Signing In..." : "Sign In"}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{' '}
+            Don't have an account?{" "}
             <button
               type="button"
-              onClick={() => setLocation('/register')}
+              onClick={() => setLocation("/register")}
               className="text-primary hover:underline"
             >
               Create one

@@ -76,6 +76,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     session,
     loading,
+    // compatibility alias: some components expect `isLoading`
+    isLoading: loading,
     signOut,
   };
 

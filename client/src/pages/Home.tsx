@@ -36,6 +36,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useAuth } from '@/contexts/AuthContext';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CycleComplete } from "@/components/CycleComplete";
@@ -44,6 +45,7 @@ import { WeeklyScheduleView } from "@/components/WeeklyScheduleView";
 import { RescheduleDialog } from "@/components/RescheduleDialog";
 
 export default function Home() {
+  const { user: authUser } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showGenerationModal, setShowGenerationModal] = useState(false);
@@ -535,8 +537,11 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-20">
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between">
+
+
           <div>
-            <h1 className="text-3xl font-bold mb-2" >Welcome Back!</h1>
+            <h1 className="text-3l font-bold mb-2" >Welcome Back!</h1>
+          
             <p className="text-muted-foreground" data-testid="text-current-date">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
@@ -551,12 +556,22 @@ export default function Home() {
               </Badge>
             )}
           </div>
+          
+
+
           <Link href="/settings">
             <Button variant="ghost" size="icon" data-testid="button-settings">
               <Settings className="h-5 w-5" />
             </Button>
           </Link>
         </div>
+
+          {authUser?.email && (
+              <div className="mt-2 w-full my-4 inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm">
+                <Dumbbell className="h-4 w-4 text-primary" />
+                <span className="text-sm">Signed in as <strong className="ml-1">{authUser.email}</strong></span>
+              </div>
+            )}
 
         {!activeProgram ? (
           <Card>
