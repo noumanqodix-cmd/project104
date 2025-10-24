@@ -40,6 +40,7 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ToastContainer } from "react-toastify";
+import { supabase } from "./lib/supabase";
 
 function OnboardingFlow() {
   const [, setLocation] = useLocation();
@@ -241,6 +242,16 @@ function OnboardingFlow() {
   return renderStep();
 }
 
+// Supabase session-based middleware
+// ...existing code...
+
+// function AppRoutes() {
+
+
+// }
+
+// ...existing code...
+
 function BodyweightTestRoute() {
   const [, setLocation] = useLocation();
 
@@ -309,9 +320,45 @@ function WeightsTestRoute() {
 }
 
 function AppRoutes() {
-  const { toast } = useToast();
+
+
+    const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
+
+  useEffect(() => {
+    const protectedRoutes = [
+      "/home",
+      "/history",
+      "/body",
+      "/settings",
+      "/fitness-test",
+      "/workout-preview",
+      "/test/bodyweight",
+      "/test/weights",
+      "/dashboard",
+      "/program",
+      "/workout",
+      "/summary",
+      "/workout-history",
+      "/progress",
+    ];
+    if (protectedRoutes.some((route) => location.startsWith(route))) {
+      (async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) {
+          setLocation("/login");
+        }
+      })();
+    }
+  }, [location, setLocation]);
+
+
+  // const { toast } = useToast();
+  // const [location, setLocation] = useLocation();
+  // const [workoutSummaryData, setWorkoutSummaryData] = useState<any>(null);
 
   const saveWorkoutMutation = useMutation({
     mutationFn: async ({ sessionId, ...workoutData }: any) => {
@@ -334,6 +381,8 @@ function AppRoutes() {
       console.log("[APP] All data refreshed successfully");
     },
   });
+
+
 
   const showBottomNav =
     location.startsWith("/home") ||
