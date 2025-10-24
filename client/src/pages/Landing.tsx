@@ -20,7 +20,7 @@ export default function Landing() {
                 <Dumbbell className="h-12 w-12 text-primary" />
               </div>
               <h1 className="text-5xl lg:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-                FitForge
+                Morphit
               </h1>
             </div>
 
@@ -51,7 +51,7 @@ export default function Landing() {
                 size="lg"
                 variant="outline"
                 className="text-lg px-8 h-14 w-full sm:w-auto"
-                onClick={() => window.location.href = "/home"}
+                onClick={() => window.location.href = "/login"}
                 data-testid="button-login"
               >
                 Log In
