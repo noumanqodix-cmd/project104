@@ -51,7 +51,7 @@ export default function Landing() {
                 size="lg"
                 variant="outline"
                 className="text-lg px-8 h-14 w-full sm:w-auto"
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = "/home"}
                 data-testid="button-login"
               >
                 Log In

@@ -15,7 +15,6 @@ import EquipmentSelector from "./components/EquipmentSelector";
 import AvailabilityForm from "./components/AvailabilityForm";
 import SubscriptionSelector from "./components/SubscriptionSelector";
 import SignUpPage from "./components/SignUpPage";
-import OIDCCallbackPage from "./components/OIDCCallbackPage";
 import Dashboard from "./components/Dashboard";
 import WorkoutProgramView from "./components/WorkoutProgramView";
 import WorkoutSession from "./components/WorkoutSession";
@@ -52,7 +51,7 @@ function OnboardingFlow() {
         return (
           <WelcomePage
             onGetStarted={() => setLocation("/onboarding-assessment")}
-            onLogin={() => window.location.href = "/api/login"}
+            onLogin={() => setLocation("/home")}
           />
         );
 
@@ -241,7 +240,7 @@ function OnboardingFlow() {
         return (
           <WelcomePage
             onGetStarted={() => setCurrentStep("questionnaire")}
-            onLogin={() => window.location.href = "/api/login"}
+            onLogin={() => setLocation("/home")}
           />
         );
     }
@@ -454,9 +453,6 @@ function AppRoutes() {
             <ProgressView onBack={() => setLocation("/home")} />
           </Route>
 
-          <Route path="/auth/callback">
-            <OIDCCallbackPage />
-          </Route>
 
           <Route path="/onboarding-assessment">
             <OnboardingAssessment />

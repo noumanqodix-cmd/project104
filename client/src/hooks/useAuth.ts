@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-
+// Authentication removed - returning default user
 export function useAuth() {
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-  });
+  const user = {
+    id: "default-user",
+    name: "Default User",
+    email: "user@example.com",
+    // Add other default user properties as needed
+  };
 
   return {
     user,
-    isLoading,
-    isAuthenticated: !!user,
+    isLoading: false,
+    isAuthenticated: true, // Always authenticated since we removed auth
   };
 }

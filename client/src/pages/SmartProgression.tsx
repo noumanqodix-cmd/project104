@@ -133,7 +133,7 @@ export default function SmartProgression() {
                 <Button
                   size="lg"
                   className="text-lg px-8 h-14"
-                  onClick={() => window.location.href = "/api/login"}
+                  onClick={() => window.location.href = "/home"}
                   data-testid="button-create-account"
                 >
                   <Zap className="h-5 w-5 mr-2" />
@@ -143,7 +143,7 @@ export default function SmartProgression() {
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
                 <button
-                  onClick={() => window.location.href = "/api/login"}
+                  onClick={() => window.location.href = "/home"}
                   className="text-primary hover:underline font-medium"
                   data-testid="link-login"
                 >

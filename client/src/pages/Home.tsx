@@ -536,7 +536,7 @@ export default function Home() {
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome Back!</h1>
+            <h1 className="text-3xl font-bold mb-2" >Welcome Back!</h1>
             <p className="text-muted-foreground" data-testid="text-current-date">
               {new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 

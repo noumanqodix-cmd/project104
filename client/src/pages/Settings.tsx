@@ -11,7 +11,6 @@ import {
   Target, 
   Zap, 
   CreditCard, 
-  LogOut, 
   HelpCircle, 
   Mail,
   Phone,
@@ -154,10 +153,6 @@ export default function Settings() {
     },
   });
 
-  const handleLogout = () => {
-    // Properly logout from Replit Auth session
-    window.location.href = "/api/logout";
-  };
 
   const handleSavePhysicalStats = () => {
     const heightVal = parseFloat(height);
@@ -420,15 +415,6 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">Profile details are synced from your Replit account</p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={handleLogout}
-              className="w-full"
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Log Out
-            </Button>
           </CardContent>
         </Card>
 

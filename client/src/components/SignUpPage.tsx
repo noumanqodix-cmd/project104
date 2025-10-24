@@ -49,7 +49,7 @@ export default function SignUpPage({
     }));
     
     // Redirect to Replit Auth login
-    window.location.href = '/api/login';
+    window.location.href = '/home';
   };
 
   return (

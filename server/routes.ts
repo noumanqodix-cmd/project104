@@ -25,8 +25,8 @@
 // Example: "GET /api/auth/user" → Fetch user from DB → Return user data
 //
 // AUTHENTICATION:
-// Most endpoints require authentication (isAuthenticated middleware)
-// This ensures users can only access their own data
+// Authentication has been removed - all endpoints are now public
+// User data access will need to be handled differently
 //
 // NOTE: This is a large file (~2600 lines). Look for section headers (====) to navigate
 // ==========================================
@@ -37,7 +37,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { fitnessAssessments, exercises, programExercises, programWorkouts, workoutSessions, equipment, users, workoutPrograms, workoutSets } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+// Authentication removed - no longer using protective routes
 import { generateWorkoutProgram, suggestExerciseSwap, generateProgressionRecommendation } from "./ai-service";
 import { generateComprehensiveExerciseLibrary, generateMasterExerciseDatabase, generateExercisesForEquipment } from "./ai-exercise-generator";
 import { insertFitnessAssessmentSchema, insertWorkoutSessionSchema, patchWorkoutSessionSchema, insertWorkoutSetSchema, type FitnessAssessment, type ProgramWorkout, type Exercise } from "@shared/schema";
@@ -206,8 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   console.log("[ROUTES] Registering routes for the first time");
   
-  // Setup Replit Auth (required for all protected endpoints)
-  await setupAuth(app);
+  // Authentication setup removed - no longer using protective routes
 
   // ==========================================
   // AUTHENTICATION ROUTES
@@ -216,9 +215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // GET /api/auth/user - Get current user's profile
   // Returns: User object with all profile data (name, settings, metrics, etc.)
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -231,9 +230,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user metrics (height and weight)
-  app.patch('/api/auth/user/metrics', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/auth/user/metrics', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { height, weight } = req.body;
 
       if (!height && !weight) {
@@ -275,9 +274,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Receives: User profile, nutrition data, fitness test results (optional)
   // Returns: Success status
   // Side effect: Automatically generates first workout program
-  app.post("/api/onboarding-assessment/complete", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/onboarding-assessment/complete", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { fitnessTest, weightsTest, experienceLevel, startDate, ...profileData} = req.body;
       
       // Convert dateOfBirth string to Date object if present
@@ -502,9 +501,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete onboarding after OIDC login - saves assessment and program data
-  app.post("/api/auth/complete-onboarding", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/auth/complete-onboarding", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Check if user already has existing programs or assessments
@@ -668,9 +667,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Force complete onboarding - bypasses existing data check (user confirmed replacement)
-  app.post("/api/auth/complete-onboarding-force", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/auth/complete-onboarding-force", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Update user profile with onboarding data
@@ -819,9 +818,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/user/profile", isAuthenticated, async (req: any, res: Response) => {
+  app.put("/api/user/profile", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const updates = req.body;
       const user = await storage.getUser(userId);
       
@@ -868,9 +867,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/user/unit-preference", isAuthenticated, async (req: any, res: Response) => {
+  app.put("/api/user/unit-preference", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { unitPreference } = req.body;
       
       if (!unitPreference || !['imperial', 'metric'].includes(unitPreference)) {
@@ -894,9 +893,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Fitness Assessment routes
-  app.post("/api/fitness-assessments", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/fitness-assessments", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       console.log("Fitness assessment request. UserID:", userId);
 
       const validatedData = insertFitnessAssessmentSchema.parse({
@@ -912,9 +911,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/fitness-assessments", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/fitness-assessments", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const assessments = await storage.getUserFitnessAssessments(userId);
       res.json(assessments);
@@ -923,9 +922,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/fitness-assessments/latest", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/fitness-assessments/latest", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const assessment = await storage.getLatestFitnessAssessment(userId);
       res.json(assessment || null);
@@ -934,9 +933,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/fitness-assessments/:id/override", isAuthenticated, async (req: any, res: Response) => {
+  app.patch("/api/fitness-assessments/:id/override", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const assessmentId = req.params.id;
       const overrideData = req.body;
 
@@ -957,9 +956,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Exercise routes
-  app.post("/api/exercises/seed", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/exercises/seed", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const existingExercises = await storage.getAllExercises();
       if (existingExercises.length > 0) {
@@ -1133,7 +1132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ✅ PRESERVES: Exercise database and equipment list (core app functionality)
   // 🔒 PROTECTED: Development mode only + authentication + confirmation key
   // 📝 USAGE: POST /api/admin/clear-all-user-data with body { "confirm": "DELETE_ALL_USER_DATA" }
-  app.post("/api/admin/clear-all-user-data", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/admin/clear-all-user-data", async (req: any, res: Response) => {
     try {
       // Security check 1: Only allow in development environment
       if (process.env.NODE_ENV !== 'development') {
@@ -1342,9 +1341,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Workout Program routes
-  app.post("/api/programs/generate", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/programs/generate", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { startDate } = req.body;
       const user = await storage.getUser(userId);
       if (!user) {
@@ -1554,9 +1553,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Regenerate program endpoint (alias to generate for Settings page)
-  app.post("/api/programs/regenerate", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/programs/regenerate", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { startDate, selectedDates } = req.body;
       console.log("[REGENERATE] Received request with selectedDates:", selectedDates, "length:", selectedDates?.length);
       const user = await storage.getUser(userId);
@@ -1859,9 +1858,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/home-data", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/home-data", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Remove any duplicate sessions before loading data (safety net)
       const duplicatesRemoved = await storage.removeDuplicateSessions(userId);
@@ -1889,9 +1888,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/programs/active", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/programs/active", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const program = await storage.getUserActiveProgram(userId);
       res.json(program || null);
@@ -1920,9 +1919,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   totalCycleWorkouts: number,
   //   selectedDates: string[]
   // }
-  app.get("/api/cycles/completion-check", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/cycles/completion-check", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Get user data 
       const user = await storage.getUser(userId);
@@ -1969,9 +1968,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/programs/archived", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/programs/archived", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const allPrograms = await storage.getUserPrograms(userId);
       const archivedPrograms = allPrograms.filter(p => p.isActive === 0 && p.archivedDate !== null);
@@ -1981,9 +1980,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/program-workouts/:programId", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/program-workouts/:programId", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
@@ -2002,9 +2001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/programs/:programId", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/programs/:programId", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
@@ -2036,9 +2035,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/programs/exercises/:exerciseId/update-weight", isAuthenticated, async (req: any, res: Response) => {
+  app.patch("/api/programs/exercises/:exerciseId/update-weight", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const { recommendedWeight, repsMin, repsMax } = req.body;
       
@@ -2078,9 +2077,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/programs/exercises/:exerciseId/swap", isAuthenticated, async (req: any, res: Response) => {
+  app.patch("/api/programs/exercises/:exerciseId/swap", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const { newExerciseId, equipment } = req.body;
       
@@ -2124,9 +2123,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Workout Session routes
-  app.post("/api/workout-sessions", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/workout-sessions", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Use currentDate from frontend if provided, otherwise use server's date as fallback
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
@@ -2212,9 +2211,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Convert rest day session to cardio session with user-selected type
-  app.post("/api/programs/sessions/cardio/:date", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/programs/sessions/cardio/:date", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const scheduledDate = req.params.date;
       const cardioType = req.body?.cardioType || 'zone-2'; // Default to zone-2 if not specified
 
@@ -2408,9 +2407,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/workout-sessions/archive-old", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/workout-sessions/archive-old", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Use currentDate from frontend if provided, otherwise use server's date as fallback
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
@@ -2455,9 +2454,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get missed workouts - detects pending workouts from past dates
-  app.get("/api/workout-sessions/missed", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sessions/missed", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const currentDateString = req.query.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2486,9 +2485,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reset program from today - reschedule ONLY missed workouts to today, preserve future dates
-  app.post("/api/workout-sessions/reset-from-today", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/workout-sessions/reset-from-today", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2579,9 +2578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Skip missed workouts - mark all missed sessions as skipped
-  app.post("/api/workout-sessions/skip-missed", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/workout-sessions/skip-missed", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2622,9 +2621,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/workout-sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
+  app.patch("/api/workout-sessions/:sessionId", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Get the old session to check if completion status is changing
       const oldSession = await storage.getWorkoutSession(req.params.sessionId);
@@ -2727,9 +2726,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manual workout rescheduling endpoint
-  app.patch("/api/workout-sessions/:sessionId/reschedule", isAuthenticated, async (req: any, res: Response) => {
+  app.patch("/api/workout-sessions/:sessionId/reschedule", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       const { newDate } = req.body;
 
       if (!newDate) {
@@ -2795,9 +2794,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions/paginated", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sessions/paginated", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
       
       const limit = parseInt(req.query.limit as string) || 30;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -2812,9 +2811,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sessions", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const sessions = await storage.getUserSessions(userId);
       res.json(sessions);
@@ -2823,9 +2822,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions/calories/today", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sessions/calories/today", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Use date from query parameter if provided, otherwise use server's date as fallback
       const currentDateString = (req.query.date as string) || formatLocalDate(new Date());
@@ -2845,9 +2844,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Workout Set routes
-  app.post("/api/workout-sets", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/workout-sets", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const validatedData = insertWorkoutSetSchema.parse(req.body);
       const set = await storage.createWorkoutSet(validatedData);
@@ -2858,9 +2857,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/workout-sets/:setId", isAuthenticated, async (req: any, res: Response) => {
+  app.put("/api/workout-sets/:setId", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // First get the set to verify ownership
       const existingSet = await storage.getWorkoutSet(req.params.setId);
@@ -2881,9 +2880,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sessions/:sessionId/sets", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sessions/:sessionId/sets", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       // Verify ownership: session -> userId
       const session = await storage.getWorkoutSession(req.params.sessionId);
@@ -2902,9 +2901,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workout-sets", isAuthenticated, async (req: any, res: Response) => {
+  app.get("/api/workout-sets", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const exerciseId = req.query.exerciseId as string;
       if (!exerciseId) {
@@ -2919,9 +2918,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Recommendation routes
-  app.post("/api/ai/progression-recommendation", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/ai/progression-recommendation", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const { exerciseName, recentPerformance } = req.body;
       const recommendation = await generateProgressionRecommendation(
@@ -2935,9 +2934,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/exercise-swap", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/ai/exercise-swap", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const { currentExerciseName, targetMovementPattern, availableEquipment, reason } = req.body;
       const suggestions = await suggestExerciseSwap(
@@ -2953,9 +2952,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/exercises/similar", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/exercises/similar", async (req: any, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = "default-user"; // Using default user since authentication is removed
 
       const { exerciseId, movementPattern, primaryMuscles, currentEquipment } = req.body;
       
