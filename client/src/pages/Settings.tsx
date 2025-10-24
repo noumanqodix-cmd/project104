@@ -1,17 +1,23 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  User, 
-  Target, 
-  Zap, 
-  CreditCard, 
-  HelpCircle, 
+import {
+  User,
+  Target,
+  Zap,
+  CreditCard,
+  HelpCircle,
   Mail,
   Phone,
   ChevronLeft,
@@ -21,7 +27,7 @@ import {
   RefreshCw,
   Settings as SettingsIcon,
   Loader2,
-  LogOut
+  LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -61,6 +67,24 @@ import { DayPicker } from "@/components/DayPicker";
 import { supabase } from "@/lib/supabase";
 
 export default function Settings() {
+  // Real-time Supabase session state
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+    };
+    getSession();
+    // Listen for session changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => {
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+  // ...existing code...
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -68,7 +92,7 @@ export default function Settings() {
     queryKey: ["/api/auth/user"],
   });
 
-  const unitPreference = user?.unitPreference || 'imperial';
+  const unitPreference = user?.unitPreference || "imperial";
 
   const [helpTicket, setHelpTicket] = useState("");
   const [selectedGoal, setSelectedGoal] = useState("maintain");
@@ -78,17 +102,22 @@ export default function Settings() {
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showProgramUpdateDialog, setShowProgramUpdateDialog] = useState(false);
   const [showGenerationModal, setShowGenerationModal] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
+  const [generationStatus, setGenerationStatus] = useState<
+    "generating" | "success" | "error"
+  >("generating");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-  const [selectedUnitPreference, setSelectedUnitPreference] = useState<string>("imperial");
-  
+  const [selectedUnitPreference, setSelectedUnitPreference] =
+    useState<string>("imperial");
+
   // Track original values to detect program-affecting changes
   const [originalEquipment, setOriginalEquipment] = useState<string[]>([]);
   const [originalDaysPerWeek, setOriginalDaysPerWeek] = useState(3);
   const [originalWorkoutDuration, setOriginalWorkoutDuration] = useState(60);
   const [originalGoal, setOriginalGoal] = useState("maintain");
-  const [originalSelectedDates, setOriginalSelectedDates] = useState<string[]>([]);
+  const [originalSelectedDates, setOriginalSelectedDates] = useState<string[]>(
+    []
+  );
 
   useEffect(() => {
     if (user) {
@@ -98,21 +127,25 @@ export default function Settings() {
       setWorkoutDuration(user.workoutDuration || 60);
       setSelectedDates(user.selectedDates || []);
       setSelectedUnitPreference(user.unitPreference || "imperial");
-      
+
       // Set original values for change detection
       setOriginalEquipment(user.equipment || []);
       setOriginalDaysPerWeek(user.daysPerWeek || 3);
       setOriginalWorkoutDuration(user.workoutDuration || 60);
       setOriginalGoal(user.nutritionGoal || "maintain");
       setOriginalSelectedDates(user.selectedDates || []);
-      
-      const isMetric = unitPreference === 'metric';
+
+      const isMetric = unitPreference === "metric";
       if (user.height) {
-        const displayHeight = Math.round(user.height * (isMetric ? 1 : 0.393701));
+        const displayHeight = Math.round(
+          user.height * (isMetric ? 1 : 0.393701)
+        );
         setHeight(displayHeight.toString());
       }
       if (user.weight) {
-        const displayWeight = Math.round(user.weight * (isMetric ? 1 : 2.20462));
+        const displayWeight = Math.round(
+          user.weight * (isMetric ? 1 : 2.20462)
+        );
         setWeight(displayWeight.toString());
       }
     }
@@ -138,15 +171,18 @@ export default function Settings() {
     },
   });
 
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
-    function handleLogout() {
-      setIsLoggingOut(true);
-      supabase.auth.signOut().then(() => {
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  function handleLogout() {
+    setIsLoggingOut(true);
+    supabase.auth
+      .signOut()
+      .then(() => {
         setLocation("/login");
-      }).finally(() => {
+      })
+      .finally(() => {
         setIsLoggingOut(false);
       });
-    }
+  }
 
   // Separate mutation for program settings - no success toast (dialog provides feedback)
   const updateProgramSettingsMutation = useMutation({
@@ -165,7 +201,6 @@ export default function Settings() {
     },
   });
 
-
   const handleSavePhysicalStats = () => {
     const heightVal = parseFloat(height);
     const weightVal = parseFloat(weight);
@@ -179,7 +214,7 @@ export default function Settings() {
       return;
     }
 
-    const isMetric = unitPreference === 'metric';
+    const isMetric = unitPreference === "metric";
     let heightInCm = heightVal;
     let weightInKg = weightVal;
 
@@ -194,7 +229,6 @@ export default function Settings() {
     });
   };
 
-
   const handleSubmitTicket = () => {
     if (!helpTicket.trim()) {
       toast({
@@ -204,7 +238,7 @@ export default function Settings() {
       });
       return;
     }
-    
+
     toast({
       title: "Ticket submitted",
       description: "We'll get back to you within 24-48 hours.",
@@ -245,14 +279,23 @@ export default function Settings() {
     }
 
     // Detect if program-affecting settings changed (copy arrays before sorting to avoid mutation)
-    const equipmentChanged = JSON.stringify([...selectedEquipment].sort()) !== JSON.stringify([...originalEquipment].sort());
+    const equipmentChanged =
+      JSON.stringify([...selectedEquipment].sort()) !==
+      JSON.stringify([...originalEquipment].sort());
     const daysChanged = daysPerWeek !== originalDaysPerWeek;
     const durationChanged = workoutDuration !== originalWorkoutDuration;
     const goalChanged = selectedGoal !== originalGoal;
-    const datesChanged = JSON.stringify([...selectedDates].sort()) !== JSON.stringify([...originalSelectedDates].sort());
-    
-    const programAffectingChanges = equipmentChanged || daysChanged || durationChanged || goalChanged || datesChanged;
-    
+    const datesChanged =
+      JSON.stringify([...selectedDates].sort()) !==
+      JSON.stringify([...originalSelectedDates].sort());
+
+    const programAffectingChanges =
+      equipmentChanged ||
+      daysChanged ||
+      durationChanged ||
+      goalChanged ||
+      datesChanged;
+
     if (programAffectingChanges) {
       // Show dialog asking if user wants new program or just update settings
       setShowProgramUpdateDialog(true);
@@ -266,7 +309,7 @@ export default function Settings() {
       });
     }
   };
-  
+
   const handleKeepCurrentProgram = async () => {
     try {
       // Save preferences and wait for completion (exclude selectedDates - no new workouts generated)
@@ -276,9 +319,9 @@ export default function Settings() {
         daysPerWeek,
         workoutDuration,
       });
-      
+
       setShowProgramUpdateDialog(false);
-      
+
       // Update original values only after successful save
       // NOTE: selectedDates NOT updated here - only saved when generating new program
       setOriginalGoal(selectedGoal);
@@ -290,7 +333,7 @@ export default function Settings() {
       console.error("Failed to save preferences:", error);
     }
   };
-  
+
   const handleGenerateNewProgram = async () => {
     try {
       // Save preferences first and wait for completion
@@ -301,13 +344,13 @@ export default function Settings() {
         workoutDuration,
         selectedDates,
       });
-      
+
       // Then generate new program with updated settings
       setShowProgramUpdateDialog(false);
       setShowGenerationModal(true);
-      setGenerationStatus('generating');
+      setGenerationStatus("generating");
       generateNewProgramMutation.mutate();
-      
+
       // Update original values
       setOriginalGoal(selectedGoal);
       setOriginalEquipment(selectedEquipment);
@@ -322,10 +365,10 @@ export default function Settings() {
   };
 
   const toggleEquipment = (equipment: string) => {
-    setSelectedEquipment(prev => toggleEquipmentUtil(prev, equipment));
+    setSelectedEquipment((prev) => toggleEquipmentUtil(prev, equipment));
   };
 
-  const sanitizeId = (id: string) => id.replace(/\s+/g, '-').toLowerCase();
+  const sanitizeId = (id: string) => id.replace(/\s+/g, "-").toLowerCase();
 
   const generateNewProgramMutation = useMutation({
     mutationFn: async () => {
@@ -338,11 +381,12 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ["/api/programs/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
-      setGenerationStatus('success');
+      setGenerationStatus("success");
     },
     onError: (error: any) => {
-      const errorMessage = error?.message || "Failed to generate new program. Please try again.";
-      setGenerationStatus('error');
+      const errorMessage =
+        error?.message || "Failed to generate new program. Please try again.";
+      setGenerationStatus("error");
     },
   });
 
@@ -352,13 +396,16 @@ export default function Settings() {
 
   const updateUnitPreferenceMutation = useMutation({
     mutationFn: async (newUnit: string) => {
-      return await apiRequest("PUT", "/api/user/unit-preference", { unitPreference: newUnit });
+      return await apiRequest("PUT", "/api/user/unit-preference", {
+        unitPreference: newUnit,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Unit preference updated",
-        description: "All measurements have been converted to the new unit system.",
+        description:
+          "All measurements have been converted to the new unit system.",
       });
     },
     onError: () => {
@@ -377,8 +424,32 @@ export default function Settings() {
   };
 
   const isPaidUser = user?.subscriptionTier === "paid";
-  const weightUnit = unitPreference === 'imperial' ? 'lbs' : 'kg';
-  const heightUnit = unitPreference === 'imperial' ? 'in' : 'cm';
+  const weightUnit = unitPreference === "imperial" ? "lbs" : "kg";
+  const heightUnit = unitPreference === "imperial" ? "in" : "cm";
+
+  // Get the session from localStorage
+  const getStoredSession = () => {
+    const keys = Object.keys(localStorage);
+    const supabaseKey = keys.find((key) => key.includes("supabase.auth.token"));
+
+    if (supabaseKey) {
+      const sessionData = localStorage.getItem(supabaseKey);
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        console.log("Session from localStorage:", parsed);
+        return parsed;
+      }
+    }
+  };
+
+  // Or use Supabase's built-in method (recommended)
+
+  async function handleSession() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    console.log("Current session:", session);
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -390,8 +461,12 @@ export default function Settings() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Manage your account and preferences</p>
+            <h1 className="text-3xl font-bold" onClick={handleSession}>
+              Settings
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your account and preferences
+            </p>
           </div>
         </div>
 
@@ -401,30 +476,46 @@ export default function Settings() {
               <User className="h-5 w-5" />
               <CardTitle>Account Information</CardTitle>
             </div>
-            <CardDescription>Your Supabase Auth profile details</CardDescription>
+            <CardDescription>
+              Your Supabase Auth profile details (real-time)
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={user?.profileImageUrl} alt={user?.firstName || 'User'} />
-                <AvatarFallback>
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="text-xl font-semibold" data-testid="text-full-name">
-                  {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email || '-'}
-                </p>
-                <p className="text-sm text-muted-foreground" data-testid="text-email">
-                  {user?.email || '-'}
-                </p>
+            {session && session.user ? (
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage
+                    src={session.user.user_metadata?.avatar_url || user?.profileImageUrl}
+                    alt={session.user.user_metadata?.full_name || user?.firstName || "User"}
+                  />
+                  <AvatarFallback>
+                    {session.user.user_metadata?.full_name?.[0] || user?.firstName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <p className="text-xl font-semibold" data-testid="text-full-name">
+                    {session.user.user_metadata?.full_name || user?.firstName || session.user.email || "-"}
+                  </p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-email">
+                    {session.user.email}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Provider: {session.user.app_metadata?.provider || "-"}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-muted-foreground">No active session found.</div>
+            )}
             <Separator />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Account managed by Supabase Auth</p>
-                <p className="text-sm text-muted-foreground">Profile details are synced from your Supabase account</p>
+                <p className="text-sm font-medium">
+                  Account managed by Supabase Auth
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Profile details are synced from your Supabase account
+                </p>
               </div>
             </div>
           </CardContent>
@@ -441,8 +532,14 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="unit-preference">Unit Preference</Label>
-              <Select value={selectedUnitPreference} onValueChange={setSelectedUnitPreference}>
-                <SelectTrigger id="unit-preference" data-testid="select-unit-preference">
+              <Select
+                value={selectedUnitPreference}
+                onValueChange={setSelectedUnitPreference}
+              >
+                <SelectTrigger
+                  id="unit-preference"
+                  data-testid="select-unit-preference"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -451,27 +548,35 @@ export default function Settings() {
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Changing this will convert all your existing measurements to the new unit system
+                Changing this will convert all your existing measurements to the
+                new unit system
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <Label>Theme</Label>
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">Color Mode</p>
-                  <p className="text-sm text-muted-foreground">Toggle between light and dark theme</p>
+                  <p className="text-sm text-muted-foreground">
+                    Toggle between light and dark theme
+                  </p>
                 </div>
                 <ThemeToggle />
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={handleSaveUnitPreference}
-              disabled={updateUnitPreferenceMutation.isPending || selectedUnitPreference === unitPreference}
+              disabled={
+                updateUnitPreferenceMutation.isPending ||
+                selectedUnitPreference === unitPreference
+              }
               data-testid="button-save-preferences"
             >
-              {updateUnitPreferenceMutation.isPending ? "Saving..." : "Save Preferences"}
+              {updateUnitPreferenceMutation.isPending
+                ? "Saving..."
+                : "Save Preferences"}
             </Button>
           </CardContent>
         </Card>
@@ -493,7 +598,7 @@ export default function Settings() {
                   type="number"
                   value={height}
                   onChange={(e) => setHeight(e.target.value)}
-                  placeholder={unitPreference === 'imperial' ? '70' : '178'}
+                  placeholder={unitPreference === "imperial" ? "70" : "178"}
                   data-testid="input-height"
                 />
               </div>
@@ -504,24 +609,27 @@ export default function Settings() {
                   type="number"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  placeholder={unitPreference === 'imperial' ? '180' : '82'}
+                  placeholder={unitPreference === "imperial" ? "180" : "82"}
                   data-testid="input-weight"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Age</Label>
                 <p className="text-lg font-semibold" data-testid="text-age">
-                  {user?.dateOfBirth ? `${calculateAge(new Date(user.dateOfBirth))} years` : 'Not set'}
+                  {user?.dateOfBirth
+                    ? `${calculateAge(new Date(user.dateOfBirth))} years`
+                    : "Not set"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Age is calculated from your date of birth (set during onboarding)
+                  Age is calculated from your date of birth (set during
+                  onboarding)
                 </p>
               </div>
             </div>
             <div className="space-y-2">
               <Label>BMR (Basal Metabolic Rate)</Label>
               <p className="text-lg font-semibold" data-testid="text-bmr">
-                {user?.bmr || '-'} calories/day
+                {user?.bmr || "-"} calories/day
               </p>
               <p className="text-sm text-muted-foreground">
                 Automatically recalculated when you update your stats
@@ -529,47 +637,63 @@ export default function Settings() {
             </div>
             <div className="space-y-2">
               <Label>Heart Rate Training Zones</Label>
-              {user?.dateOfBirth ? (() => {
-                const userAge = calculateAge(new Date(user.dateOfBirth));
-                if (!userAge) {
-                  return <p className="text-muted-foreground">Date of birth invalid</p>;
-                }
-                const maxHR = 220 - userAge;
-                return (
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold" data-testid="text-max-hr">
-                      Maximum HR: {maxHR} bpm
-                    </p>
-                    <div className="grid grid-cols-1 gap-1 text-sm">
-                      <p data-testid="text-hr-zone1">
-                        Zone 1 (50-60%): {Math.round(maxHR * 0.50)}-{Math.round(maxHR * 0.60)} bpm - Warm-up
+              {user?.dateOfBirth ? (
+                (() => {
+                  const userAge = calculateAge(new Date(user.dateOfBirth));
+                  if (!userAge) {
+                    return (
+                      <p className="text-muted-foreground">
+                        Date of birth invalid
                       </p>
-                      <p data-testid="text-hr-zone2">
-                        Zone 2 (60-70%): {Math.round(maxHR * 0.60)}-{Math.round(maxHR * 0.70)} bpm - Fat Burning
+                    );
+                  }
+                  const maxHR = 220 - userAge;
+                  return (
+                    <div className="space-y-2">
+                      <p
+                        className="text-sm font-semibold"
+                        data-testid="text-max-hr"
+                      >
+                        Maximum HR: {maxHR} bpm
                       </p>
-                      <p data-testid="text-hr-zone3">
-                        Zone 3 (70-80%): {Math.round(maxHR * 0.70)}-{Math.round(maxHR * 0.80)} bpm - Aerobic
-                      </p>
-                      <p data-testid="text-hr-zone4">
-                        Zone 4 (80-90%): {Math.round(maxHR * 0.80)}-{Math.round(maxHR * 0.90)} bpm - Anaerobic
-                      </p>
-                      <p data-testid="text-hr-zone5">
-                        Zone 5 (90-100%): {Math.round(maxHR * 0.90)}-{maxHR} bpm - Peak
-                      </p>
+                      <div className="grid grid-cols-1 gap-1 text-sm">
+                        <p data-testid="text-hr-zone1">
+                          Zone 1 (50-60%): {Math.round(maxHR * 0.5)}-
+                          {Math.round(maxHR * 0.6)} bpm - Warm-up
+                        </p>
+                        <p data-testid="text-hr-zone2">
+                          Zone 2 (60-70%): {Math.round(maxHR * 0.6)}-
+                          {Math.round(maxHR * 0.7)} bpm - Fat Burning
+                        </p>
+                        <p data-testid="text-hr-zone3">
+                          Zone 3 (70-80%): {Math.round(maxHR * 0.7)}-
+                          {Math.round(maxHR * 0.8)} bpm - Aerobic
+                        </p>
+                        <p data-testid="text-hr-zone4">
+                          Zone 4 (80-90%): {Math.round(maxHR * 0.8)}-
+                          {Math.round(maxHR * 0.9)} bpm - Anaerobic
+                        </p>
+                        <p data-testid="text-hr-zone5">
+                          Zone 5 (90-100%): {Math.round(maxHR * 0.9)}-{maxHR}{" "}
+                          bpm - Peak
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })() : (
+                  );
+                })()
+              ) : (
                 <p className="text-muted-foreground">Date of birth not set</p>
               )}
             </div>
-            <Button 
+            <Button
               onClick={handleSavePhysicalStats}
               disabled={updateProfileMutation.isPending}
               className="w-full"
               data-testid="button-save-physical-stats"
             >
-              {updateProfileMutation.isPending ? "Saving..." : "Update Physical Stats"}
+              {updateProfileMutation.isPending
+                ? "Saving..."
+                : "Update Physical Stats"}
             </Button>
           </CardContent>
         </Card>
@@ -580,7 +704,9 @@ export default function Settings() {
               <Dumbbell className="h-5 w-5" />
               <CardTitle>Program Settings</CardTitle>
             </div>
-            <CardDescription>Configure your workout program and fitness goals</CardDescription>
+            <CardDescription>
+              Configure your workout program and fitness goals
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
@@ -595,39 +721,54 @@ export default function Settings() {
                   <SelectItem value="gain">Gain Muscle</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {/* Goal-specific descriptions */}
               {selectedGoal === "gain" && (
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                  <p className="text-sm font-medium text-primary">Muscle Gain Focus</p>
+                  <p className="text-sm font-medium text-primary">
+                    Muscle Gain Focus
+                  </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Prioritizes lifting volume with minimal cardio (5.5min HIIT only). Cardio included only when you have 3+ secondary exercises.
+                    Prioritizes lifting volume with minimal cardio (5.5min HIIT
+                    only). Cardio included only when you have 3+ secondary
+                    exercises.
                   </p>
                 </div>
               )}
-              
+
               {selectedGoal === "maintain" && (
                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Balanced Training</p>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                    Balanced Training
+                  </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Balanced strength and cardio mix (7.5min alternating HIIT/Steady-State). Cardio included when you have 2+ secondary exercises.
+                    Balanced strength and cardio mix (7.5min alternating
+                    HIIT/Steady-State). Cardio included when you have 2+
+                    secondary exercises.
                   </p>
                 </div>
               )}
-              
+
               {selectedGoal === "lose" && (
                 <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Fat Loss Focus</p>
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Fat Loss Focus
+                  </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Maximizes calorie burn with varied cardio (9min rotating through 4 types). Cardio included when you have 1+ secondary exercise.
+                    Maximizes calorie burn with varied cardio (9min rotating
+                    through 4 types). Cardio included when you have 1+ secondary
+                    exercise.
                   </p>
                 </div>
               )}
-              
+
               <div className="space-y-1">
                 <Label className="text-sm">Daily Calorie Target</Label>
-                <p className="text-base font-semibold" data-testid="text-calories">
-                  {user?.targetCalories || '-'} calories
+                <p
+                  className="text-base font-semibold"
+                  data-testid="text-calories"
+                >
+                  {user?.targetCalories || "-"} calories
                 </p>
               </div>
             </div>
@@ -665,7 +806,10 @@ export default function Settings() {
                         onCheckedChange={() => toggleEquipment(eq.value)}
                         data-testid={`checkbox-equipment-${domId}`}
                       />
-                      <Label htmlFor={domId} className="text-sm font-normal cursor-pointer">
+                      <Label
+                        htmlFor={domId}
+                        className="text-sm font-normal cursor-pointer"
+                      >
                         {eq.label}
                       </Label>
                     </div>
@@ -677,11 +821,17 @@ export default function Settings() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="days-per-week">Days Per Week</Label>
-                <Select value={daysPerWeek.toString()} onValueChange={(val) => {
-                  setDaysPerWeek(parseInt(val));
-                  setSelectedDates([]); // Reset selected dates when changing days per week
-                }}>
-                  <SelectTrigger id="days-per-week" data-testid="select-days-per-week">
+                <Select
+                  value={daysPerWeek.toString()}
+                  onValueChange={(val) => {
+                    setDaysPerWeek(parseInt(val));
+                    setSelectedDates([]); // Reset selected dates when changing days per week
+                  }}
+                >
+                  <SelectTrigger
+                    id="days-per-week"
+                    data-testid="select-days-per-week"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -694,8 +844,14 @@ export default function Settings() {
 
               <div className="space-y-2">
                 <Label htmlFor="workout-duration">Workout Duration</Label>
-                <Select value={workoutDuration.toString()} onValueChange={(val) => setWorkoutDuration(parseInt(val))}>
-                  <SelectTrigger id="workout-duration" data-testid="select-workout-duration">
+                <Select
+                  value={workoutDuration.toString()}
+                  onValueChange={(val) => setWorkoutDuration(parseInt(val))}
+                >
+                  <SelectTrigger
+                    id="workout-duration"
+                    data-testid="select-workout-duration"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -713,7 +869,8 @@ export default function Settings() {
                 Select Your Next {daysPerWeek} Workout Dates
               </Label>
               <p className="text-sm text-muted-foreground">
-                Pick the specific calendar dates for your next 7-day cycle ({selectedDates.length}/{daysPerWeek} selected)
+                Pick the specific calendar dates for your next 7-day cycle (
+                {selectedDates.length}/{daysPerWeek} selected)
               </p>
               <DayPicker
                 daysPerWeek={daysPerWeek}
@@ -722,13 +879,15 @@ export default function Settings() {
               />
             </div>
 
-            <Button 
+            <Button
               onClick={handleSaveWorkoutPreferences}
               disabled={updateProgramSettingsMutation.isPending}
               className="w-full"
               data-testid="button-save-program-settings"
             >
-              {updateProgramSettingsMutation.isPending ? "Saving..." : "Update Program Settings"}
+              {updateProgramSettingsMutation.isPending
+                ? "Saving..."
+                : "Update Program Settings"}
             </Button>
 
             <Separator />
@@ -739,14 +898,15 @@ export default function Settings() {
                 <div>
                   <p className="font-semibold">Regenerate Program</p>
                   <p className="text-sm text-muted-foreground">
-                    Create a new science-backed program with different exercises while keeping your current settings
+                    Create a new science-backed program with different exercises
+                    while keeping your current settings
                   </p>
                 </div>
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     data-testid="button-regenerate-program"
                   >
@@ -756,17 +916,24 @@ export default function Settings() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerate Your Program?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      Regenerate Your Program?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will create a completely new science-backed workout program using your current settings. Your existing program and workout history will be preserved, but your current cycle will restart.
+                      This will create a completely new science-backed workout
+                      program using your current settings. Your existing program
+                      and workout history will be preserved, but your current
+                      cycle will restart.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel data-testid="button-cancel">
+                      Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => {
                         setShowGenerationModal(true);
-                        setGenerationStatus('generating');
+                        setGenerationStatus("generating");
                         generateNewProgramMutation.mutate();
                       }}
                       data-testid="button-confirm-regenerate"
@@ -786,7 +953,9 @@ export default function Settings() {
               <Zap className="h-5 w-5" />
               <CardTitle>App Integrations</CardTitle>
             </div>
-            <CardDescription>Connect third-party apps and services</CardDescription>
+            <CardDescription>
+              Connect third-party apps and services
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -794,10 +963,16 @@ export default function Settings() {
                 <Mail className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium">Email Notifications</p>
-                  <p className="text-sm text-muted-foreground">Workout reminders and updates</p>
+                  <p className="text-sm text-muted-foreground">
+                    Workout reminders and updates
+                  </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" data-testid="button-email-integration">
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-email-integration"
+              >
                 Configure
               </Button>
             </div>
@@ -806,10 +981,16 @@ export default function Settings() {
                 <Phone className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium">SMS Notifications</p>
-                  <p className="text-sm text-muted-foreground">Text message reminders</p>
+                  <p className="text-sm text-muted-foreground">
+                    Text message reminders
+                  </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" data-testid="button-sms-integration">
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-sms-integration"
+              >
                 Configure
               </Button>
             </div>
@@ -836,7 +1017,7 @@ export default function Settings() {
                 data-testid="textarea-help-ticket"
               />
             </div>
-            <Button 
+            <Button
               onClick={handleSubmitTicket}
               data-testid="button-submit-ticket"
             >
@@ -852,7 +1033,9 @@ export default function Settings() {
               <CardTitle>Subscription</CardTitle>
             </div>
             <CardDescription>
-              {isPaidUser ? "Premium Plan - Ad-free experience" : "Free Plan - With advertisements"}
+              {isPaidUser
+                ? "Premium Plan - Ad-free experience"
+                : "Free Plan - With advertisements"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -864,24 +1047,34 @@ export default function Settings() {
                   <Zap className="h-6 w-6 text-muted-foreground" />
                 )}
                 <div>
-                  <p className="font-semibold">{isPaidUser ? "Premium" : "Free"}</p>
+                  <p className="font-semibold">
+                    {isPaidUser ? "Premium" : "Free"}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {isPaidUser ? "$5/month or $48/year" : "With advertisement support"}
+                    {isPaidUser
+                      ? "$5/month or $48/year"
+                      : "With advertisement support"}
                   </p>
                 </div>
               </div>
               {isPaidUser ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" data-testid="button-cancel-subscription">
+                    <Button
+                      variant="outline"
+                      data-testid="button-cancel-subscription"
+                    >
                       Cancel Subscription
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Cancel Premium Subscription?</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        Cancel Premium Subscription?
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
-                        You'll lose access to premium features and return to the free plan with ads. You can resubscribe anytime.
+                        You'll lose access to premium features and return to the
+                        free plan with ads. You can resubscribe anytime.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -893,7 +1086,10 @@ export default function Settings() {
                   </AlertDialogContent>
                 </AlertDialog>
               ) : (
-                <Button onClick={handleUpgradeToPaid} data-testid="button-upgrade-premium">
+                <Button
+                  onClick={handleUpgradeToPaid}
+                  data-testid="button-upgrade-premium"
+                >
                   <Crown className="h-4 w-4 mr-2" />
                   Upgrade to Premium
                 </Button>
@@ -904,27 +1100,33 @@ export default function Settings() {
       </div>
 
       {/* Program Generation Modal */}
-      <Dialog open={showGenerationModal} onOpenChange={(open) => {
-        if (!open && generationStatus !== 'generating') {
-          handleCloseGenerationModal();
-        }
-      }}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-program-generation">
+      <Dialog
+        open={showGenerationModal}
+        onOpenChange={(open) => {
+          if (!open && generationStatus !== "generating") {
+            handleCloseGenerationModal();
+          }
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          data-testid="dialog-program-generation"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {generationStatus === 'generating' && (
+              {generationStatus === "generating" && (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Generating Your Program
                 </>
               )}
-              {generationStatus === 'success' && (
+              {generationStatus === "success" && (
                 <>
                   <Dumbbell className="h-5 w-5 text-green-500" />
                   Program Generated Successfully!
                 </>
               )}
-              {generationStatus === 'error' && (
+              {generationStatus === "error" && (
                 <>
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                   Generation Failed
@@ -932,18 +1134,23 @@ export default function Settings() {
               )}
             </DialogTitle>
             <DialogDescription>
-              {generationStatus === 'generating' && (
+              {generationStatus === "generating" && (
                 <>
                   <div className="space-y-4 py-4">
                     <p>Creating your personalized workout program...</p>
-                    <p className="text-sm text-muted-foreground">This may take a few moments. Please wait.</p>
+                    <p className="text-sm text-muted-foreground">
+                      This may take a few moments. Please wait.
+                    </p>
                   </div>
                 </>
               )}
-              {generationStatus === 'success' && (
+              {generationStatus === "success" && (
                 <div className="space-y-4 py-4">
-                  <p>Your new workout program has been created and is ready to use!</p>
-                  <Button 
+                  <p>
+                    Your new workout program has been created and is ready to
+                    use!
+                  </p>
+                  <Button
                     onClick={handleCloseGenerationModal}
                     className="w-full"
                     data-testid="button-generation-ok"
@@ -952,10 +1159,12 @@ export default function Settings() {
                   </Button>
                 </div>
               )}
-              {generationStatus === 'error' && (
+              {generationStatus === "error" && (
                 <div className="space-y-4 py-4">
-                  <p className="text-destructive">Failed to generate your program. Please try again.</p>
-                  <Button 
+                  <p className="text-destructive">
+                    Failed to generate your program. Please try again.
+                  </p>
+                  <Button
                     onClick={handleCloseGenerationModal}
                     variant="outline"
                     className="w-full"
@@ -971,15 +1180,19 @@ export default function Settings() {
       </Dialog>
 
       {/* Program Update Dialog */}
-      <AlertDialog open={showProgramUpdateDialog} onOpenChange={setShowProgramUpdateDialog}>
+      <AlertDialog
+        open={showProgramUpdateDialog}
+        onOpenChange={setShowProgramUpdateDialog}
+      >
         <AlertDialogContent data-testid="dialog-program-update">
           <AlertDialogHeader>
             <AlertDialogTitle>Your Settings Have Changed</AlertDialogTitle>
             <AlertDialogDescription>
-              You've updated your equipment, workout days, or workout duration. What would you like to do?
+              You've updated your equipment, workout days, or workout duration.
+              What would you like to do?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           <div className="space-y-3 py-4">
             <div className="rounded-lg border p-4 space-y-2">
               <div className="flex items-center gap-2">
@@ -987,7 +1200,8 @@ export default function Settings() {
                 <h4 className="font-semibold">Generate New Program</h4>
               </div>
               <p className="text-sm text-muted-foreground">
-                Create a fresh workout program with your new settings. Your current program will be saved to history.
+                Create a fresh workout program with your new settings. Your
+                current program will be saved to history.
               </p>
             </div>
 
@@ -997,21 +1211,26 @@ export default function Settings() {
                 <h4 className="font-semibold">Keep Current Program</h4>
               </div>
               <p className="text-sm text-muted-foreground">
-                Just update your preferences. New equipment will be available for exercise swaps in your current program.
+                Just update your preferences. New equipment will be available
+                for exercise swaps in your current program.
               </p>
             </div>
           </div>
 
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel data-testid="button-keep-program">
-              <span onClick={handleKeepCurrentProgram}>Keep Current Program</span>
+              <span onClick={handleKeepCurrentProgram}>
+                Keep Current Program
+              </span>
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleGenerateNewProgram}
               disabled={generateNewProgramMutation.isPending}
               data-testid="button-generate-new-program"
             >
-              {generateNewProgramMutation.isPending ? "Generating..." : "Generate New Program"}
+              {generateNewProgramMutation.isPending
+                ? "Generating..."
+                : "Generate New Program"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1036,20 +1255,34 @@ export default function Settings() {
             >
               {isLoggingOut ? (
                 <span>
-                  <svg className="animate-spin h-4 w-4 inline-block mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  <svg
+                    className="animate-spin h-4 w-4 inline-block mr-2"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
                   </svg>
                   Logging out...
                 </span>
-              ) : "Logout from your account"}
+              ) : (
+                "Logout from your account"
+              )}
             </Button>
           </CardContent>
         </Card>
       </div>
-      
-
-      
     </div>
   );
 }
