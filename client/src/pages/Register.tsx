@@ -18,8 +18,6 @@ const Register = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ...existing code...
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -75,18 +73,22 @@ const Register = () => {
         console.log("✅ New user created:", data.user);
 
         // Optional: Insert record in your table
-        const { error: insertError } = await supabase.from("user_signups").insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-            password_hash: password, // ⚠️ Avoid in production
-            verified: false,
-          },
-        ]);
+        const { error: insertError } = await supabase
+          .from("user_signups")
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              password_hash: password, // ⚠️ Avoid in production
+              verified: false,
+            },
+          ]);
 
         if (insertError) console.error("❌ Insert error:", insertError);
 
-  toast.success("Registration Successful! Please check your email to verify your account.");
+        toast.success(
+          "Registration Successful! Please check your email to verify your account."
+        );
       }
     } catch (err) {
       console.error("🔥 Unexpected Error:", err);
@@ -179,8 +181,17 @@ const Register = () => {
         </Card>
       </div>
 
-  {/* ToastContainer for react-toastify */}
-  <ToastContainer position="top-right" autoClose={4000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+      {/* ToastContainer for react-toastify */}
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </>
   );
 };

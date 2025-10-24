@@ -20,7 +20,8 @@ import {
   Dumbbell,
   RefreshCw,
   Settings as SettingsIcon,
-  Loader2
+  Loader2,
+  LogOut
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -57,6 +58,7 @@ import { calculateAge } from "@shared/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { toggleEquipment as toggleEquipmentUtil } from "@/lib/equipmentUtils";
 import { DayPicker } from "@/components/DayPicker";
+import { supabase } from "@/lib/supabase";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -135,6 +137,16 @@ export default function Settings() {
       });
     },
   });
+
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    function handleLogout() {
+      setIsLoggingOut(true);
+      supabase.auth.signOut().then(() => {
+        setLocation("/login");
+      }).finally(() => {
+        setIsLoggingOut(false);
+      });
+    }
 
   // Separate mutation for program settings - no success toast (dialog provides feedback)
   const updateProgramSettingsMutation = useMutation({
@@ -1004,6 +1016,40 @@ export default function Settings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* logout button card */}
+      <div className="px-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-white" />
+              <CardTitle className="text-white">Logout</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="ghost"
+              className="w-full text-white border bg-red-600 border-red-600 hover:bg-red-600 hover:text-white"
+              onClick={handleLogout}
+              data-testid="button-logout"
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <span>
+                  <svg className="animate-spin h-4 w-4 inline-block mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Logging out...
+                </span>
+              ) : "Logout from your account"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+      
+
+      
     </div>
   );
 }

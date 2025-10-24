@@ -16,18 +16,50 @@
 // ==========================================
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Dumbbell, Target, TrendingUp, Settings, Sparkles, PlayCircle, Plus, Heart, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import {
+  Calendar,
+  Dumbbell,
+  Target,
+  TrendingUp,
+  Settings,
+  Sparkles,
+  PlayCircle,
+  Plus,
+  Heart,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { WorkoutProgram, WorkoutSession, ProgramWorkout, User, FitnessAssessment } from "@shared/schema";
+import type {
+  WorkoutProgram,
+  WorkoutSession,
+  ProgramWorkout,
+  User,
+  FitnessAssessment,
+} from "@shared/schema";
 import { useEffect, useState, useRef } from "react";
-import { parseLocalDate, formatLocalDate, isSameCalendarDay, isAfterCalendarDay, getTodayLocal } from "@shared/dateUtils";
+import {
+  parseLocalDate,
+  formatLocalDate,
+  isSameCalendarDay,
+  isAfterCalendarDay,
+  getTodayLocal,
+} from "@shared/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +68,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "@/contexts/AuthContext";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { CycleComplete } from "@/components/CycleComplete";
@@ -49,17 +81,23 @@ export default function Home() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showGenerationModal, setShowGenerationModal] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState<'generating' | 'success' | 'error'>('generating');
-  const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<
+    "generating" | "success" | "error"
+  >("generating");
+  const [showAssessmentRequiredDialog, setShowAssessmentRequiredDialog] =
+    useState(false);
   const [showCycleCompleteDialog, setShowCycleCompleteDialog] = useState(false);
   const [showCardioTypeDialog, setShowCardioTypeDialog] = useState(false);
-  const [selectedCardioType, setSelectedCardioType] = useState<'hiit' | 'steady-state' | 'zone-2'>('hiit');
+  const [selectedCardioType, setSelectedCardioType] = useState<
+    "hiit" | "steady-state" | "zone-2"
+  >("hiit");
   const [pendingCardioDate, setPendingCardioDate] = useState<Date | null>(null);
   const [showRepeatDaysDialog, setShowRepeatDaysDialog] = useState(false);
   const [selectedRepeatDates, setSelectedRepeatDates] = useState<string[]>([]);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
-  const [sessionToReschedule, setSessionToReschedule] = useState<WorkoutSession | null>(null);
-  
+  const [sessionToReschedule, setSessionToReschedule] =
+    useState<WorkoutSession | null>(null);
+
   // Track previous missed workout count to prevent repeated rescheduling
   const previousMissedCountRef = useRef<number>(0);
 
@@ -79,7 +117,9 @@ export default function Home() {
   const sessions = homeData?.sessions;
   const fitnessAssessments = homeData?.fitnessAssessments;
 
-  const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<ProgramWorkout[]>({
+  const { data: programWorkouts, isLoading: workoutsLoading } = useQuery<
+    ProgramWorkout[]
+  >({
     queryKey: ["/api/program-workouts", activeProgram?.id],
     enabled: !!activeProgram?.id,
   });
@@ -96,7 +136,6 @@ export default function Home() {
     enabled: !!activeProgram?.id && !!user,
   });
 
-
   const completeRestDayMutation = useMutation({
     mutationFn: async ({ sessionId }: { sessionId: string }) => {
       return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}`, {
@@ -105,14 +144,18 @@ export default function Home() {
       });
     },
     onSuccess: async () => {
-      console.log('[HOME] Rest day completed, refreshing all data...');
-      
+      console.log("[HOME] Rest day completed, refreshing all data...");
+
       // Force immediate refetch of all critical data
       await queryClient.refetchQueries({ queryKey: ["/api/home-data"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/program-workouts", activeProgram?.id] });
-      await queryClient.refetchQueries({ queryKey: ["/api/cycles/completion-check"] });
-      
-      console.log('[HOME] All data refreshed successfully');
+      await queryClient.refetchQueries({
+        queryKey: ["/api/program-workouts", activeProgram?.id],
+      });
+      await queryClient.refetchQueries({
+        queryKey: ["/api/cycles/completion-check"],
+      });
+
+      console.log("[HOME] All data refreshed successfully");
     },
     onError: (error: any) => {
       toast({
@@ -126,12 +169,20 @@ export default function Home() {
   const addCardioMutation = useMutation({
     mutationFn: async ({ date, type }: { date: Date; type: string }) => {
       const dateStr = formatLocalDate(date);
-      return await apiRequest("POST", `/api/programs/sessions/cardio/${dateStr}`, { cardioType: type });
+      return await apiRequest(
+        "POST",
+        `/api/programs/sessions/cardio/${dateStr}`,
+        { cardioType: type }
+      );
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      const typeDisplay = variables.type === 'hiit' ? 'HIIT' : 
-                          variables.type === 'steady-state' ? 'Steady State' : 'Zone 2';
+      const typeDisplay =
+        variables.type === "hiit"
+          ? "HIIT"
+          : variables.type === "steady-state"
+          ? "Steady State"
+          : "Zone 2";
       toast({
         title: "Cardio Session Added!",
         description: `${typeDisplay} cardio workout has been added to this rest day.`,
@@ -148,10 +199,20 @@ export default function Home() {
   });
 
   const rescheduleMutation = useMutation({
-    mutationFn: async ({ sessionId, newDate }: { sessionId: string; newDate: Date }) => {
-      return await apiRequest("PATCH", `/api/workout-sessions/${sessionId}/reschedule`, {
-        newDate: formatLocalDate(newDate),
-      });
+    mutationFn: async ({
+      sessionId,
+      newDate,
+    }: {
+      sessionId: string;
+      newDate: Date;
+    }) => {
+      return await apiRequest(
+        "PATCH",
+        `/api/workout-sessions/${sessionId}/reschedule`,
+        {
+          newDate: formatLocalDate(newDate),
+        }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
@@ -166,7 +227,8 @@ export default function Home() {
     onError: (error: any) => {
       toast({
         title: "Failed to Reschedule",
-        description: error.message || "Failed to reschedule workout. Please try again.",
+        description:
+          error.message || "Failed to reschedule workout. Please try again.",
         variant: "destructive",
       });
     },
@@ -188,12 +250,20 @@ export default function Home() {
   // STEP 2: Detect missed workouts (uncompleted sessions before today)
   // Example: If user has uncompleted workouts from Mon-Wed and today is Fri, count = 3
   const { data: missedWorkoutsResponse } = useQuery({
-    queryKey: ["/api/workout-sessions/missed", formatLocalDate(getTodayLocal())],
+    queryKey: [
+      "/api/workout-sessions/missed",
+      formatLocalDate(getTodayLocal()),
+    ],
     queryFn: async () => {
-      const response = await fetch(`/api/workout-sessions/missed?currentDate=${formatLocalDate(getTodayLocal())}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch missed workouts');
+      const response = await fetch(
+        `/api/workout-sessions/missed?currentDate=${formatLocalDate(
+          getTodayLocal()
+        )}`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) throw new Error("Failed to fetch missed workouts");
       return response.json();
     },
     enabled: !!user,
@@ -203,28 +273,37 @@ export default function Home() {
   // Used for automatic missed workout rescheduling
   const resetProgramMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/workout-sessions/reset-from-today", {
-        currentDate: formatLocalDate(getTodayLocal()),
-      });
+      return await apiRequest(
+        "POST",
+        "/api/workout-sessions/reset-from-today",
+        {
+          currentDate: formatLocalDate(getTodayLocal()),
+        }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["/api/workout-sessions/missed"],
+      });
+
       // Show success toast after confirmed reschedule
       toast({
         title: "Life Happens!",
-        description: "We've moved your missed workout to today. Your future workouts stay on their scheduled dates.",
+        description:
+          "We've moved your missed workout to today. Your future workouts stay on their scheduled dates.",
         duration: 5000,
       });
-      
+
       // Reset mutation state after success to allow future missed workouts to trigger auto-reschedule
       setTimeout(() => resetProgramMutation.reset(), 100);
     },
     onError: (error: any) => {
       toast({
         title: "Failed to Reschedule",
-        description: error.message || "Failed to reschedule missed workouts. Please reload the page to try again.",
+        description:
+          error.message ||
+          "Failed to reschedule missed workouts. Please reload the page to try again.",
         variant: "destructive",
         duration: 8000,
       });
@@ -242,7 +321,9 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions/missed"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/workout-sessions/missed"],
+      });
       toast({
         title: "Workouts Skipped",
         description: "Missed workouts have been marked as skipped.",
@@ -270,19 +351,23 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/workout-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cycles/completion-check"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/cycles/completion-check"],
+      });
       setShowRepeatDaysDialog(false);
       setShowGenerationModal(true);
-      setGenerationStatus('success');
+      setGenerationStatus("success");
       toast({
         title: "New Cycle Started!",
-        description: "Your next 7-day cycle has been created with your selected workout dates.",
+        description:
+          "Your next 7-day cycle has been created with your selected workout dates.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Failed to Start New Cycle",
-        description: error.message || "Failed to create new cycle. Please try again.",
+        description:
+          error.message || "Failed to create new cycle. Please try again.",
         variant: "destructive",
       });
     },
@@ -295,10 +380,10 @@ export default function Home() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/program-workouts"] });
-      setGenerationStatus('success');
+      setGenerationStatus("success");
     },
     onError: (error: any) => {
-      setGenerationStatus('error');
+      setGenerationStatus("error");
     },
   });
 
@@ -320,7 +405,7 @@ export default function Home() {
 
     // Proceed with program generation
     setShowGenerationModal(true);
-    setGenerationStatus('generating');
+    setGenerationStatus("generating");
     generateProgramMutation.mutate();
   };
 
@@ -337,14 +422,14 @@ export default function Home() {
   // GUARD: Only trigger when count transitions from 0 to >0 to prevent repeated calls
   useEffect(() => {
     const currentCount = missedWorkoutsResponse?.count || 0;
-    
+
     // Only trigger if:
     // 1. Previous count was 0 AND current count > 0 (newly detected missed workout)
     // 2. Mutation is not already running/succeeded/failed
     if (
       previousMissedCountRef.current === 0 &&
-      currentCount > 0 && 
-      !resetProgramMutation.isPending && 
+      currentCount > 0 &&
+      !resetProgramMutation.isPending &&
       !resetProgramMutation.isSuccess &&
       !resetProgramMutation.isError
     ) {
@@ -354,7 +439,7 @@ export default function Home() {
         resetProgramMutation.mutate();
       }
     }
-    
+
     // Update previous count for next check
     previousMissedCountRef.current = currentCount;
   }, [missedWorkoutsResponse?.count]);
@@ -366,15 +451,17 @@ export default function Home() {
     }
   }, [cycleCompletionCheck?.shouldPrompt]);
 
-  const completedSessions = sessions?.filter((s: any) => s.status === 'complete') || [];
+  const completedSessions =
+    sessions?.filter((s: any) => s.status === "complete") || [];
   const totalCompletedSessions = completedSessions.length;
 
   const formatDate = (dateString: string | Date) => {
-    const date = typeof dateString === 'string' ? parseLocalDate(dateString) : dateString;
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric' 
+    const date =
+      typeof dateString === "string" ? parseLocalDate(dateString) : dateString;
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -388,39 +475,42 @@ export default function Home() {
     return startOfWeek;
   };
 
-  const sessionsThisWeek = sessions?.filter((s: any) => {
-    if (!s.scheduledDate) return false;
-    const scheduledDate = parseLocalDate(s.scheduledDate);
-    return scheduledDate >= getStartOfWeek();
-  }) || [];
+  const sessionsThisWeek =
+    sessions?.filter((s: any) => {
+      if (!s.scheduledDate) return false;
+      const scheduledDate = parseLocalDate(s.scheduledDate);
+      return scheduledDate >= getStartOfWeek();
+    }) || [];
 
   // TODAY'S SESSION: Find session scheduled for today's exact date (exclude archived)
   // Prioritize incomplete sessions over completed ones
   const today = getTodayLocal();
-  
-  const todaySessions = sessions
-    ?.filter((s: any) => {
-      if (s.status === 'archived' || !s.scheduledDate) return false;
+
+  const todaySessions =
+    sessions?.filter((s: any) => {
+      if (s.status === "archived" || !s.scheduledDate) return false;
       const sessionDate = parseLocalDate(s.scheduledDate);
       return isSameCalendarDay(sessionDate, today);
     }) || [];
-  
+
   // Prefer workout sessions over rest sessions when there are multiple for the same day
   // This ensures newly added cardio sessions are displayed instead of old rest sessions
   const sortedTodaySessions = todaySessions.sort((a: any, b: any) => {
     // Workout sessions (including cardio) come before rest sessions
-    if (a.sessionType === 'workout' && b.sessionType === 'rest') return -1;
-    if (a.sessionType === 'rest' && b.sessionType === 'workout') return 1;
+    if (a.sessionType === "workout" && b.sessionType === "rest") return -1;
+    if (a.sessionType === "rest" && b.sessionType === "workout") return 1;
     return 0;
   });
-  
+
   // Always show today's session - whether incomplete or complete
   const todaySession = sortedTodaySessions[0] || null;
 
-  const todayWorkout = todaySession ? programWorkouts?.find(w => w.id === todaySession.programWorkoutId) : null;
+  const todayWorkout = todaySession
+    ? programWorkouts?.find((w) => w.id === todaySession.programWorkoutId)
+    : null;
   const isTodayRestDay = todaySession?.sessionType === "rest" || false;
-  const isTodayComplete = todaySession?.status === 'complete';
-  const isTodayPartial = todaySession?.status === 'partial';
+  const isTodayComplete = todaySession?.status === "complete";
+  const isTodayPartial = todaySession?.status === "partial";
 
   // Fetch workout sets for partial sessions to count completed exercises
   const { data: partialWorkoutSets } = useQuery<any[]>({
@@ -435,42 +525,50 @@ export default function Home() {
   });
 
   // Count completed exercises from partial workout
-  const partialExerciseCount = partialWorkoutSets ? 
-    new Set(partialWorkoutSets.map((s: any) => s.programExerciseId)).size : 0;
-  
+  const partialExerciseCount = partialWorkoutSets
+    ? new Set(partialWorkoutSets.map((s: any) => s.programExerciseId)).size
+    : 0;
+
   const totalExercises = programExercises?.length || 0;
-  
+
   // NEXT WORKOUT PREVIEW: Always show tomorrow's session (next calendar day), regardless of status
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-  
+
   const nextUpcomingSession = sessions
-    ?.filter((s: any) => s.status !== 'archived') // Only exclude archived
+    ?.filter((s: any) => s.status !== "archived") // Only exclude archived
     ?.find((s: any) => {
       if (!s.scheduledDate) return false;
       const sessionDate = parseLocalDate(s.scheduledDate);
       return isSameCalendarDay(sessionDate, tomorrow);
     });
 
-  const nextUpcomingWorkout = nextUpcomingSession ? programWorkouts?.find(w => w.id === nextUpcomingSession.programWorkoutId) : null;
-  
+  const nextUpcomingWorkout = nextUpcomingSession
+    ? programWorkouts?.find(
+        (w) => w.id === nextUpcomingSession.programWorkoutId
+      )
+    : null;
+
   const isProgramComplete = () => {
     if (!sessions || sessions.length === 0) return false;
     // Program is complete if all sessions are completed
-    return sessions.every((s: any) => s.status === 'complete');
+    return sessions.every((s: any) => s.status === "complete");
   };
 
   const programComplete = isProgramComplete();
 
   const getDaysSinceLastWorkout = () => {
     if (completedSessions.length === 0) return null;
-    const lastSession = completedSessions.reduce((latest: any, session: any) => {
-      const sessionDate = new Date(session.sessionDate);
-      const latestDate = new Date(latest.sessionDate);
-      return sessionDate > latestDate ? session : latest;
-    });
+    const lastSession = completedSessions.reduce(
+      (latest: any, session: any) => {
+        const sessionDate = new Date(session.sessionDate);
+        const latestDate = new Date(latest.sessionDate);
+        return sessionDate > latestDate ? session : latest;
+      }
+    );
     const daysSince = Math.floor(
-      (Date.now() - new Date(lastSession.sessionDate).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - new Date(lastSession.sessionDate).getTime()) /
+        (1000 * 60 * 60 * 24)
     );
     return daysSince;
   };
@@ -482,15 +580,15 @@ export default function Home() {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
-    
+
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - daysFromMonday);
     weekStart.setHours(0, 0, 0, 0);
-    
+
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
-    
-    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+
+    return `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d")}`;
   };
 
   const currentWeekRange = getCurrentWeekRange();
@@ -498,12 +596,16 @@ export default function Home() {
   // Get last session details (including rest days and skipped sessions)
   const getLastSession = () => {
     if (completedSessions.length === 0) return null;
-    const lastSession = completedSessions.reduce((latest: any, session: any) => {
-      const sessionDate = new Date(session.sessionDate);
-      const latestDate = new Date(latest.sessionDate);
-      return sessionDate > latestDate ? session : latest;
-    });
-    const workout = programWorkouts?.find(w => w.id === lastSession.programWorkoutId);
+    const lastSession = completedSessions.reduce(
+      (latest: any, session: any) => {
+        const sessionDate = new Date(session.sessionDate);
+        const latestDate = new Date(latest.sessionDate);
+        return sessionDate > latestDate ? session : latest;
+      }
+    );
+    const workout = programWorkouts?.find(
+      (w) => w.id === lastSession.programWorkoutId
+    );
     return { session: lastSession, workout };
   };
 
@@ -511,18 +613,42 @@ export default function Home() {
 
   const sessionsThisWeekCount = sessionsThisWeek.length;
 
-  const avgDuration = completedSessions.length > 0
-    ? Math.round(
-        completedSessions.reduce((sum: number, s: any) => sum + (s.durationMinutes || 0), 0) / 
-        completedSessions.length
-      )
-    : 0;
-  
+  const avgDuration =
+    completedSessions.length > 0
+      ? Math.round(
+          completedSessions.reduce(
+            (sum: number, s: any) => sum + (s.durationMinutes || 0),
+            0
+          ) / completedSessions.length
+        )
+      : 0;
+
   const stats = [
-    { label: "Sessions This Week", value: sessionsThisWeekCount.toString(), icon: Dumbbell },
-    { label: "Total Sessions", value: totalCompletedSessions.toString(), icon: Target },
-    { label: "Avg Duration", value: avgDuration > 0 ? `${avgDuration}m` : "N/A", icon: Calendar },
-    { label: "Days Since Last", value: daysSinceLastWorkout !== null ? `${daysSinceLastWorkout} ${daysSinceLastWorkout === 1 ? 'day' : 'days'}` : "N/A", icon: TrendingUp },
+    {
+      label: "Sessions This Week",
+      value: sessionsThisWeekCount.toString(),
+      icon: Dumbbell,
+    },
+    {
+      label: "Total Sessions",
+      value: totalCompletedSessions.toString(),
+      icon: Target,
+    },
+    {
+      label: "Avg Duration",
+      value: avgDuration > 0 ? `${avgDuration}m` : "N/A",
+      icon: Calendar,
+    },
+    {
+      label: "Days Since Last",
+      value:
+        daysSinceLastWorkout !== null
+          ? `${daysSinceLastWorkout} ${
+              daysSinceLastWorkout === 1 ? "day" : "days"
+            }`
+          : "N/A",
+      icon: TrendingUp,
+    },
   ];
 
   if (homeDataLoading || workoutsLoading) {
@@ -537,27 +663,31 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-20">
       <div className="p-6 space-y-6">
         <div className="flex items-start justify-between">
-
-
           <div>
-            <h1 className="text-3l font-bold mb-2" >Welcome Back!</h1>
-          
-            <p className="text-muted-foreground" data-testid="text-current-date">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                month: 'long', 
-                day: 'numeric',
-                year: 'numeric'
+            <h1 className="text-3l font-bold mb-2">Welcome Back!</h1>
+
+            <p
+              className="text-muted-foreground"
+              data-testid="text-current-date"
+            >
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
               })}
             </p>
             {user && user.cycleNumber !== null && user.cycleNumber > 0 && (
-              <Badge variant="secondary" className="mt-2" data-testid="badge-cycle-progress">
-                Cycle {user.cycleNumber} • {user.totalWorkoutsCompleted} Workouts Completed
+              <Badge
+                variant="secondary"
+                className="mt-2"
+                data-testid="badge-cycle-progress"
+              >
+                Cycle {user.cycleNumber} • {user.totalWorkoutsCompleted}{" "}
+                Workouts Completed
               </Badge>
             )}
           </div>
-          
-
 
           <Link href="/settings">
             <Button variant="ghost" size="icon" data-testid="button-settings">
@@ -566,29 +696,36 @@ export default function Home() {
           </Link>
         </div>
 
-          {authUser?.email && (
-              <div className="mt-2 w-full my-4 inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm">
-                <Dumbbell className="h-4 w-4 text-primary" />
-                <span className="text-sm">Signed in as <strong className="ml-1">{authUser.email}</strong></span>
-              </div>
-            )}
+        {authUser?.email && (
+          <div className="mt-2 w-full my-4 inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm">
+            <Dumbbell className="h-4 w-4 text-primary" />
+            <span className="text-sm">
+              Signed in as <strong className="ml-1">{authUser.email}</strong>
+            </span>
+          </div>
+        )}
 
         {!activeProgram ? (
           <Card>
             <CardHeader>
               <CardTitle>No Active Program</CardTitle>
-              <CardDescription>Generate a personalized workout program tailored to your fitness level, equipment, and goals</CardDescription>
+              <CardDescription>
+                Generate a personalized workout program tailored to your fitness
+                level, equipment, and goals
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 size="lg"
                 onClick={handleGenerateProgram}
                 disabled={generateProgramMutation.isPending || homeDataLoading}
                 data-testid="button-generate-program"
               >
                 <Sparkles className="h-5 w-5 mr-2" />
-                {generateProgramMutation.isPending ? "Generating..." : "Generate Workout Program"}
+                {generateProgramMutation.isPending
+                  ? "Generating..."
+                  : "Generate Workout Program"}
               </Button>
             </CardContent>
           </Card>
@@ -598,28 +735,35 @@ export default function Home() {
               <CardHeader>
                 <CardTitle>Today's Workout</CardTitle>
                 <CardDescription>
-                  {todaySession?.scheduledDate ? formatDate(todaySession.scheduledDate) : formatDate(new Date())}
+                  {todaySession?.scheduledDate
+                    ? formatDate(todaySession.scheduledDate)
+                    : formatDate(new Date())}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!todaySession ? (
                   <div className="text-center py-4">
-                    <p className="text-muted-foreground">No workout scheduled for today</p>
+                    <p className="text-muted-foreground">
+                      No workout scheduled for today
+                    </p>
                   </div>
                 ) : isTodayComplete ? (
                   <div className="text-center py-4">
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 mb-3">
                       <Target className="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-complete">
+                    <h3
+                      className="font-semibold text-lg mb-1"
+                      data-testid="text-workout-complete"
+                    >
                       Complete
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {isTodayRestDay 
+                      {isTodayRestDay
                         ? "Rest day completed"
                         : todaySession.workoutType === "cardio"
-                          ? "Cardio session completed"
-                          : todayWorkout?.workoutName || "Workout completed"}
+                        ? "Cardio session completed"
+                        : todayWorkout?.workoutName || "Workout completed"}
                     </p>
                   </div>
                 ) : isTodayPartial ? (
@@ -628,21 +772,28 @@ export default function Home() {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 mb-3">
                         <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                       </div>
-                      <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-partial">
+                      <h3
+                        className="font-semibold text-lg mb-1"
+                        data-testid="text-workout-partial"
+                      >
                         Partially Complete
                       </h3>
                       <p className="text-sm text-muted-foreground mb-1">
                         {todayWorkout?.workoutName}
                       </p>
-                      <p className="text-sm text-muted-foreground" data-testid="text-partial-progress">
-                        {partialExerciseCount} of {totalExercises} exercises completed
+                      <p
+                        className="text-sm text-muted-foreground"
+                        data-testid="text-partial-progress"
+                      >
+                        {partialExerciseCount} of {totalExercises} exercises
+                        completed
                       </p>
                     </div>
 
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       size="lg"
-                      onClick={() => setLocation('/workout')}
+                      onClick={() => setLocation("/workout")}
                       data-testid="button-resume-workout"
                     >
                       <PlayCircle className="h-5 w-5 mr-2" />
@@ -655,12 +806,17 @@ export default function Home() {
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-3">
                         <Calendar className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      <h3 className="font-semibold text-lg mb-1" data-testid="text-rest-day">Rest Day</h3>
+                      <h3
+                        className="font-semibold text-lg mb-1"
+                        data-testid="text-rest-day"
+                      >
+                        Rest Day
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         Recovery is part of the program
                       </p>
                     </div>
-                    
+
                     <Button
                       variant="default"
                       size="lg"
@@ -669,12 +825,15 @@ export default function Home() {
                         if (!todaySession?.scheduledDate) {
                           toast({
                             title: "Error",
-                            description: "Session date not loaded. Please refresh.",
+                            description:
+                              "Session date not loaded. Please refresh.",
                             variant: "destructive",
                           });
                           return;
                         }
-                        setPendingCardioDate(parseLocalDate(todaySession.scheduledDate));
+                        setPendingCardioDate(
+                          parseLocalDate(todaySession.scheduledDate)
+                        );
                         setShowCardioTypeDialog(true);
                       }}
                       data-testid="button-add-cardio-home"
@@ -683,7 +842,7 @@ export default function Home() {
                       Add Cardio Session
                     </Button>
 
-                    <Button 
+                    <Button
                       variant="outline"
                       size="lg"
                       className="w-full"
@@ -691,37 +850,47 @@ export default function Home() {
                         if (!todaySession?.id) {
                           toast({
                             title: "Error",
-                            description: "Session data not loaded. Please refresh.",
+                            description:
+                              "Session data not loaded. Please refresh.",
                             variant: "destructive",
                           });
                           return;
                         }
-                        completeRestDayMutation.mutate({ sessionId: todaySession.id });
+                        completeRestDayMutation.mutate({
+                          sessionId: todaySession.id,
+                        });
                       }}
                       disabled={completeRestDayMutation.isPending}
                       data-testid="button-complete-rest"
                     >
                       <Target className="h-5 w-5 mr-2" />
-                      {completeRestDayMutation.isPending ? "Completing..." : "Complete Rest Day"}
+                      {completeRestDayMutation.isPending
+                        ? "Completing..."
+                        : "Complete Rest Day"}
                     </Button>
                   </>
                 ) : (
                   <>
                     <div>
-                      <h3 className="font-semibold text-lg mb-1" data-testid="text-workout-name">
-                        {todaySession.workoutType === "cardio" ? "Zone 2 Cardio" : todayWorkout?.workoutName}
+                      <h3
+                        className="font-semibold text-lg mb-1"
+                        data-testid="text-workout-name"
+                      >
+                        {todaySession.workoutType === "cardio"
+                          ? "Zone 2 Cardio"
+                          : todayWorkout?.workoutName}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {todaySession.workoutType === "cardio" 
-                          ? "Low-intensity steady-state cardio" 
+                        {todaySession.workoutType === "cardio"
+                          ? "Low-intensity steady-state cardio"
                           : `Focus: ${todayWorkout?.movementFocus.join(", ")}`}
                       </p>
                     </div>
 
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       size="lg"
-                      onClick={() => setLocation('/workout')}
+                      onClick={() => setLocation("/workout")}
                       data-testid="button-start-workout"
                     >
                       <PlayCircle className="h-5 w-5 mr-2" />
@@ -738,7 +907,9 @@ export default function Home() {
                 <CardHeader>
                   <CardTitle>Next Workout</CardTitle>
                   <CardDescription>
-                    {nextUpcomingSession.scheduledDate ? formatDate(nextUpcomingSession.scheduledDate) : "Upcoming"}
+                    {nextUpcomingSession.scheduledDate
+                      ? formatDate(nextUpcomingSession.scheduledDate)
+                      : "Upcoming"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -750,7 +921,9 @@ export default function Home() {
                         </div>
                         <div>
                           <p className="font-medium">Rest Day</p>
-                          <p className="text-sm text-muted-foreground">Recovery</p>
+                          <p className="text-sm text-muted-foreground">
+                            Recovery
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -759,9 +932,12 @@ export default function Home() {
                           <Dumbbell className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{nextUpcomingWorkout.workoutName}</p>
+                          <p className="font-medium">
+                            {nextUpcomingWorkout.workoutName}
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            Focus: {nextUpcomingWorkout.movementFocus.join(", ")}
+                            Focus:{" "}
+                            {nextUpcomingWorkout.movementFocus.join(", ")}
                           </p>
                         </div>
                       </div>
@@ -778,8 +954,16 @@ export default function Home() {
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
                       <Target className="h-6 w-6 text-primary" />
                     </div>
-                    <h3 className="font-semibold mb-1" data-testid="text-program-complete">Program Complete!</h3>
-                    <p className="text-sm text-muted-foreground">Congratulations on completing your {activeProgram?.durationWeeks}-week program</p>
+                    <h3
+                      className="font-semibold mb-1"
+                      data-testid="text-program-complete"
+                    >
+                      Program Complete!
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Congratulations on completing your{" "}
+                      {activeProgram?.durationWeeks}-week program
+                    </p>
                     <p className="text-sm text-muted-foreground mt-2">
                       Generate a new program to continue your fitness journey
                     </p>
@@ -796,15 +980,24 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="font-semibold" data-testid="text-last-workout-name">
-                      {lastSession.session.sessionType === "rest" 
-                        ? "Rest Day" 
+                    <p
+                      className="font-semibold"
+                      data-testid="text-last-workout-name"
+                    >
+                      {lastSession.session.sessionType === "rest"
+                        ? "Rest Day"
                         : lastSession.session.workoutType === "cardio"
-                          ? "Zone 2 Cardio"
-                          : lastSession.workout?.workoutName || "Session"}
+                        ? "Zone 2 Cardio"
+                        : lastSession.workout?.workoutName || "Session"}
                     </p>
-                    <p className="text-sm text-muted-foreground" data-testid="text-last-workout-date">
-                      {formatDate(lastSession.session.scheduledDate || lastSession.session.sessionDate)}
+                    <p
+                      className="text-sm text-muted-foreground"
+                      data-testid="text-last-workout-date"
+                    >
+                      {formatDate(
+                        lastSession.session.scheduledDate ||
+                          lastSession.session.sessionDate
+                      )}
                     </p>
                     {lastSession.session.durationMinutes && (
                       <p className="text-sm text-muted-foreground">
@@ -834,10 +1027,18 @@ export default function Home() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="font-semibold" data-testid="text-program-type">{activeProgram.programType}</p>
-                  <p className="text-sm text-muted-foreground">{activeProgram.weeklyStructure}</p>
-                  <p className="text-sm text-muted-foreground mt-1" data-testid="text-program-week">
-                    {currentWeekRange} • {activeProgram.durationWeeks} week program
+                  <p className="font-semibold" data-testid="text-program-type">
+                    {activeProgram.programType}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {activeProgram.weeklyStructure}
+                  </p>
+                  <p
+                    className="text-sm text-muted-foreground mt-1"
+                    data-testid="text-program-week"
+                  >
+                    {currentWeekRange} • {activeProgram.durationWeeks} week
+                    program
                   </p>
                 </div>
                 {user?.equipment && user.equipment.length > 0 && (
@@ -845,10 +1046,12 @@ export default function Home() {
                     <p className="text-sm font-medium mb-2">Equipment</p>
                     <div className="flex flex-wrap gap-2">
                       {user.equipment.map((item, index) => (
-                        <span 
+                        <span
                           key={index}
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                          data-testid={`equipment-${item.toLowerCase().replace(/\s+/g, "-")}`}
+                          data-testid={`equipment-${item
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")}`}
                         >
                           {item}
                         </span>
@@ -857,7 +1060,11 @@ export default function Home() {
                   </div>
                 )}
                 <Link href="/program">
-                  <Button variant="outline" className="w-full" data-testid="button-view-program-details">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-view-program-details"
+                  >
                     View Program Details
                   </Button>
                 </Link>
@@ -877,10 +1084,17 @@ export default function Home() {
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold" data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <p
+                        className="text-2xl font-bold"
+                        data-testid={`stat-${stat.label
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}`}
+                      >
                         {stat.value}
                       </p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {stat.label}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -894,19 +1108,19 @@ export default function Home() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {generationStatus === 'generating' && (
+              {generationStatus === "generating" && (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Generating Your Program
                 </>
               )}
-              {generationStatus === 'success' && (
+              {generationStatus === "success" && (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-green-500" />
                   Program Generated!
                 </>
               )}
-              {generationStatus === 'error' && (
+              {generationStatus === "error" && (
                 <>
                   <XCircle className="h-5 w-5 text-destructive" />
                   Generation Failed
@@ -914,32 +1128,32 @@ export default function Home() {
               )}
             </DialogTitle>
             <DialogDescription>
-              {generationStatus === 'generating' && (
+              {generationStatus === "generating" && (
                 <>
-                  Creating your personalized workout program based on functional movement patterns...
+                  Creating your personalized workout program based on functional
+                  movement patterns...
                   <br />
                   This may take a few moments. Please wait.
                 </>
               )}
-              {generationStatus === 'success' && (
-                "Your personalized workout program has been created and is ready to use!"
-              )}
-              {generationStatus === 'error' && (
-                "Failed to generate workout program. Please try again."
-              )}
+              {generationStatus === "success" &&
+                "Your personalized workout program has been created and is ready to use!"}
+              {generationStatus === "error" &&
+                "Failed to generate workout program. Please try again."}
             </DialogDescription>
           </DialogHeader>
-          {(generationStatus === 'success' || generationStatus === 'error') && (
+          {(generationStatus === "success" || generationStatus === "error") && (
             <div className="flex justify-end">
-              <Button onClick={handleCloseGenerationModal}>
-                Close
-              </Button>
+              <Button onClick={handleCloseGenerationModal}>Close</Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAssessmentRequiredDialog} onOpenChange={setShowAssessmentRequiredDialog}>
+      <Dialog
+        open={showAssessmentRequiredDialog}
+        onOpenChange={setShowAssessmentRequiredDialog}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -947,18 +1161,19 @@ export default function Home() {
               Fitness Assessment Required
             </DialogTitle>
             <DialogDescription>
-              Complete your fitness assessment first to generate a personalized workout program tailored to your abilities and goals.
+              Complete your fitness assessment first to generate a personalized
+              workout program tailored to your abilities and goals.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 justify-end">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowAssessmentRequiredDialog(false)}
               data-testid="button-cancel-assessment"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setShowAssessmentRequiredDialog(false);
                 setLocation("/onboarding-assessment");
@@ -988,7 +1203,10 @@ export default function Home() {
       />
 
       {/* Repeat Cycle - Select New Dates Dialog */}
-      <Dialog open={showRepeatDaysDialog} onOpenChange={setShowRepeatDaysDialog}>
+      <Dialog
+        open={showRepeatDaysDialog}
+        onOpenChange={setShowRepeatDaysDialog}
+      >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -996,7 +1214,8 @@ export default function Home() {
               Select Your Next Workout Dates
             </DialogTitle>
             <DialogDescription>
-              Choose {user?.daysPerWeek || 3} days from the next 7 days for your next cycle
+              Choose {user?.daysPerWeek || 3} days from the next 7 days for your
+              next cycle
             </DialogDescription>
           </DialogHeader>
 
@@ -1021,22 +1240,32 @@ export default function Home() {
                 } else {
                   toast({
                     title: "Invalid Selection",
-                    description: `Please select exactly ${user?.daysPerWeek || 3} workout dates.`,
+                    description: `Please select exactly ${
+                      user?.daysPerWeek || 3
+                    } workout dates.`,
                     variant: "destructive",
                   });
                 }
               }}
-              disabled={selectedRepeatDates.length !== (user?.daysPerWeek || 3) || repeatCycleMutation.isPending}
+              disabled={
+                selectedRepeatDates.length !== (user?.daysPerWeek || 3) ||
+                repeatCycleMutation.isPending
+              }
               data-testid="button-confirm-repeat"
             >
-              {repeatCycleMutation.isPending ? "Creating..." : "Start New Cycle"}
+              {repeatCycleMutation.isPending
+                ? "Creating..."
+                : "Start New Cycle"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Cardio Type Selection Dialog */}
-      <Dialog open={showCardioTypeDialog} onOpenChange={setShowCardioTypeDialog}>
+      <Dialog
+        open={showCardioTypeDialog}
+        onOpenChange={setShowCardioTypeDialog}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1044,28 +1273,48 @@ export default function Home() {
               Choose Cardio Type
             </DialogTitle>
             <DialogDescription>
-              Select the type of cardio workout you want to add to this rest day.
+              Select the type of cardio workout you want to add to this rest
+              day.
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4">
-            <RadioGroup 
-              value={selectedCardioType} 
-              onValueChange={(value) => setSelectedCardioType(value as 'hiit' | 'steady-state' | 'zone-2')}
+            <RadioGroup
+              value={selectedCardioType}
+              onValueChange={(value) =>
+                setSelectedCardioType(
+                  value as "hiit" | "steady-state" | "zone-2"
+                )
+              }
               className="gap-4"
             >
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('hiit')}>
-                <RadioGroupItem value="hiit" id="hiit" data-testid="radio-cardio-hiit" />
+              <div
+                className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer"
+                onClick={() => setSelectedCardioType("hiit")}
+              >
+                <RadioGroupItem
+                  value="hiit"
+                  id="hiit"
+                  data-testid="radio-cardio-hiit"
+                />
                 <Label htmlFor="hiit" className="cursor-pointer flex-1">
                   <div className="font-medium">HIIT (5-10 min)</div>
                   <div className="text-sm text-muted-foreground">
-                    High-intensity intervals for maximum calorie burn and cardiovascular improvement
+                    High-intensity intervals for maximum calorie burn and
+                    cardiovascular improvement
                   </div>
                 </Label>
               </div>
 
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('steady-state')}>
-                <RadioGroupItem value="steady-state" id="steady-state" data-testid="radio-cardio-steady" />
+              <div
+                className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer"
+                onClick={() => setSelectedCardioType("steady-state")}
+              >
+                <RadioGroupItem
+                  value="steady-state"
+                  id="steady-state"
+                  data-testid="radio-cardio-steady"
+                />
                 <Label htmlFor="steady-state" className="cursor-pointer flex-1">
                   <div className="font-medium">Steady State (10-15 min)</div>
                   <div className="text-sm text-muted-foreground">
@@ -1074,8 +1323,15 @@ export default function Home() {
                 </Label>
               </div>
 
-              <div className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer" onClick={() => setSelectedCardioType('zone-2')}>
-                <RadioGroupItem value="zone-2" id="zone-2" data-testid="radio-cardio-zone2" />
+              <div
+                className="flex items-start space-x-3 p-3 rounded-lg border hover-elevate cursor-pointer"
+                onClick={() => setSelectedCardioType("zone-2")}
+              >
+                <RadioGroupItem
+                  value="zone-2"
+                  id="zone-2"
+                  data-testid="radio-cardio-zone2"
+                />
                 <Label htmlFor="zone-2" className="cursor-pointer flex-1">
                   <div className="font-medium">Zone 2 (15-20 min)</div>
                   <div className="text-sm text-muted-foreground">
@@ -1097,7 +1353,10 @@ export default function Home() {
             <Button
               onClick={() => {
                 if (pendingCardioDate) {
-                  addCardioMutation.mutate({ date: pendingCardioDate, type: selectedCardioType });
+                  addCardioMutation.mutate({
+                    date: pendingCardioDate,
+                    type: selectedCardioType,
+                  });
                 }
               }}
               disabled={addCardioMutation.isPending}
@@ -1124,9 +1383,17 @@ export default function Home() {
         open={showRescheduleDialog}
         onOpenChange={setShowRescheduleDialog}
         session={sessionToReschedule}
-        workout={sessionToReschedule ? programWorkouts?.find(w => w.id === sessionToReschedule.programWorkoutId) || null : null}
+        workout={
+          sessionToReschedule
+            ? programWorkouts?.find(
+                (w) => w.id === sessionToReschedule.programWorkoutId
+              ) || null
+            : null
+        }
         sessions={sessions || []}
-        onConfirm={(sessionId, newDate) => rescheduleMutation.mutate({ sessionId, newDate })}
+        onConfirm={(sessionId, newDate) =>
+          rescheduleMutation.mutate({ sessionId, newDate })
+        }
         isPending={rescheduleMutation.isPending}
       />
     </div>
