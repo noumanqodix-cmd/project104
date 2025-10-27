@@ -10,27 +10,20 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { calculateAge } from "@shared/utils";
-import { formatLocalDate } from "@shared/dateUtils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Body() {
+  const { user: authUser } = useAuth();
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
+    enabled: !!authUser,
   });
 
   // Include current date in query to ensure calories are calculated for user's timezone
   const currentDate = formatLocalDate(new Date());
   const { data: todayCaloriesData } = useQuery<{ calories: number }>({
     queryKey: ["/api/workout-sessions/calories/today", currentDate],
-    queryFn: async () => {
-      const response = await fetch(`/api/workout-sessions/calories/today?date=${currentDate}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch calories');
-      return response.json();
-    },
+    enabled: !!authUser,
   });
 
   const { toast } = useToast();
@@ -141,13 +134,9 @@ export default function Body() {
         weightValue = weightValue * 0.453592; // lbs to kg
       }
 
-      const response = await fetch("/api/auth/user/metrics", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          height: heightValue,
-          weight: weightValue
-        })
+      const response = await apiRequest("PATCH", "/api/auth/user/metrics", {
+        height: heightValue,
+        weight: weightValue
       });
 
       if (!response.ok) {

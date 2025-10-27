@@ -242,16 +242,6 @@ function OnboardingFlow() {
   return renderStep();
 }
 
-// Supabase session-based middleware
-// ...existing code...
-
-// function AppRoutes() {
-
-
-// }
-
-// ...existing code...
-
 function BodyweightTestRoute() {
   const [, setLocation] = useLocation();
 

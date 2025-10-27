@@ -153,7 +153,7 @@ export default function WorkoutPreview() {
       if (nextWorkout && nextWorkout.exercises) {
         nextWorkout.exercises.forEach(async (pe, index) => {
           try {
-            const response = await fetch(`/api/workout-sets?exerciseId=${pe.exercise.id}`);
+            const response = await apiRequest("GET", `/api/workout-sets?exerciseId=${pe.exercise.id}`);
             if (response.ok) {
               const sets: WorkoutSet[] = await response.json();
               

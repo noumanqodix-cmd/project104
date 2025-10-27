@@ -74,12 +74,12 @@ export default function EquipmentSelector({ onComplete }: EquipmentSelectorProps
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <Card className="p-8 max-w-6xl w-full">
-        <h2 className="text-3xl font-bold mb-3">What equipment do you have?</h2>
+        <h2 className="text-3xl font-bold mb-3"  >What equipment do you have?</h2>
         <p className="text-muted-foreground mb-8">
-          Select all that apply. Don't worry if you have none!
+          Select all that apply. Don't worry if you have none
         </p>
 
-        <div className="space-y-8 mb-8">
+        <div  className="space-y-8 mb-8">
           {equipmentCategories.map((category) => (
             <div key={category.category}>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">

@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { supabase } from "./supabase";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,9 +13,24 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // Get the current session to include auth token
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const headers: Record<string, string> = {};
+  
+  // Add Content-Type header if there's data
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Add Authorization header if user is logged in
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -26,8 +42,19 @@ export async function apiRequest(
 export const getQueryFn: <T>() => QueryFunction<T> =
   () =>
   async ({ queryKey }) => {
+    // Get the current session to include auth token
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: Record<string, string> = {};
+    
+    // Add Authorization header if user is logged in
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+    
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers,
     });
 
     await throwIfResNotOk(res);

@@ -110,6 +110,7 @@ export default function Home() {
     fitnessAssessments: FitnessAssessment[];
   }>({
     queryKey: ["/api/home-data"],
+    enabled: !!authUser,
   });
 
   const user = homeData?.user;
@@ -133,7 +134,7 @@ export default function Home() {
     selectedDates: string[];
   }>({
     queryKey: ["/api/cycles/completion-check"],
-    enabled: !!activeProgram?.id && !!user,
+    enabled: !!activeProgram?.id && !!user && !!authUser,
   });
 
   const completeRestDayMutation = useMutation({
@@ -254,19 +255,7 @@ export default function Home() {
       "/api/workout-sessions/missed",
       formatLocalDate(getTodayLocal()),
     ],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/workout-sessions/missed?currentDate=${formatLocalDate(
-          getTodayLocal()
-        )}`,
-        {
-          credentials: "include",
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch missed workouts");
-      return response.json();
-    },
-    enabled: !!user,
+    enabled: !!authUser,
   });
 
   // MUTATION: Reset Program - Moves missed workout to today, preserves future dates

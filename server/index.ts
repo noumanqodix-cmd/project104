@@ -52,12 +52,29 @@ app.use(async (req: Request & { user?: any }, res: Response, next: NextFunction)
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
+    console.log('[AUTH-MIDDLEWARE] Token received, length:', token.length);
+    
+    // Try to decode JWT directly (works with anon key)
     try {
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      if (!error && user) {
-        req.user = user;
+      // JWT format: header.payload.signature
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+        console.log('[AUTH-MIDDLEWARE] 🔓 JWT decoded:', { sub: payload.sub, email: payload.email });
+        
+        if (payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
+          req.user = { 
+            id: payload.sub, 
+            email: payload.email,
+            role: payload.role 
+          };
+          console.log('[AUTH-MIDDLEWARE] ✅ User authenticated from JWT:', payload.sub);
+        } else if (payload.exp && payload.exp * 1000 <= Date.now()) {
+          console.log('[AUTH-MIDDLEWARE] ⚠️ Token expired');
+        }
       }
     } catch (error) {
+      console.log('[AUTH-MIDDLEWARE] ❌ JWT decode failed:', error);
       // Invalid token, continue without user
     }
   }

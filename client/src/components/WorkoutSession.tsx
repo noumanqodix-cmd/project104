@@ -605,14 +605,7 @@ export default function WorkoutSession({ onComplete }: WorkoutSessionProps) {
         }
 
         if (shouldUpdate) {
-          const response = await fetch(`/api/programs/exercises/${currentExercise.id}/update-weight`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(updates),
-          });
+          const response = await apiRequest("PATCH", `/api/programs/exercises/${currentExercise.id}/update-weight`, updates);
           
           if (response.ok) {
             const updatedWithProgression = exercises.map((ex, idx) => 

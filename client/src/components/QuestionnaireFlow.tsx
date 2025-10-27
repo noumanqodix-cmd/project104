@@ -72,13 +72,25 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
     }, {} as Record<string, Array<{ id: string; label: string; icon: any }>>);
 
     // Convert to array format with proper ordering
-    const categoryOrder = ['bodyweight', 'weights', 'cardio', 'other'];
-    return categoryOrder
+    // Use all categories from API, ordered by displayOrder from the first item in each category
+    const categoryOrder = Object.keys(grouped)
+      .sort((a, b) => {
+        // Find the first item in each category to get displayOrder
+        const aItem = equipmentData.find(item => (item.category || 'other') === a);
+        const bItem = equipmentData.find(item => (item.category || 'other') === b);
+        const aOrder = aItem?.displayOrder ?? 999;
+        const bOrder = bItem?.displayOrder ?? 999;
+        return aOrder - bOrder;
+      });
+
+    const result = categoryOrder
       .filter(cat => grouped[cat] && grouped[cat].length > 0)
       .map(cat => ({
         category: formatCategoryName(cat),
         items: grouped[cat]
       }));
+
+    return result;
   }, [equipmentData]);
 
   const handleEquipmentToggle = (equipmentId: string) => {
@@ -291,6 +303,7 @@ export default function QuestionnaireFlow({ onComplete, onBack }: QuestionnaireF
             </div>
           </Card>
         )}
+
 
         <div className="mt-6 flex justify-end">
           <Button

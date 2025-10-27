@@ -218,11 +218,25 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Returns: User object with all profile data (name, settings, metrics, etc.)
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+
+      console.log('[GET /api/auth/user] Request received. User ID from session:', userId);
+
+      if (!userId) {
+        console.log('[GET /api/auth/user] No user ID in session - returning 401');
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
+      console.log('[GET /api/auth/user] Fetching user from database with ID:', userId);
       const user = await storage.getUser(userId);
+      
       if (!user) {
+        console.log('[GET /api/auth/user] User not found in database for ID:', userId);
         return res.status(404).json({ error: "User not found" });
       }
+      
+      console.log('[GET /api/auth/user] User found successfully:', user.email);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -233,7 +247,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Update user metrics (height and weight)
   app.patch('/api/auth/user/metrics', async (req: any, res) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { height, weight } = req.body;
 
       if (!height && !weight) {
@@ -269,18 +288,26 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // POST /api/auth/sync-user - Sync Supabase user with our database
   app.post('/api/auth/sync-user', async (req: Request & { user?: any }, res: Response) => {
     try {
+      console.log('[SYNC-USER] Request received');
+      console.log('[SYNC-USER] Auth header:', req.headers.authorization ? 'Present' : 'Missing');
+      console.log('[SYNC-USER] req.user:', req.user);
+      
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
+        console.log('[SYNC-USER] No user ID in request - returning 401');
+        return res.status(401).json({ error: "Unauthorized - no user session found" });
       }
 
+      console.log('[SYNC-USER] User ID from session:', userId);
       const { email, firstName, lastName } = req.body;
+      console.log('[SYNC-USER] Body data:', { email, firstName, lastName });
 
       // Check if user exists in our database
       let user = await storage.getUser(userId);
       
       if (!user) {
         // Create new user record
+        console.log('[SYNC-USER] User not found in DB - creating new record');
         user = await storage.createUser({
           id: userId,
           email: email || req.user.email,
@@ -290,9 +317,10 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
           unitPreference: 'imperial',
           equipment: ['bodyweight'],
         });
-        console.log(`Created new user record for ${userId}`);
+        console.log(`[SYNC-USER] ✅ Created new user record for ${userId}`);
       } else {
         // Update existing user if needed
+        console.log('[SYNC-USER] User found in DB - checking for updates');
         const updates: any = {};
         if (email && user.email !== email) updates.email = email;
         if (firstName && user.firstName !== firstName) updates.firstName = firstName;
@@ -300,13 +328,15 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
         
         if (Object.keys(updates).length > 0) {
           user = await storage.updateUser(userId, updates);
-          console.log(`Updated user record for ${userId}`);
+          console.log(`[SYNC-USER] ✅ Updated user record for ${userId}`);
+        } else {
+          console.log('[SYNC-USER] ✅ No updates needed - user data is current');
         }
       }
 
       res.json({ user });
     } catch (error) {
-      console.error("Sync user error:", error);
+      console.error("[SYNC-USER] ❌ Error:", error);
       res.status(500).json({ error: "Failed to sync user" });
     }
   });
@@ -411,7 +441,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Side effect: Automatically generates first workout program
   app.post("/api/onboarding-assessment/complete", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { fitnessTest, weightsTest, experienceLevel, startDate, ...profileData} = req.body;
       
       // Convert dateOfBirth string to Date object if present
@@ -638,7 +673,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Complete onboarding after OIDC login - saves assessment and program data
   app.post("/api/auth/complete-onboarding", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Check if user already has existing programs or assessments
@@ -804,7 +844,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Force complete onboarding - bypasses existing data check (user confirmed replacement)
   app.post("/api/auth/complete-onboarding-force", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const { fitnessTest, weightsTest, experienceLevel, generatedProgram, startDate, ...profileData } = req.body;
       
       // Update user profile with onboarding data
@@ -1008,7 +1053,13 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.put("/api/user/unit-preference", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { unitPreference } = req.body;
       
       if (!unitPreference || !['imperial', 'metric'].includes(unitPreference)) {
@@ -1034,7 +1085,13 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Fitness Assessment routes
   app.post("/api/fitness-assessments", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       console.log("Fitness assessment request. UserID:", userId);
 
       const validatedData = insertFitnessAssessmentSchema.parse({
@@ -1052,7 +1109,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/fitness-assessments", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const assessments = await storage.getUserFitnessAssessments(userId);
       res.json(assessments);
@@ -1063,7 +1125,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/fitness-assessments/latest", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const assessment = await storage.getLatestFitnessAssessment(userId);
       res.json(assessment || null);
@@ -1074,7 +1141,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.patch("/api/fitness-assessments/:id/override", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const assessmentId = req.params.id;
       const overrideData = req.body;
 
@@ -1097,7 +1169,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Exercise routes
   app.post("/api/exercises/seed", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const existingExercises = await storage.getAllExercises();
       if (existingExercises.length > 0) {
@@ -1482,7 +1558,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Workout Program routes
   app.post("/api/programs/generate", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { startDate } = req.body;
       const user = await storage.getUser(userId);
       if (!user) {
@@ -1694,7 +1775,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Regenerate program endpoint (alias to generate for Settings page)
   app.post("/api/programs/regenerate", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+      
       const { startDate, selectedDates } = req.body;
       console.log("[REGENERATE] Received request with selectedDates:", selectedDates, "length:", selectedDates?.length);
       const user = await storage.getUser(userId);
@@ -2032,7 +2118,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/programs/active", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const program = await storage.getUserActiveProgram(userId);
       res.json(program || null);
@@ -2063,7 +2154,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // }
   app.get("/api/cycles/completion-check", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Get user data 
       const user = await storage.getUser(userId);
@@ -2112,7 +2208,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/programs/archived", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const allPrograms = await storage.getUserPrograms(userId);
       const archivedPrograms = allPrograms.filter(p => p.isActive === 0 && p.archivedDate !== null);
@@ -2124,7 +2225,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/program-workouts/:programId", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
@@ -2145,7 +2251,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/programs/:programId", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const program = await storage.getWorkoutProgram(req.params.programId);
       if (!program) {
@@ -2179,7 +2290,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.patch("/api/programs/exercises/:exerciseId/update-weight", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      // Get user ID from Supabase session
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const { recommendedWeight, repsMin, repsMax } = req.body;
       
@@ -2221,7 +2337,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.patch("/api/programs/exercises/:exerciseId/swap", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const { newExerciseId, equipment } = req.body;
       
@@ -2267,7 +2387,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Workout Session routes
   app.post("/api/workout-sessions", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Use currentDate from frontend if provided, otherwise use server's date as fallback
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
@@ -2355,7 +2479,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Convert rest day session to cardio session with user-selected type
   app.post("/api/programs/sessions/cardio/:date", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const scheduledDate = req.params.date;
       const cardioType = req.body?.cardioType || 'zone-2'; // Default to zone-2 if not specified
 
@@ -2551,7 +2680,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.post("/api/workout-sessions/archive-old", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Use currentDate from frontend if provided, otherwise use server's date as fallback
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
@@ -2598,7 +2731,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Get missed workouts - detects pending workouts from past dates
   app.get("/api/workout-sessions/missed", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const currentDateString = req.query.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2629,7 +2767,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Reset program from today - reschedule ONLY missed workouts to today, preserve future dates
   app.post("/api/workout-sessions/reset-from-today", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2722,7 +2865,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Skip missed workouts - mark all missed sessions as skipped
   app.post("/api/workout-sessions/skip-missed", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const currentDateString = req.body.currentDate || formatLocalDate(new Date());
       const today = parseLocalDate(currentDateString);
 
@@ -2765,7 +2913,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.patch("/api/workout-sessions/:sessionId", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Get the old session to check if completion status is changing
       const oldSession = await storage.getWorkoutSession(req.params.sessionId);
@@ -2870,7 +3022,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Manual workout rescheduling endpoint
   app.patch("/api/workout-sessions/:sessionId/reschedule", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const { newDate } = req.body;
 
       if (!newDate) {
@@ -2938,8 +3095,12 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/workout-sessions/paginated", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
       
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
+
       const limit = parseInt(req.query.limit as string) || 30;
       const offset = parseInt(req.query.offset as string) || 0;
       const startDate = req.query.startDate as string | undefined;
@@ -2955,7 +3116,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/workout-sessions", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const sessions = await storage.getUserSessions(userId);
       res.json(sessions);
@@ -2966,7 +3131,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/workout-sessions/calories/today", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Use date from query parameter if provided, otherwise use server's date as fallback
       const currentDateString = (req.query.date as string) || formatLocalDate(new Date());
@@ -2988,7 +3157,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // Workout Set routes
   app.post("/api/workout-sets", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const validatedData = insertWorkoutSetSchema.parse(req.body);
       const set = await storage.createWorkoutSet(validatedData);
@@ -3001,7 +3174,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.put("/api/workout-sets/:setId", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // First get the set to verify ownership
       const existingSet = await storage.getWorkoutSet(req.params.setId);
@@ -3024,7 +3201,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/workout-sessions/:sessionId/sets", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       // Verify ownership: session -> userId
       const session = await storage.getWorkoutSession(req.params.sessionId);
@@ -3045,7 +3226,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.get("/api/workout-sets", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const exerciseId = req.query.exerciseId as string;
       if (!exerciseId) {
@@ -3062,7 +3247,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
   // AI Recommendation routes
   app.post("/api/ai/progression-recommendation", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const { exerciseName, recentPerformance } = req.body;
       const recommendation = await generateProgressionRecommendation(
@@ -3078,7 +3267,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.post("/api/ai/exercise-swap", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const { currentExerciseName, targetMovementPattern, availableEquipment, reason } = req.body;
       const suggestions = await suggestExerciseSwap(
@@ -3096,7 +3289,11 @@ export async function registerRoutes(app: Express, supabase: SupabaseClient): Pr
 
   app.post("/api/exercises/similar", async (req: any, res: Response) => {
     try {
-      const userId = "default-user"; // Using default user since authentication is removed
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
+      }
 
       const { exerciseId, movementPattern, primaryMuscles, currentEquipment } = req.body;
       

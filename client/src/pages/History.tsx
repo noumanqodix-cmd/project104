@@ -2,35 +2,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Dumbbell, TrendingUp, FileText, Archive } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
-import type { WorkoutSession, WorkoutProgram, ProgramWorkout } from "@shared/schema";
-import { CalendarView } from "@/components/CalendarView";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function History() {
+  const { user: authUser } = useAuth();
   const { data: sessions, isLoading: sessionsLoading } = useQuery<WorkoutSession[]>({
     queryKey: ["/api/workout-sessions"],
+    enabled: !!authUser,
   });
 
   const { data: activeProgram, isLoading: activeProgramLoading } = useQuery<WorkoutProgram>({
     queryKey: ["/api/programs/active"],
+    enabled: !!authUser,
   });
 
   const { data: activeProgramWorkouts } = useQuery<ProgramWorkout[]>({
     queryKey: ["/api/program-workouts", activeProgram?.id],
-    queryFn: async () => {
-      if (!activeProgram?.id) return [];
-      const response = await fetch(`/api/program-workouts/${activeProgram.id}`, {
-        credentials: "include",
-      });
-      if (!response.ok) return [];
-      return await response.json();
-    },
-    enabled: !!activeProgram?.id,
+    enabled: !!activeProgram?.id && !!authUser,
   });
 
   const { data: archivedPrograms, isLoading: archivedProgramsLoading } = useQuery<WorkoutProgram[]>({
     queryKey: ["/api/programs/archived"],
+    enabled: !!authUser,
   });
 
   // Calculate stats across ALL completed sessions (cumulative across all cycles/programs)
