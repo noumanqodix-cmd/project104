@@ -9,9 +9,10 @@ interface DayPickerProps {
   initialSelectedDates?: string[];
   onBack?: () => void;
   onConfirm?: () => void;  // Optional confirm button for onboarding flow
+  confirmLoading?: boolean; // Loading state for confirm button
 }
 
-export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, onBack, onConfirm }: DayPickerProps) {
+export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, onBack, onConfirm, confirmLoading }: DayPickerProps) {
   const [selectedDates, setSelectedDates] = useState<string[]>(initialSelectedDates || []);
 
   // Sync with initialSelectedDates when it changes (e.g., from async data load or parent reset)
@@ -59,7 +60,7 @@ export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, 
   const canAddMore = selectedDates.length < daysPerWeek;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       {onBack && (
         <div className="mb-4">
           <Button
@@ -137,6 +138,7 @@ export function DayPicker({ daysPerWeek, onDatesSelected, initialSelectedDates, 
         <div className="flex justify-end pt-4">
           <Button
             size="lg"
+            isLoading={confirmLoading}
             onClick={onConfirm}
             disabled={!hasCorrectNumber}
             data-testid="button-confirm-dates"

@@ -3,6 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Dumbbell, TrendingUp, FileText, Archive } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarView } from "@/components/CalendarView";
+import { ProgramWorkout, WorkoutProgram, WorkoutSession } from "@shared/schema";
+import { format } from "date-fns";
 
 export default function History() {
   const { user: authUser } = useAuth();

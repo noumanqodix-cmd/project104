@@ -10,7 +10,7 @@ interface TestTypeSelectorProps {
 export default function TestTypeSelector({ onSelect, onBack }: TestTypeSelectorProps) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="p-8 max-w-2xl w-full">
+      <Card className="p-2 md:p-8 max-w-full md:max-w-4xl w-full">
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -29,7 +29,7 @@ export default function TestTypeSelector({ onSelect, onBack }: TestTypeSelectorP
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 grid-cols-1 gap-6">
           <Card 
             className="p-6"
             data-testid="card-bodyweight-test"

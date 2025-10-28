@@ -71,7 +71,7 @@ export default function OnboardingAssessment() {
   
   // STATE: Selected dates for workout cycle (replaces selectedDays)
   // Array of calendar dates (YYYY-MM-DD strings) chosen by user for their workouts
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);  
 
   // ==========================================
   // MUTATION: Submit Complete Onboarding Data
@@ -195,6 +195,7 @@ export default function OnboardingAssessment() {
       console.log('[ONBOARDING] Prepared complete data:', completeData);
       console.log('[ONBOARDING] Triggering mutation...');
       completeAssessmentMutation.mutate(completeData);
+
     } catch (error) {
       console.error('[ONBOARDING] Error in handleDateSelection:', error);
       toast({
@@ -277,6 +278,7 @@ export default function OnboardingAssessment() {
             daysPerWeek={questionnaireData?.availability?.daysPerWeek || 3}
             onDatesSelected={(dates) => setSelectedDates(dates)}  // Just update state, don't submit
             initialSelectedDates={selectedDates}  // Preserve selections if user goes back
+            confirmLoading={completeAssessmentMutation.isPending}
             onBack={() => {
               // Go back to the appropriate test step
               if (testType === "bodyweight") {

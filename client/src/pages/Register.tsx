@@ -90,6 +90,12 @@ const Register = () => {
           "Registration Successful! Please check your email to verify your account."
         );
       }
+
+      // reset fields on success
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+
     } catch (err) {
       console.error("🔥 Unexpected Error:", err);
       setError("Network error. Please try again.");
