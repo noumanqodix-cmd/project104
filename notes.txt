@@ -1,6 +1,16 @@
 
-# build command
+# Build command
 
 VITE_SUPABASE_URL="https://guvpoifxhpypgrjrejjh.supabase.co" \
 VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1dnBvaWZ4aHB5cGdyanJlampoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MDIyODQsImV4cCI6MjA3NTk3ODI4NH0.oI1-jvU-Oioov3fWgxNPy83eSl7VoAbhzO3H5G5AoRo" \
 npm run build
+
+# PowerShell build command (use this on Windows)
+$env:VITE_SUPABASE_URL="https://guvpoifxhpypgrjrejjh.supabase.co"; $env:VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1dnBvaWZ4aHB5cGdyanJlampoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MDIyODQsImV4cCI6MjA3NTk3ODI4NH0.oI1-jvU-Oioov3fWgxNPy83eSl7VoAbhzO3H5G5AoRo"; npm run build
+
+# Quick Deploy (after uploading ecosystem.config.cjs to VPS)
+# On VPS run:
+pm2 stop morphit && pm2 delete morphit && pm2 start ecosystem.config.cjs --env production && pm2 save
+
+# Or use the automated deployment script:
+# .\deploy.ps1
