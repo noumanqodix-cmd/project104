@@ -187,33 +187,45 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
         </p>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="height">
-                Height ({isMetric ? 'cm' : 'in'})
-              </Label>
-              <Input
-                id="height"
-                type="number"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                placeholder={isMetric ? '170' : '68'}
-                data-testid="input-height"
-              />
+
+          <div className="space-y-6">
+
+          
+            <div className="grid grid-cols-2 gap-4">
+
+                <div className="space-y-2">
+                  <Label htmlFor="height">
+                    Height ({isMetric ? 'cm' : 'in'})
+                  </Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    placeholder={isMetric ? '170' : '68'}
+                    data-testid="input-height"
+                  />
+                </div>
+
+
+                <div className="space-y-2">
+                  <Label htmlFor="weight">
+                    Weight ({isMetric ? 'kg' : 'lbs'})
+                  </Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    placeholder={isMetric ? '70' : '155'}
+                    data-testid="input-weight"
+                  />
+                </div>
+              
+
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="weight">
-                Weight ({isMetric ? 'kg' : 'lbs'})
-              </Label>
-              <Input
-                id="weight"
-                type="number"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                placeholder={isMetric ? '70' : '155'}
-                data-testid="input-weight"
-              />
-            </div>
+
+
             <div className="space-y-2">
               <Label>Birthday</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -265,8 +277,11 @@ export default function NutritionAssessment({ onComplete }: NutritionAssessmentP
                     ))}
                   </SelectContent>
                 </Select>
+              
               </div>
             </div>
+        
+        
           </div>
 
           <div className="space-y-3">
