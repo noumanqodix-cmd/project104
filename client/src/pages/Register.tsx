@@ -14,6 +14,9 @@ const Register = () => {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +98,6 @@ const Register = () => {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
-
     } catch (err) {
       console.error("🔥 Unexpected Error:", err);
       setError("Network error. Please try again.");
@@ -122,6 +124,31 @@ const Register = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="First Nmae">First Name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                placeholder="Enter your first name"
+              />
+            </div>
+
+            {/* last name */}
+            <div>
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                placeholder="Enter your last name"
+              />
+            </div>
+
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
