@@ -61,6 +61,7 @@ app.use(async (req: Request & { user?: any }, res: Response, next: NextFunction)
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
         console.log('[AUTH-MIDDLEWARE] 🔓 JWT decoded:', { sub: payload.sub, email: payload.email });
+        console.log('[AUTH-MIDDLEWARE] 📋 Full payload:', JSON.stringify(payload, null, 2));
         
         if (payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
           req.user = { 

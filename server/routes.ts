@@ -34,7 +34,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import bcrypt  from "bcrypt"
+import * as bcrypt from "bcrypt";
 import { db } from "./db";
 import {
   fitnessAssessments,
@@ -354,7 +354,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
     const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json({
-      message: "User registered successfully",
+      message: "Account Registered Successfully",
       user: userWithoutPassword,
     });
   } catch (error) {
