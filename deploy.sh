@@ -29,6 +29,12 @@ rsync -avz --progress dist/ ${VPS_HOST}:${VPS_PATH}/dist/
 # Upload ecosystem config
 rsync -avz --progress ecosystem.config.cjs ${VPS_HOST}:${VPS_PATH}/
 
+# Upload nginx config
+rsync -avz --progress morphit.nginx.conf ${VPS_HOST}:/etc/nginx/sites-available/morphit.rjautonomous.com
+
+# Upload environment file
+rsync -avz --progress .env.production ${VPS_HOST}:${VPS_PATH}/.env
+
 # Upload package files (in case dependencies changed)
 rsync -avz --progress package*.json ${VPS_HOST}:${VPS_PATH}/
 
@@ -42,6 +48,11 @@ npm install --production
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
+
+# Setup nginx
+sudo ln -sf /etc/nginx/sites-available/morphit.rjautonomous.com /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
 
 # Restart PM2 with production environment
 pm2 stop morphit

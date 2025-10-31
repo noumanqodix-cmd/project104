@@ -14,3 +14,11 @@ pm2 stop morphit && pm2 delete morphit && pm2 start ecosystem.config.cjs --env p
 
 # Or use the automated deployment script:
 # .\deploy.ps1
+
+# Troubleshooting 502 Bad Gateway:
+# 1. Check if PM2 is running: pm2 list
+# 2. Check app logs: pm2 logs morphit
+# 3. Check nginx config: sudo nginx -t
+# 4. Restart nginx: sudo systemctl reload nginx
+# 5. Check if port 5005 is in use: netstat -tlnp | grep 5005
+# 6. Restart app: pm2 restart morphit

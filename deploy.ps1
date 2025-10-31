@@ -33,11 +33,15 @@ if (Get-Command wsl -ErrorAction SilentlyContinue) {
     # Upload using WSL rsync
     wsl rsync -avz --progress "$wslPath/dist/" "${VPS_HOST}:${VPS_PATH}/dist/"
     wsl rsync -avz --progress "$wslPath/ecosystem.config.cjs" "${VPS_HOST}:${VPS_PATH}/"
+    wsl rsync -avz --progress "$wslPath/morphit.nginx.conf" "${VPS_HOST}:/etc/nginx/sites-available/morphit.rjautonomous.com"
+    wsl rsync -avz --progress "$wslPath/.env.production" "${VPS_HOST}:${VPS_PATH}/.env"
     wsl rsync -avz --progress "$wslPath/package*.json" "${VPS_HOST}:${VPS_PATH}/"
 } else {
     Write-Host "⚠️ WSL not found. Using SCP instead..." -ForegroundColor Yellow
     scp -r dist/* "${VPS_HOST}:${VPS_PATH}/dist/"
     scp ecosystem.config.cjs "${VPS_HOST}:${VPS_PATH}/"
+    scp morphit.nginx.conf "${VPS_HOST}:/etc/nginx/sites-available/morphit.rjautonomous.com"
+    scp .env.production "${VPS_HOST}:${VPS_PATH}/.env"
     scp package*.json "${VPS_HOST}:${VPS_PATH}/"
 }
 
@@ -47,6 +51,12 @@ $sshCommands = @"
 cd /var/www/morphit.rjautonomous.com
 npm install --production
 mkdir -p logs
+
+# Setup nginx
+sudo ln -sf /etc/nginx/sites-available/morphit.rjautonomous.com /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
 pm2 stop morphit
 pm2 delete morphit
 pm2 start ecosystem.config.cjs --env production
