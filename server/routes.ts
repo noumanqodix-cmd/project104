@@ -294,7 +294,7 @@ export async function registerRoutes(
 // Requires: firstName, lastName, email, password
 
 // At the top of your file with other imports
-const SALT_ROUNDS = 783;
+const SALT_ROUNDS = 10;
 
 // POST /api/auth/register - create a new user
 app.post("/api/auth/register", async (req: Request, res: Response) => {
