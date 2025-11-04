@@ -296,30 +296,15 @@ export async function registerRoutes(
 // At the top of your file with other imports
 const SALT_ROUNDS = 10;
 
-// Email transporter setup
-// const emailTransporter = nodemailer.createTransporter({
-//   host: process.env.SMTP_HOST || "smtp.gmail.com",
-//   port: parseInt(process.env.SMTP_PORT || "587"),
-//   secure: false, // true for 465, false for other ports
-//   auth: {
-//     user: process.env.SMTP_USER,
-//     pass: process.env.SMTP_PASS,
-//   },
-// });
-
-// POST /api/auth/register - initiate user registration with OTP
-// Requires: firstName, lastName, email, password
-
-
-// POST /api/auth/verify-otp - Verify OTP and complete registration
-app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
+// POST /api/auth/register - create a new user
+app.post("/api/auth/register", async (req: Request, res: Response) => {
   try {
-    const { email, otp, password, firstName, lastName } = req.body;
+    const { firstName, lastName, email, password } = req.body;
 
     // Validate required fields
-    if (!email || !otp || !password) {
+    if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
-        error: "Email, OTP, and password are required"
+        error: "Missing required fields. Please provide firstName, lastName, email, and password"
       });
     }
 
@@ -351,149 +336,34 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
       });
     }
 
-    // Find the OTP record
-    const otpRecord = await db
-      .select()
-      .from(emailOtp)
-      .where(eq(emailOtp.email, email.toLowerCase()))
-      .limit(1);
+    // Hash the password with bcrypt
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    if (otpRecord.length === 0) {
-      return res.status(400).json({
-        error: "No OTP found for this email. Please request a new one."
-      });
-    }
-
-    const otpData = otpRecord[0];
-
-    // Check if OTP is expired (10 minutes)
-    if (new Date() > new Date(otpData.expiresAt)) {
-      return res.status(400).json({
-        error: "OTP has expired. Please request a new one."
-      });
-    }
-
-    // Check if OTP has already been used
-    if (otpData.isUsed) {
-      return res.status(400).json({
-        error: "OTP has already been used. Please request a new one."
-      });
-    }
-
-    // Verify OTP
-    if (otpData.otp !== otp) {
-      return res.status(400).json({
-        error: "Invalid OTP. Please check and try again."
-      });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create the user
-    const newUser = await db
+    // Create new user in database
+    const [newUser] = await db
       .insert(users)
       .values({
-        email: email.toLowerCase(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.toLowerCase().trim(),
         password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        subscriptionTier: "free",
-        unitPreference: "imperial",
-        equipment: ["bodyweight"],
       })
       .returning();
 
-    if (newUser.length === 0) {
-      throw new Error("Failed to create user");
-    }
-
-    // Mark OTP as used
-    await db
-      .update(emailOtp)
-      .set({ isUsed: true })
-      .where(eq(emailOtp.id, otpData.id));
-
     // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser[0];
+    const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json({
-      message: "Registration completed successfully",
+      message: "Account Registered Successfully",
       user: userWithoutPassword,
     });
-
   } catch (error) {
-    console.error("OTP verification error:", error);
+    console.error("Registration error:", error);
     res.status(500).json({
-      error: "Failed to verify OTP. Please try again."
+      error: "Failed to register user. Please try again."
     });
   }
 });
-
-// POST /api/auth/login - authenticate a user
-// app.post("/api/auth/login", async (req: Request, res: Response) => {
-//   try {
-//     const { email, password } = req.body;
-
-//     // Validate required fields
-//     if ( !email || !password) {
-//       return res.status(400).json({
-//         error: "Missing required fields. Please provide email and password"
-//       });
-//     }
-
-//     // Validate email format
-//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//     if (!emailRegex.test(email)) {
-//       return res.status(400).json({
-//         error: "Invalid email format"
-//       });
-//     }
-
-//     // Validate password strength (minimum 6 characters)
-//     if (password.length < 6) {
-//       return res.status(400).json({
-//         error: "Password must be at least 6 characters long"
-//       });
-//     }
-
-//     // Check if user already exists
-//     const existingUser = await db
-//       .select()
-//       .from(users)
-//       .where(eq(users.email, email.toLowerCase()))
-//       .limit(1);
-
-//     if (existingUser.length === 0) {
-//       return res.status(404).json({
-//         error: "User with this email does not exist"
-//       });
-//     }
-
-//     const user = existingUser[0];
-//     // Compare provided password with stored hashed password
-//     const passwordMatch = await bcrypt.compare(password, user.password);
-//     if (!passwordMatch) {
-//       return res.status(401).json({
-//         error: "Incorrect password"
-//       });
-//     }
-//     // Remove password from response
-//     const { password: _, ...userWithoutPassword } = user;
-//     res.status(200).json({
-//       message: "Login Successful",
-//       user: userWithoutPassword,
-//     });
-
-        
-
-//   } catch (error) {
-//     console.error("Registration error:", error);
-//     res.status(500).json({
-//       error: "Failed to register user. Please try again."
-//     });
-//   }
-// });
 
   // ==========================================
   // AUTHENTICATION ROUTES
