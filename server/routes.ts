@@ -299,7 +299,7 @@ const SALT_ROUNDS = 10;
 // POST /api/auth/register - create a new user
 app.post("/api/auth/register", async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password } = await req.body;
 
     console.log( firstName, lastName, email , password , "Console Log" )
 
