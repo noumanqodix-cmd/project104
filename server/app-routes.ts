@@ -236,8 +236,13 @@ export const registerAppRoutes = (app: Express) => {
         });
       }
 
+      // convert otp to Number
+      const numericOtp = Number(otp);
+      const numberDataOTP = Number(otpData.otp);
+
+
       // Verify OTP
-      if (otpData.otp !== otp) {
+      if (numberDataOTP !== numericOtp) {
         return res.status(400).json({
           error: "Invalid OTP. Please check and try again.",
         });
