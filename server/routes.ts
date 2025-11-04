@@ -320,7 +320,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
-        error: "Required fields. Please provide firstName, lastName, email, and password"
+        error: "Required-fields. Please provide firstName, lastName, email, and password"
       });
     }
 
