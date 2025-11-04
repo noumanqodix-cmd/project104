@@ -48,6 +48,21 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],  // Index for faster session cleanup
 );
 
+// TABLE: email_otp
+// Stores email OTP codes for user verification during registration
+// OTP codes expire after 10 minutes and can only be used once
+export const emailOtp = pgTable("email_otp", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").notNull(),
+  otp: varchar("otp").notNull(),              // 6-digit OTP code
+  expiresAt: timestamp("expires_at").notNull(), // When OTP expires
+  isUsed: integer("is_used").notNull().default(0), // 0 = unused, 1 = used
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_email_otp_email").on(table.email),
+  index("IDX_email_otp_expires_at").on(table.expiresAt),
+]);
+
 // TABLE: users
 // Core user profile data - stores everything about a user
 // Updated during onboarding and via Settings page
@@ -87,8 +102,15 @@ export const upsertUserSchema = createInsertSchema(users).pick({
   profileImageUrl: true,
 });
 
+export const insertEmailOtpSchema = createInsertSchema(emailOtp).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertEmailOtp = z.infer<typeof insertEmailOtpSchema>;
+export type EmailOtp = typeof emailOtp.$inferSelect;
 
 // TABLE: fitnessAssessments
 // Stores fitness test results from both onboarding and retakes
