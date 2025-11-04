@@ -164,10 +164,16 @@ export const registerAppRoutes = (app: Express) => {
     try {
       const { email, otp } = req.body;
 
+      console.log(`Email ${email} and OTP ${otp} are required`)
+
       // Validate required fields
-      if (!email || !otp) {
+      if (!email ) {
         return res.status(400).json({
-          error: "Email, OTP, and password are required",
+          error: `Email is required`,
+        });
+      } else if (!otp) {
+        return res.status(400).json({
+          error: `OTP is required`,
         });
       }
 
