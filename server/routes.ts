@@ -301,6 +301,8 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
+    console.log( firstName, lastName, email , password , "Console Log" )
+
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
