@@ -299,15 +299,15 @@ export async function registerRoutes(
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
-const emailTransporter = nodemailer.createTransporter({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// const emailTransporter = nodemailer.createTransporter({
+//   host: process.env.SMTP_HOST || "smtp.gmail.com",
+//   port: parseInt(process.env.SMTP_PORT || "587"),
+//   secure: false, // true for 465, false for other ports
+//   auth: {
+//     user: process.env.SMTP_USER,
+//     pass: process.env.SMTP_PASS,
+//   },
+// });
 
 // POST /api/auth/register - initiate user registration with OTP
 // Requires: firstName, lastName, email, password
@@ -320,7 +320,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
-        error: "Missing required fields. Please provide firstName, lastName, email, and password"
+        error: "Required fields. Please provide firstName, lastName, email, and password"
       });
     }
 
