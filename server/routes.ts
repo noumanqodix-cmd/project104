@@ -35,8 +35,8 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import * as bcrypt from "bcrypt";
+import { sendEmail } from "./email";
 import { db } from "./db";
-import * as nodemailer from "nodemailer";
 import {
   fitnessAssessments,
   exercises,
@@ -286,309 +286,327 @@ export async function registerRoutes(
   }
   console.log("[ROUTES] Registering routes for the first time");
 
-// Authentication setup removed - no longer using protective routes
+  // Authentication setup removed - no longer using protective routes
 
-// ==========================================
-// CUSTOM AUTHENTICATION ROUTES
-// ==========================================
+  // ==========================================
+  // CUSTOM AUTHENTICATION ROUTES
+  // ==========================================
 
-// POST /api/auth/register - create a new user
-// Requires: firstName, lastName, email, password
+  // POST /api/auth/register - create a new user
+  // Requires: firstName, lastName, email, password
 
-// At the top of your file with other imports
-const SALT_ROUNDS = 10;
+  // At the top of your file with other imports
+  const SALT_ROUNDS = 10;
 
-// Email transporter setup
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-// POST /api/auth/register - initiate user registration with OTP
-// Requires: firstName, lastName, email, password
-app.post("/api/auth/register", async (req: Request, res: Response) => {
-  try {
-    const { firstName, lastName, email, password } = req.body;
-
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({
-        error: "Missing required fields. Please provide firstName, lastName, email, and password"
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        error: "Invalid email format"
-      });
-    }
-
-    // Validate password strength (minimum 6 characters)
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Password must be at least 6 characters long"
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
-
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        error: "User with this email already exists"
-      });
-    }
-
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Set OTP expiry (10 minutes from now)
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-    // Delete any existing unused OTPs for this email
-    await db
-      .delete(emailOtp)
-      .where(eq(emailOtp.email, email.toLowerCase()));
-
-    // Store OTP in database
-    await db.insert(emailOtp).values({
-      email: email.toLowerCase(),
-      otp,
-      expiresAt,
-    });
-
-    // Send OTP email
+  // POST /api/auth/register - initiate user registration with OTP
+  // Requires: firstName, lastName, email, password
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      await emailTransporter.sendMail({
-        from: process.env.SMTP_USER,
-        to: email,
-        subject: "Your OTP for Morphit Registration",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Welcome to Morphit!</h2>
-            <p>Your OTP for registration is:</p>
-            <div style="font-size: 24px; font-weight: bold; color: #007bff; padding: 10px; border: 2px solid #007bff; border-radius: 5px; text-align: center; margin: 20px 0;">
-              ${otp}
-            </div>
-            <p>This OTP will expire in 10 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-          </div>
-        `,
+      console.log("[REGISTER] Received registration request");
+      const { firstName, lastName, email, password } = req.body;
+      console.log("[REGISTER] Body params:", {
+        firstName,
+        lastName,
+        email: email ? "present" : "missing",
+        password: password ? "present" : "missing",
       });
-    } catch (emailError) {
-      console.error("Failed to send OTP email:", emailError);
-      return res.status(500).json({
-        error: "Failed to send verification email. Please try again."
-      });
-    }
 
-    res.status(200).json({
-      message: "OTP sent to your email. Please verify to complete registration.",
-      email: email.toLowerCase(),
-    });
-  } catch (error) {
-    console.error("Registration initiation error:", error);
-    res.status(500).json({
-      error: "Failed to initiate registration. Please try again."
-    });
-  }
-});
+      // Validate required fields
+      if (!firstName || !lastName || !email || !password) {
+        console.log("[REGISTER] Validation failed: Missing required fields");
+        return res.status(400).json({
+          error:
+            "Missing required fields. Please provide firstName, lastName, email, and password",
+        });
+      }
+      console.log("[REGISTER] Validation passed: Required fields present");
 
-// POST /api/auth/verify-otp - Verify OTP and complete registration
-app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
-  try {
-    const { email, otp, password, firstName, lastName } = req.body;
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        console.log("[REGISTER] Validation failed: Invalid email format");
+        return res.status(400).json({
+          error: "Invalid email format",
+        });
+      }
+      console.log("[REGISTER] Validation passed: Email format is valid");
 
-    // Validate required fields
-    if (!email || !otp || !password) {
-      return res.status(400).json({
-        error: "Email, OTP, and password are required"
-      });
-    }
+      // Validate password strength (minimum 6 characters)
+      if (password.length < 6) {
+        console.log("[REGISTER] Validation failed: Password too short");
+        return res.status(400).json({
+          error: "Password must be at least 6 characters long",
+        });
+      }
+      console.log(
+        "[REGISTER] Validation passed: Password length is sufficient"
+      );
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        error: "Invalid email format"
-      });
-    }
+      // Check if user already exists
+      console.log(
+        `[REGISTER] Checking for existing user with email: ${email.toLowerCase()}`
+      );
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email.toLowerCase()))
+        .limit(1);
 
-    // Validate password strength (minimum 6 characters)
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Password must be at least 6 characters long"
-      });
-    }
+      if (existingUser.length > 0) {
+        const user = existingUser[0];
+        if (user.verificationStatus === 'verified' || user.verificationStatus === 'restricted') {
+          console.log("[REGISTER] Conflict: User with this email already exists and is verified");
+          return res.status(409).json({
+            error: "User with this email already exists",
+          });
+        }
+        // If pending, continue to resend OTP
+        console.log("[REGISTER] User exists with pending status, resending OTP");
+      } else {
+        // save user to the users table with status pending
+        await db.insert(users).values({
+          firstName,
+          lastName,
+          email: email.toLowerCase(),
+          password: await bcrypt.hash(password, SALT_ROUNDS),
+          verificationStatus: "pending",
+        });
 
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
+        // Set user verification status to pending
+        console.log("[REGISTER] User record created with pending verification");
+      }
 
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        error: "User with this email already exists"
-      });
-    }
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log(`[REGISTER] Generated OTP: ${otp}`);
 
-    // Find the OTP record
-    const otpRecord = await db
-      .select()
-      .from(emailOtp)
-      .where(eq(emailOtp.email, email.toLowerCase()))
-      .limit(1);
+      // Set OTP expiry (10 minutes from now)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+      console.log(`[REGISTER] OTP expires at: ${expiresAt.toISOString()}`);
 
-    if (otpRecord.length === 0) {
-      return res.status(400).json({
-        error: "No OTP found for this email. Please request a new one."
-      });
-    }
+      // Upsert OTP in database
+      console.log(`[REGISTER] Upserting OTP for ${email.toLowerCase()}`);
+      await db
+        .insert(emailOtp)
+        .values({
+          email: email.toLowerCase(),
+          otp,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: emailOtp.email,
+          set: {
+            otp,
+            expiresAt,
+            isUsed: 0,
+            createdAt: new Date(),
+          },
+        });
+      console.log("[REGISTER] OTP stored successfully in the database");
 
-    const otpData = otpRecord[0];
+      // Send OTP email
+      try {
+        await sendEmail({
+          to: email.toLowerCase(),
+          subject: "Your OTP Code ✔",
+          text: `Your OTP code is: ${otp}`,
+          html: `<b>Your OTP code is: ${otp}</b>`,
+        });
+      } catch (emailError) {
+        console.error("[REGISTER] Failed to send OTP email:", emailError);
+        return res.status(500).json({
+          error: "Failed to send verification email. Please try again.",
+        });
+      }
 
-    // Check if OTP is expired (10 minutes)
-    if (new Date() > new Date(otpData.expiresAt)) {
-      return res.status(400).json({
-        error: "OTP has expired. Please request a new one."
-      });
-    }
+      console.log("[REGISTER] Sending success response");
 
-    // Check if OTP has already been used
-    if (otpData.isUsed) {
-      return res.status(400).json({
-        error: "OTP has already been used. Please request a new one."
-      });
-    }
-
-    // Verify OTP
-    if (otpData.otp !== otp) {
-      return res.status(400).json({
-        error: "Invalid OTP. Please check and try again."
-      });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create the user
-    const newUser = await db
-      .insert(users)
-      .values({
+      res.status(200).json({
+        message:
+          "OTP sent to your email. Please verify to complete registration.",
         email: email.toLowerCase(),
-        password: hashedPassword,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        subscriptionTier: "free",
-        unitPreference: "imperial",
-        equipment: ["bodyweight"],
-      })
-      .returning();
-
-    if (newUser.length === 0) {
-      throw new Error("Failed to create user");
+      });
+    } catch (error) {
+      console.error("[REGISTER] Registration initiation error:", error);
+      res.status(500).json({
+        error: "Failed to initiate registration. Please try again.",
+      });
     }
+  });
 
-    // Mark OTP as used
-    await db
-      .update(emailOtp)
-      .set({ isUsed: true })
-      .where(eq(emailOtp.id, otpData.id));
+  // POST /api/auth/verify-otp - Verify OTP and complete registration
+  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
+    try {
+      const { email, otp } = req.body;
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser[0];
+      // Validate required fields
+      if (!email || !otp) {
+        return res.status(400).json({
+          error: "Email, OTP, and password are required",
+        });
+      }
 
-    res.status(201).json({
-      message: "Registration completed successfully",
-      user: userWithoutPassword,
-    });
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          error: "Invalid email format",
+        });
+      }
 
-  } catch (error) {
-    console.error("OTP verification error:", error);
-    res.status(500).json({
-      error: "Failed to verify OTP. Please try again."
-    });
-  }
-});
+      // Check if user already exists
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email.toLowerCase()))
+        .limit(1);
 
-// POST /api/auth/login - authenticate a user
-// app.post("/api/auth/login", async (req: Request, res: Response) => {
-//   try {
-//     const { email, password } = req.body;
+      if (existingUser.length === 0) {
+        return res.status(400).json({
+          error: "User not found. Please register first.",
+        });
+      }
 
-//     // Validate required fields
-//     if ( !email || !password) {
-//       return res.status(400).json({
-//         error: "Missing required fields. Please provide email and password"
-//       });
-//     }
+      const user = existingUser[0];
+      if (user.verificationStatus !== 'pending') {
+        return res.status(400).json({
+          error: "User is already verified or restricted.",
+        });
+      }
 
-//     // Validate email format
-//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//     if (!emailRegex.test(email)) {
-//       return res.status(400).json({
-//         error: "Invalid email format"
-//       });
-//     }
+      // Find the OTP record
+      const otpRecord = await db
+        .select()
+        .from(emailOtp)
+        .where(eq(emailOtp.email, email.toLowerCase()))
+        .limit(1);
 
-//     // Validate password strength (minimum 6 characters)
-//     if (password.length < 6) {
-//       return res.status(400).json({
-//         error: "Password must be at least 6 characters long"
-//       });
-//     }
+      if (otpRecord.length === 0) {
+        return res.status(400).json({
+          error: "No OTP found for this email. Please request a new one.",
+        });
+      }
 
-//     // Check if user already exists
-//     const existingUser = await db
-//       .select()
-//       .from(users)
-//       .where(eq(users.email, email.toLowerCase()))
-//       .limit(1);
+      const otpData = otpRecord[0];
 
-//     if (existingUser.length === 0) {
-//       return res.status(404).json({
-//         error: "User with this email does not exist"
-//       });
-//     }
+      // Check if OTP is expired (10 minutes)
+      if (new Date() > new Date(otpData.expiresAt)) {
+        return res.status(400).json({
+          error: "OTP has expired. Please request a new one.",
+        });
+      }
 
-//     const user = existingUser[0];
-//     // Compare provided password with stored hashed password
-//     const passwordMatch = await bcrypt.compare(password, user.password);
-//     if (!passwordMatch) {
-//       return res.status(401).json({
-//         error: "Incorrect password"
-//       });
-//     }
-//     // Remove password from response
-//     const { password: _, ...userWithoutPassword } = user;
-//     res.status(200).json({
-//       message: "Login Successful",
-//       user: userWithoutPassword,
-//     });
+      // Check if OTP has already been used
+      if (otpData.isUsed) {
+        return res.status(400).json({
+          error: "OTP has already been used. Please request a new one.",
+        });
+      }
 
-        
+      // Verify OTP
+      if (otpData.otp !== otp) {
+        return res.status(400).json({
+          error: "Invalid OTP. Please check and try again.",
+        });
+      }
 
-//   } catch (error) {
-//     console.error("Registration error:", error);
-//     res.status(500).json({
-//       error: "Failed to register user. Please try again."
-//     });
-//   }
-// });
+      // update the user verification status to verified
+      const updateUserStatus = await db
+        .update(users)
+        .set({ verificationStatus: "verified" })
+        .where(eq(users.email, email.toLowerCase()));
+      console.log(
+        `[OTP-VERIFY] Updated user verification status for ${email.toLowerCase()}`
+      );
+
+
+      if (updateUserStatus.length === 0) {
+        throw new Error("Failed to update user verification status");
+      }
+
+      // Mark OTP as used
+      await db
+        .update(emailOtp)
+        .set({ isUsed: 1 })
+        .where(eq(emailOtp.id, otpData.id));
+
+
+      res.status(201).json({
+        message: "Registration completed successfully",
+        user: { email: email.toLowerCase(), verificationStatus: "verified" },
+      });
+
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      res.status(500).json({
+        error: "Failed to verify OTP. Please try again.",
+      });
+    }
+  });
+
+  // POST /api/auth/login - authenticate a user
+  // app.post("/api/auth/login", async (req: Request, res: Response) => {
+  //   try {
+  //     const { email, password } = req.body;
+
+  //     // Validate required fields
+  //     if ( !email || !password) {
+  //       return res.status(400).json({
+  //         error: "Missing required fields. Please provide email and password"
+  //       });
+  //     }
+
+  //     // Validate email format
+  //     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //     if (!emailRegex.test(email)) {
+  //       return res.status(400).json({
+  //         error: "Invalid email format"
+  //       });
+  //     }
+
+  //     // Validate password strength (minimum 6 characters)
+  //     if (password.length < 6) {
+  //       return res.status(400).json({
+  //         error: "Password must be at least 6 characters long"
+  //       });
+  //     }
+
+  //     // Check if user already exists
+  //     const existingUser = await db
+  //       .select()
+  //       .from(users)
+  //       .where(eq(users.email, email.toLowerCase()))
+  //       .limit(1);
+
+  //     if (existingUser.length === 0) {
+  //       return res.status(404).json({
+  //         error: "User with this email does not exist"
+  //       });
+  //     }
+
+  //     const user = existingUser[0];
+  //     // Compare provided password with stored hashed password
+  //     const passwordMatch = await bcrypt.compare(password, user.password);
+  //     if (!passwordMatch) {
+  //       return res.status(401).json({
+  //         error: "Incorrect password"
+  //       });
+  //     }
+  //     // Remove password from response
+  //     const { password: _, ...userWithoutPassword } = user;
+  //     res.status(200).json({
+  //       message: "Login Successful",
+  //       user: userWithoutPassword,
+  //     });
+
+  //   } catch (error) {
+  //     console.error("Registration error:", error);
+  //     res.status(500).json({
+  //       error: "Failed to register user. Please try again."
+  //     });
+  //   }
+  // });
 
   // ==========================================
   // AUTHENTICATION ROUTES
@@ -647,11 +665,9 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
       const { height, weight } = req.body;
 
       if (!height && !weight) {
-        return res
-          .status(400)
-          .json({
-            error: "At least one metric (height or weight) is required",
-          });
+        return res.status(400).json({
+          error: "At least one metric (height or weight) is required",
+        });
       }
 
       const updateData: any = {};
@@ -1622,11 +1638,9 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
       const { unitPreference } = req.body;
 
       if (!unitPreference || !["imperial", "metric"].includes(unitPreference)) {
-        return res
-          .status(400)
-          .json({
-            error: "Invalid unit preference. Must be 'imperial' or 'metric'",
-          });
+        return res.status(400).json({
+          error: "Invalid unit preference. Must be 'imperial' or 'metric'",
+        });
       }
 
       const updatedUser = await storage.updateUser(userId, {
@@ -1794,18 +1808,13 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
     } catch (error) {
       console.error("Seed exercises error:", error);
       if (error instanceof Error && error.message.includes("API key")) {
-        return res
-          .status(500)
-          .json({
-            error: "AI API configuration error. Please check OpenAI API key.",
-          });
-      }
-      res
-        .status(500)
-        .json({
-          error:
-            "Failed to seed exercises. Please try again or contact support.",
+        return res.status(500).json({
+          error: "AI API configuration error. Please check OpenAI API key.",
         });
+      }
+      res.status(500).json({
+        error: "Failed to seed exercises. Please try again or contact support.",
+      });
     }
   });
 
@@ -1895,11 +1904,9 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
       } catch (error) {
         console.error("❌ Master exercise population error:", error);
         if (error instanceof Error && error.message.includes("API key")) {
-          return res
-            .status(500)
-            .json({
-              error: "AI API configuration error. Please check OpenAI API key.",
-            });
+          return res.status(500).json({
+            error: "AI API configuration error. Please check OpenAI API key.",
+          });
         }
         res
           .status(500)
@@ -3346,12 +3353,10 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
             console.log(
               "[CARDIO] No rest sessions found, but found workout sessions"
             );
-            return res
-              .status(400)
-              .json({
-                error:
-                  "This is already a workout day. You can only add cardio to rest days.",
-              });
+            return res.status(400).json({
+              error:
+                "This is already a workout day. You can only add cardio to rest days.",
+            });
           }
           console.log("[CARDIO] No sessions found for this date");
           return res
@@ -4050,12 +4055,10 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
         }
 
         if (session.status === "partial") {
-          return res
-            .status(400)
-            .json({
-              error:
-                "Cannot reschedule partial workouts. Please finish or end the workout first.",
-            });
+          return res.status(400).json({
+            error:
+              "Cannot reschedule partial workouts. Please finish or end the workout first.",
+          });
         }
 
         if (session.status === "archived") {
@@ -4083,11 +4086,9 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
         });
 
         if (hasConflict) {
-          return res
-            .status(409)
-            .json({
-              error: "Another workout is already scheduled for this date",
-            });
+          return res.status(409).json({
+            error: "Another workout is already scheduled for this date",
+          });
         }
 
         // Update the session's scheduled date

@@ -15,6 +15,13 @@
       "when": 1761906317214,
       "tag": "0001_confused_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1761906317214,
+      "tag": "0002_add_verification_status",
+      "breakpoints": true
     }
   ]
 }

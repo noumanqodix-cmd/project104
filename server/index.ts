@@ -1,16 +1,17 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { registerRoutes } from "./routes.ts";
+import { setupVite, serveStatic, log } from "./vite.ts";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
-
+import { initializeEmailTransporter } from "./email-config.ts";
 
 const app = express();
 dotenv.config();
+
 
 // Initialize Supabase client
 let supabase: any = null;
@@ -118,6 +119,9 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 (async () => {
+  // Initialize email transporter
+  await initializeEmailTransporter();
+
   const server = await registerRoutes(app, supabase);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

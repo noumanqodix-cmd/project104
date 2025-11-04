@@ -53,13 +53,12 @@ export const sessions = pgTable(
 // OTP codes expire after 10 minutes and can only be used once
 export const emailOtp = pgTable("email_otp", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").notNull(),
+  email: varchar("email").notNull().unique(),
   otp: varchar("otp").notNull(),              // 6-digit OTP code
   expiresAt: timestamp("expires_at").notNull(), // When OTP expires
   isUsed: integer("is_used").notNull().default(0), // 0 = unused, 1 = used
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("IDX_email_otp_email").on(table.email),
   index("IDX_email_otp_expires_at").on(table.expiresAt),
 ]);
 
@@ -92,6 +91,7 @@ export const users = pgTable("users", {
   signupDate: timestamp("signup_date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  verificationStatus: text("verification_status").notNull().default("pending"),
 });
 
 export const upsertUserSchema = createInsertSchema(users).pick({
@@ -100,6 +100,7 @@ export const upsertUserSchema = createInsertSchema(users).pick({
   firstName: true,
   lastName: true,
   profileImageUrl: true,
+  verificationStatus: true,
 });
 
 export const insertEmailOtpSchema = createInsertSchema(emailOtp).omit({
