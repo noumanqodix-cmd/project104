@@ -100,8 +100,8 @@ export const registerAppRoutes = (app: Express) => {
         console.log("[REGISTER] User record created with pending verification");
       }
 
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      // Generate 4-digit OTP
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
       console.log(`[REGISTER] Generated OTP: ${otp}`);
 
       // Set OTP expiry (10 minutes from now)
