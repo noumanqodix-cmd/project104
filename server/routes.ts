@@ -34,7 +34,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import * as bcrypt from "bcrypt";
+import { sendEmail } from "./email";
 import { db } from "./db";
 import {
   fitnessAssessments,
@@ -46,6 +46,7 @@ import {
   users,
   workoutPrograms,
   workoutSets,
+  emailOtp,
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 // Authentication removed - no longer using protective routes
@@ -73,6 +74,7 @@ import {
   calculateCaloriesBurned,
   poundsToKg,
 } from "./calorie-calculator";
+import { registerAppRoutes, onBoardingRoutes } from "./app-routes";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import {
@@ -284,92 +286,77 @@ export async function registerRoutes(
   }
   console.log("[ROUTES] Registering routes for the first time");
 
-// Authentication setup removed - no longer using protective routes
+  // Authentication setup removed - no longer using protective routes
 
-// ==========================================
-// CUSTOM AUTHENTICATION ROUTES
-// ==========================================
+  // ==========================================
+  // CUSTOM AUTHENTICATION ROUTES
+  // ==========================================
 
-// POST /api/auth/register - create a new user
-// Requires: firstName, lastName, email, password
+  registerAppRoutes(app);
+  onBoardingRoutes(app);
 
-// At the top of your file with other imports
-const SALT_ROUNDS = 10;
+  // POST /api/auth/login - authenticate a user
+  // app.post("/api/auth/login", async (req: Request, res: Response) => {
+  //   try {
+  //     const { email, password } = req.body;
 
-// POST /api/auth/register - create a new user
-app.post("/api/auth/register", async (req: Request, res: Response) => {
-  try {
-    console.log("Raw req.body:", req.body);
-    console.log("req.body type:", typeof req.body);
-    console.log("req.headers:", req.headers);
+  //     // Validate required fields
+  //     if ( !email || !password) {
+  //       return res.status(400).json({
+  //         error: "Missing required fields. Please provide email and password"
+  //       });
+  //     }
 
-    const { firstName, lastName, email, password } = req.body;
+  //     // Validate email format
+  //     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //     if (!emailRegex.test(email)) {
+  //       return res.status(400).json({
+  //         error: "Invalid email format"
+  //       });
+  //     }
 
-    console.log( firstName, lastName, email , password , "Console Log" )
+  //     // Validate password strength (minimum 6 characters)
+  //     if (password.length < 6) {
+  //       return res.status(400).json({
+  //         error: "Password must be at least 6 characters long"
+  //       });
+  //     }
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({
-        error: "Missing required fields. Please provide firstName, lastName, email, and password"
-      });
-    }
+  //     // Check if user already exists
+  //     const existingUser = await db
+  //       .select()
+  //       .from(users)
+  //       .where(eq(users.email, email.toLowerCase()))
+  //       .limit(1);
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        error: "Invalid email format"
-      });
-    }
+  //     if (existingUser.length === 0) {
+  //       return res.status(404).json({
+  //         error: "User with this email does not exist"
+  //       });
+  //     }
 
-    // Validate password strength (minimum 6 characters)
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Password must be at least 6 characters long"
-      });
-    }
+  //     const user = existingUser[0];
+  //     // Compare provided password with stored hashed password
+  //     const passwordMatch = await bcrypt.compare(password, user.password);
+  //     if (!passwordMatch) {
+  //       return res.status(401).json({
+  //         error: "Incorrect password"
+  //       });
+  //     }
+  //     // Remove password from response
+  //     const { password: _, ...userWithoutPassword } = user;
+  //     res.status(200).json({
+  //       message: "Login Successful",
+  //       user: userWithoutPassword,
+  //     });
 
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
-
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        error: "User with this email already exists"
-      });
-    }
-
-    // Hash the password with bcrypt
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    // Create new user in database
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.toLowerCase().trim(),
-        password: hashedPassword,
-      })
-      .returning();
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser;
-
-    res.status(201).json({
-      message: "Account Registered Successfully",
-      user: userWithoutPassword,
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({
-      error: "Failed to register user. Please try again."
-    });
-  }
-});
+  //    } catch (error) {
+  //     console.error("Registration error:", error);
+  //     res.status(500).json({
+  //       error: "Failed to register user. Please try again."
+  //     });
+  //   }
+  // });
 
   // ==========================================
   // AUTHENTICATION ROUTES
@@ -428,11 +415,9 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       const { height, weight } = req.body;
 
       if (!height && !weight) {
-        return res
-          .status(400)
-          .json({
-            error: "At least one metric (height or weight) is required",
-          });
+        return res.status(400).json({
+          error: "At least one metric (height or weight) is required",
+        });
       }
 
       const updateData: any = {};
@@ -612,6 +597,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       res.status(500).json({ error: "Failed to log out" });
     }
   });
+
 
   // GET /api/auth/me - Get current user
   app.get("/api/auth/me", async (req: Request, res: Response) => {
@@ -1403,11 +1389,9 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       const { unitPreference } = req.body;
 
       if (!unitPreference || !["imperial", "metric"].includes(unitPreference)) {
-        return res
-          .status(400)
-          .json({
-            error: "Invalid unit preference. Must be 'imperial' or 'metric'",
-          });
+        return res.status(400).json({
+          error: "Invalid unit preference. Must be 'imperial' or 'metric'",
+        });
       }
 
       const updatedUser = await storage.updateUser(userId, {
@@ -1575,18 +1559,13 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
     } catch (error) {
       console.error("Seed exercises error:", error);
       if (error instanceof Error && error.message.includes("API key")) {
-        return res
-          .status(500)
-          .json({
-            error: "AI API configuration error. Please check OpenAI API key.",
-          });
-      }
-      res
-        .status(500)
-        .json({
-          error:
-            "Failed to seed exercises. Please try again or contact support.",
+        return res.status(500).json({
+          error: "AI API configuration error. Please check OpenAI API key.",
         });
+      }
+      res.status(500).json({
+        error: "Failed to seed exercises. Please try again or contact support.",
+      });
     }
   });
 
@@ -1676,11 +1655,9 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       } catch (error) {
         console.error("❌ Master exercise population error:", error);
         if (error instanceof Error && error.message.includes("API key")) {
-          return res
-            .status(500)
-            .json({
-              error: "AI API configuration error. Please check OpenAI API key.",
-            });
+          return res.status(500).json({
+            error: "AI API configuration error. Please check OpenAI API key.",
+          });
         }
         res
           .status(500)
@@ -3127,12 +3104,10 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
             console.log(
               "[CARDIO] No rest sessions found, but found workout sessions"
             );
-            return res
-              .status(400)
-              .json({
-                error:
-                  "This is already a workout day. You can only add cardio to rest days.",
-              });
+            return res.status(400).json({
+              error:
+                "This is already a workout day. You can only add cardio to rest days.",
+            });
           }
           console.log("[CARDIO] No sessions found for this date");
           return res
@@ -3831,12 +3806,10 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
         }
 
         if (session.status === "partial") {
-          return res
-            .status(400)
-            .json({
-              error:
-                "Cannot reschedule partial workouts. Please finish or end the workout first.",
-            });
+          return res.status(400).json({
+            error:
+              "Cannot reschedule partial workouts. Please finish or end the workout first.",
+          });
         }
 
         if (session.status === "archived") {
@@ -3864,11 +3837,9 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
         });
 
         if (hasConflict) {
-          return res
-            .status(409)
-            .json({
-              error: "Another workout is already scheduled for this date",
-            });
+          return res.status(409).json({
+            error: "Another workout is already scheduled for this date",
+          });
         }
 
         // Update the session's scheduled date
