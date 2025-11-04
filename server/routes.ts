@@ -34,7 +34,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import * as bcrypt from "bcrypt";
 import { sendEmail } from "./email";
 import { db } from "./db";
 import {
@@ -75,6 +74,7 @@ import {
   calculateCaloriesBurned,
   poundsToKg,
 } from "./calorie-calculator";
+import { registerAppRoutes, onBoardingRoutes } from "./app-routes";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import {
@@ -292,258 +292,8 @@ export async function registerRoutes(
   // CUSTOM AUTHENTICATION ROUTES
   // ==========================================
 
-  // POST /api/auth/register - create a new user
-  // Requires: firstName, lastName, email, password
-
-  // At the top of your file with other imports
-  const SALT_ROUNDS = 10;
-
-  // POST /api/auth/register - initiate user registration with OTP
-  // Requires: firstName, lastName, email, password
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
-    try {
-      console.log("[REGISTER] Received registration request");
-      const { firstName, lastName, email, password } = req.body;
-      console.log("[REGISTER] Body params:", {
-        firstName,
-        lastName,
-        email: email ? "present" : "missing",
-        password: password ? "present" : "missing",
-      });
-
-      // Validate required fields
-      if (!firstName || !lastName || !email || !password) {
-        console.log("[REGISTER] Validation failed: Missing required fields");
-        return res.status(400).json({
-          error:
-            "Missing required fields. Please provide firstName, lastName, email, and password",
-        });
-      }
-      console.log("[REGISTER] Validation passed: Required fields present");
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        console.log("[REGISTER] Validation failed: Invalid email format");
-        return res.status(400).json({
-          error: "Invalid email format",
-        });
-      }
-      console.log("[REGISTER] Validation passed: Email format is valid");
-
-      // Validate password strength (minimum 6 characters)
-      if (password.length < 6) {
-        console.log("[REGISTER] Validation failed: Password too short");
-        return res.status(400).json({
-          error: "Password must be at least 6 characters long",
-        });
-      }
-      console.log(
-        "[REGISTER] Validation passed: Password length is sufficient"
-      );
-
-      // Check if user already exists
-      console.log(
-        `[REGISTER] Checking for existing user with email: ${email.toLowerCase()}`
-      );
-      const existingUser = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email.toLowerCase()))
-        .limit(1);
-
-      if (existingUser.length > 0) {
-        const user = existingUser[0];
-        if (user.verificationStatus === 'verified' || user.verificationStatus === 'restricted') {
-          console.log("[REGISTER] Conflict: User with this email already exists and is verified");
-          return res.status(409).json({
-            error: "User with this email already exists",
-          });
-        }
-        // If pending, continue to resend OTP
-        console.log("[REGISTER] User exists with pending status, resending OTP");
-      } else {
-        // save user to the users table with status pending
-        await db.insert(users).values({
-          firstName,
-          lastName,
-          email: email.toLowerCase(),
-          password: await bcrypt.hash(password, SALT_ROUNDS),
-          verificationStatus: "pending",
-        });
-
-        // Set user verification status to pending
-        console.log("[REGISTER] User record created with pending verification");
-      }
-
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log(`[REGISTER] Generated OTP: ${otp}`);
-
-      // Set OTP expiry (10 minutes from now)
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-      console.log(`[REGISTER] OTP expires at: ${expiresAt.toISOString()}`);
-
-      // Upsert OTP in database
-      console.log(`[REGISTER] Upserting OTP for ${email.toLowerCase()}`);
-      await db
-        .insert(emailOtp)
-        .values({
-          email: email.toLowerCase(),
-          otp,
-          expiresAt,
-        })
-        .onConflictDoUpdate({
-          target: emailOtp.email,
-          set: {
-            otp,
-            expiresAt,
-            isUsed: 0,
-            createdAt: new Date(),
-          },
-        });
-      console.log("[REGISTER] OTP stored successfully in the database");
-
-      // Send OTP email
-      try {
-        await sendEmail({
-          to: email.toLowerCase(),
-          subject: "Your OTP Code ✔",
-          text: `Your OTP code is: ${otp}`,
-          html: `<b>Your OTP code is: ${otp}</b>`,
-        });
-      } catch (emailError) {
-        console.error("[REGISTER] Failed to send OTP email:", emailError);
-        return res.status(500).json({
-          error: "Failed to send verification email. Please try again.",
-        });
-      }
-
-      console.log("[REGISTER] Sending success response");
-
-      res.status(200).json({
-        message:
-          "OTP sent to your email. Please verify to complete registration.",
-        email: email.toLowerCase(),
-      });
-    } catch (error) {
-      console.error("[REGISTER] Registration initiation error:", error);
-      res.status(500).json({
-        error: "Failed to initiate registration. Please try again.",
-      });
-    }
-  });
-
-  // POST /api/auth/verify-otp - Verify OTP and complete registration
-  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
-    try {
-      const { email, otp } = req.body;
-
-      // Validate required fields
-      if (!email || !otp) {
-        return res.status(400).json({
-          error: "Email, OTP, and password are required",
-        });
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          error: "Invalid email format",
-        });
-      }
-
-      // Check if user already exists
-      const existingUser = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email.toLowerCase()))
-        .limit(1);
-
-      if (existingUser.length === 0) {
-        return res.status(400).json({
-          error: "User not found. Please register first.",
-        });
-      }
-
-      const user = existingUser[0];
-      if (user.verificationStatus !== 'pending') {
-        return res.status(400).json({
-          error: "User is already verified or restricted.",
-        });
-      }
-
-      // Find the OTP record
-      const otpRecord = await db
-        .select()
-        .from(emailOtp)
-        .where(eq(emailOtp.email, email.toLowerCase()))
-        .limit(1);
-
-      if (otpRecord.length === 0) {
-        return res.status(400).json({
-          error: "No OTP found for this email. Please request a new one.",
-        });
-      }
-
-      const otpData = otpRecord[0];
-
-      // Check if OTP is expired (10 minutes)
-      if (new Date() > new Date(otpData.expiresAt)) {
-        return res.status(400).json({
-          error: "OTP has expired. Please request a new one.",
-        });
-      }
-
-      // Check if OTP has already been used
-      if (otpData.isUsed) {
-        return res.status(400).json({
-          error: "OTP has already been used. Please request a new one.",
-        });
-      }
-
-      // Verify OTP
-      if (otpData.otp !== otp) {
-        return res.status(400).json({
-          error: "Invalid OTP. Please check and try again.",
-        });
-      }
-
-      // update the user verification status to verified
-      const updateUserStatus = await db
-        .update(users)
-        .set({ verificationStatus: "verified" })
-        .where(eq(users.email, email.toLowerCase()));
-      console.log(
-        `[OTP-VERIFY] Updated user verification status for ${email.toLowerCase()}`
-      );
-
-
-      if (updateUserStatus.length === 0) {
-        throw new Error("Failed to update user verification status");
-      }
-
-      // Mark OTP as used
-      await db
-        .update(emailOtp)
-        .set({ isUsed: 1 })
-        .where(eq(emailOtp.id, otpData.id));
-
-
-      res.status(201).json({
-        message: "Registration completed successfully",
-        user: { email: email.toLowerCase(), verificationStatus: "verified" },
-      });
-
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      res.status(500).json({
-        error: "Failed to verify OTP. Please try again.",
-      });
-    }
-  });
+  registerAppRoutes(app);
+  onBoardingRoutes(app);
 
   // POST /api/auth/login - authenticate a user
   // app.post("/api/auth/login", async (req: Request, res: Response) => {
@@ -600,7 +350,7 @@ export async function registerRoutes(
   //       user: userWithoutPassword,
   //     });
 
-  //   } catch (error) {
+  //    } catch (error) {
   //     console.error("Registration error:", error);
   //     res.status(500).json({
   //       error: "Failed to register user. Please try again."
@@ -847,6 +597,7 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to log out" });
     }
   });
+
 
   // GET /api/auth/me - Get current user
   app.get("/api/auth/me", async (req: Request, res: Response) => {
