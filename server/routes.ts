@@ -36,7 +36,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import * as bcrypt from "bcrypt";
 import { db } from "./db";
-import * as nodemailer from "nodemailer";
 import {
   fitnessAssessments,
   exercises,
@@ -47,7 +46,6 @@ import {
   users,
   workoutPrograms,
   workoutSets,
-  emailOtp,
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 // Authentication removed - no longer using protective routes
@@ -311,102 +309,7 @@ const SALT_ROUNDS = 10;
 
 // POST /api/auth/register - initiate user registration with OTP
 // Requires: firstName, lastName, email, password
-app.post("/api/auth/register", async (req: Request, res: Response) => {
-  try {
-    const { firstName, lastName, email, password } = req.body;
 
-    console.log( firstName, lastName, email, password , "Data from Request")
-
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({
-        error: "Required-fields. Please provide firstName, lastName, email, and password"
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        error: "Invalid email format"
-      });
-    }
-
-    // Validate password strength (minimum 6 characters)
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: "Password must be at least 6 characters long"
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase()))
-      .limit(1);
-
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        error: "User with this email already exists"
-      });
-    }
-
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Set OTP expiry (10 minutes from now)
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-    // Delete any existing unused OTPs for this email
-    await db
-      .delete(emailOtp)
-      .where(eq(emailOtp.email, email.toLowerCase()));
-
-    // Store OTP in database
-    await db.insert(emailOtp).values({
-      email: email.toLowerCase(),
-      otp,
-      expiresAt,
-    });
-
-    // Send OTP email
-    try {
-      await emailTransporter.sendMail({
-        from: process.env.SMTP_USER,
-        to: email,
-        subject: "Your OTP for Morphit Registration",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Welcome to Morphit!</h2>
-            <p>Your OTP for registration is:</p>
-            <div style="font-size: 24px; font-weight: bold; color: #007bff; padding: 10px; border: 2px solid #007bff; border-radius: 5px; text-align: center; margin: 20px 0;">
-              ${otp}
-            </div>
-            <p>This OTP will expire in 10 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send OTP email:", emailError);
-      return res.status(500).json({
-        error: "Failed to send verification email. Please try again."
-      });
-    }
-
-    res.status(200).json({
-      message: "OTP sent to your email. Please verify to complete registration.",
-      email: email.toLowerCase(),
-    });
-  } catch (error) {
-    console.error("Registration initiation error:", error);
-    res.status(500).json({
-      error: "Failed to initiate registration. Please try again."
-    });
-  }
-});
 
 // POST /api/auth/verify-otp - Verify OTP and complete registration
 app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
