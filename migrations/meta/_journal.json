@@ -22,6 +22,20 @@
       "when": 1761906317214,
       "tag": "0002_add_verification_status",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1762332545396,
+      "tag": "0003_brainy_the_renegades",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762333538795,
+      "tag": "0004_zippy_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

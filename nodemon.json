@@ -1,0 +1,9 @@
+{
+  "watch": ["server/**/*", "shared/**/*"],
+  "ext": "ts,js,json",
+  "ignore": ["node_modules", "dist", "*.log"],
+  "exec": "tsx server/index.ts",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}
