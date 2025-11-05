@@ -324,52 +324,52 @@ export const onBoardingRoutes = (app: Express) => {
       try {
         console.log("[ONBOARDING] Request received", { path: req.path });
 
-        const data = req.body;
-        console.log("[ONBOARDING] Body:", data);
+        // const data = req.body;
+        // console.log("[ONBOARDING] Body:", data);
 
-        const { userId, height, weight, dateOfBirth , gender , nutritionGoal , targetCalories , selectedDays , daysPerWeek } = req.body;
+        // const { userId, height, weight, dateOfBirth , gender , nutritionGoal , targetCalories , selectedDays , daysPerWeek } = req.body;
 
-        // Validate required userId
-        if (!userId) {
-          return res.status(400).json({ error: "userId is required." });
-        }
+        // // Validate required userId
+        // if (!userId) {
+        //   return res.status(400).json({ error: "userId is required." });
+        // }
 
-        console.log("[ONBOARDING] Processing onboarding for userId:", userId);
+        // console.log("[ONBOARDING] Processing onboarding for userId:", userId);
 
-        const updatePayload: Record<string, unknown> = {};
+        // const updatePayload: Record<string, unknown> = {};
 
-        if (height !== undefined) updatePayload.height = height;
-        if (weight !== undefined) updatePayload.weight = weight;
-        if (dateOfBirth !== undefined) {
-          const parsedDate = new Date(dateOfBirth);
-          if (Number.isNaN(parsedDate.getTime())) {
-            return res
-              .status(400)
-              .json({ error: "Invalid dateOfBirth format." });
-          }
-          updatePayload.dateOfBirth = parsedDate;
-        }
-        if (gender !== undefined) updatePayload.gender = gender;
-        if (nutritionGoal !== undefined) updatePayload.nutritionGoal = nutritionGoal;
-        if (targetCalories !== undefined) updatePayload.targetCalories = targetCalories;
-        if (selectedDays !== undefined) updatePayload.selectedDates = selectedDays;
-        if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
+        // if (height !== undefined) updatePayload.height = height;
+        // if (weight !== undefined) updatePayload.weight = weight;
+        // if (dateOfBirth !== undefined) {
+        //   const parsedDate = new Date(dateOfBirth);
+        //   if (Number.isNaN(parsedDate.getTime())) {
+        //     return res
+        //       .status(400)
+        //       .json({ error: "Invalid dateOfBirth format." });
+        //   }
+        //   updatePayload.dateOfBirth = parsedDate;
+        // }
+        // if (gender !== undefined) updatePayload.gender = gender;
+        // if (nutritionGoal !== undefined) updatePayload.nutritionGoal = nutritionGoal;
+        // if (targetCalories !== undefined) updatePayload.targetCalories = targetCalories;
+        // if (selectedDays !== undefined) updatePayload.selectedDates = selectedDays;
+        // if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
 
-        // Update user by userId (no authentication required since token comes after onboarding)
-        const updatedUsers = await db
-          .update(users)
-          .set(updatePayload)
-          .where(eq(users.id, userId))
-          .returning({ id: users.id });
+        // // Update user by userId (no authentication required since token comes after onboarding)
+        // const updatedUsers = await db
+        //   .update(users)
+        //   .set(updatePayload)
+        //   .where(eq(users.id, userId))
+        //   .returning({ id: users.id });
 
-        if (updatedUsers.length === 0) {
-          return res.status(404).json({ error: "User not found." });
-        }
+        // if (updatedUsers.length === 0) {
+        //   return res.status(404).json({ error: "User not found." });
+        // }
 
-        console.log("[ONBOARDING] User onboarding data updated successfully", {
-          userId,
-          fieldsUpdated: Object.keys(updatePayload),
-        });
+        // console.log("[ONBOARDING] User onboarding data updated successfully", {
+        //   userId,
+        //   fieldsUpdated: Object.keys(updatePayload),
+        // });
 
         res.status(200).json({ message: "Onboarding completed successfully" });
       } catch (error) {
