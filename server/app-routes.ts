@@ -324,15 +324,41 @@ export const onBoardingRoutes = (app: Express) => {
       try {
         console.log("[ONBOARDING] Request received", { path: req.path });
 
+        // Extract userId from JWT token (secure)
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
+        const decoded = jwt.verify(token, jwtSecret) as { userId: string };
+        const userId = decoded.userId;
+
+        // Check JWT expiration
+        const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+        if (isExpired) {
+          return res.status(401).json({ error: "Session has expired" });
+        }
+
+        // Check database token status
+        const tokenRecord = await db
+          .select()
+          .from(sessionTokens)
+          .where(eq(sessionTokens.token, token))
+          .limit(1);
+
+        if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+          return res.status(401).json({ error: "Invalid session" });
+        }
+
         const data = req.body;
         console.log("[ONBOARDING] Body:", data);
 
-        const { userId, height, weight, dateOfBirth } = req.body;
-
-        // Validate required userId
-        if (!userId) {
-          return res.status(400).json({ error: "userId is required." });
-        }
+        const { height, weight, dateOfBirth } = req.body;
 
         console.log("[ONBOARDING] Processing onboarding for userId:", userId);
 
@@ -350,7 +376,7 @@ export const onBoardingRoutes = (app: Express) => {
           updatePayload.dateOfBirth = parsedDate;
         }
 
-        // Update user by userId (no authentication required since token comes after onboarding)
+        // Update user by userId from JWT token (secure)
         const updatedUsers = await db
           .update(users)
           .set(updatePayload)
@@ -604,7 +630,7 @@ export const getUserSessionData = (app: Express) => {
 // ==========================================
 
 export const logoutAppRoutes = (app: Express) => {
-  app.post("/api/auth/logout", async (req: Request, res: Response) => {
+  app.get("/api/auth/logout", async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -639,7 +665,7 @@ export const logoutAppRoutes = (app: Express) => {
 // ===========================================
 
 export const deleteAccountRoutes = (app: Express) => {
-  app.delete("/api/auth/delete-account", async (req: Request, res: Response) => {
+  app.get("/api/auth/delete-account", async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -747,6 +773,7 @@ export const getProfileRoutes = (app: Express) => {
       if (!jwtSecret) {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
+
       const decoded = jwt.verify(token, jwtSecret) as {
         userId: string;
         exp?: number;
@@ -754,6 +781,23 @@ export const getProfileRoutes = (app: Express) => {
       };
       const userId = decoded.userId;
       console.log(`[PROFILE] Decoded userId: ${userId}`);
+
+      // Check JWT expiration
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+      if (isExpired) {
+        return res.status(401).json({ error: "Session has expired" });
+      }
+
+      // Check database token status
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+
+      if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
 
       // Fetch user data from database
       const user = await db
@@ -766,8 +810,36 @@ export const getProfileRoutes = (app: Express) => {
         return res.status(404).json({ error: "User not found" });
       }
 
-      console.log(`[PROFILE] User found: ${user[0].id}`);
-      res.status(200).json({ user: user[0] });
+      const dbUser = user[0];
+      console.log(`[PROFILE] User found: ${dbUser.id}`);
+
+      // Return safe profile data only (exclude sensitive information)
+      const profileData = {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        verificationStatus: dbUser.verificationStatus,
+        height: dbUser.height,
+        weight: dbUser.weight,
+        dateOfBirth: dbUser.dateOfBirth,
+        unitPreference: dbUser.unitPreference,
+        equipment: dbUser.equipment,
+        subscriptionTier: dbUser.subscriptionTier,
+        nutritionGoal: dbUser.nutritionGoal,
+        fitnessLevel: dbUser.fitnessLevel,
+        daysPerWeek: dbUser.daysPerWeek,
+        targetCalories: dbUser.targetCalories,
+        bmr: dbUser.bmr,
+        selectedDates: dbUser.selectedDates,
+        createdAt: dbUser.createdAt,
+        updatedAt: dbUser.updatedAt,
+      };
+
+      res.status(200).json({
+        message: "Profile retrieved successfully",
+        profile: profileData
+      });
     } catch (error) {
       console.error("[PROFILE] Error fetching profile:", error);
       res.status(500).json({ error: "Failed to fetch profile." });
