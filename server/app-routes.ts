@@ -324,41 +324,15 @@ export const onBoardingRoutes = (app: Express) => {
       try {
         console.log("[ONBOARDING] Request received", { path: req.path });
 
-        // Extract userId from JWT token (secure)
-        const token = req.headers.authorization?.split(" ")[1];
-        if (!token) {
-          return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) {
-          throw new Error("JWT_SECRET is not defined in environment variables");
-        }
-
-        const decoded = jwt.verify(token, jwtSecret) as { userId: string };
-        const userId = decoded.userId;
-
-        // Check JWT expiration
-        const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
-        if (isExpired) {
-          return res.status(401).json({ error: "Session has expired" });
-        }
-
-        // Check database token status
-        const tokenRecord = await db
-          .select()
-          .from(sessionTokens)
-          .where(eq(sessionTokens.token, token))
-          .limit(1);
-
-        if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
-          return res.status(401).json({ error: "Invalid session" });
-        }
-
         const data = req.body;
         console.log("[ONBOARDING] Body:", data);
 
-        const { height, weight, dateOfBirth } = req.body;
+        const { userId, height, weight, dateOfBirth , gender , nutritionGoal , targetCalories , selectedDays , daysPerWeek } = req.body;
+
+        // Validate required userId
+        if (!userId) {
+          return res.status(400).json({ error: "userId is required." });
+        }
 
         console.log("[ONBOARDING] Processing onboarding for userId:", userId);
 
@@ -375,8 +349,13 @@ export const onBoardingRoutes = (app: Express) => {
           }
           updatePayload.dateOfBirth = parsedDate;
         }
+        if (gender !== undefined) updatePayload.gender = gender;
+        if (nutritionGoal !== undefined) updatePayload.nutritionGoal = nutritionGoal;
+        if (targetCalories !== undefined) updatePayload.targetCalories = targetCalories;
+        if (selectedDays !== undefined) updatePayload.selectedDates = selectedDays;
+        if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
 
-        // Update user by userId from JWT token (secure)
+        // Update user by userId (no authentication required since token comes after onboarding)
         const updatedUsers = await db
           .update(users)
           .set(updatePayload)
