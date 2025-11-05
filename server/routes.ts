@@ -74,7 +74,7 @@ import {
   calculateCaloriesBurned,
   poundsToKg,
 } from "./calorie-calculator";
-import { registerAppRoutes, onBoardingRoutes } from "./app-routes";
+import { registerAppRoutes, onBoardingRoutes, loginAppRoutes, getUserSessionData } from "./app-routes";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import {
@@ -293,7 +293,9 @@ export async function registerRoutes(
   // ==========================================
 
   registerAppRoutes(app);
+  loginAppRoutes(app);
   onBoardingRoutes(app);
+  getUserSessionData(app);
 
   // POST /api/auth/login - authenticate a user
   // app.post("/api/auth/login", async (req: Request, res: Response) => {
