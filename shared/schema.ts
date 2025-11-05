@@ -62,6 +62,26 @@ export const emailOtp = pgTable("email_otp", {
   index("IDX_email_otp_expires_at").on(table.expiresAt),
 ]);
 
+// TABLE: session_tokens
+// Stores JWT tokens for session management
+// Tracks token expiration and user association
+export const sessionTokens = pgTable("session_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: text("token").notNull(),
+  isTokenExpired: integer("is_token_expired").notNull().default(0), // 0 = false, 1 = true
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  userId: varchar("user_id").notNull(),
+  email: varchar("email").notNull(),
+}, (table) => [
+  index("IDX_session_tokens_user_id").on(table.userId),
+  index("IDX_session_tokens_email").on(table.email),
+  index("IDX_session_tokens_expires_at").on(table.expiresAt),
+  index("IDX_session_tokens_is_token_expired").on(table.isTokenExpired),
+  uniqueIndex("session_tokens_user_id_unique").on(table.userId), // Unique constraint for upsert
+]);
+
 // TABLE: users
 // Core user profile data - stores everything about a user
 // Updated during onboarding and via Settings page
@@ -108,10 +128,18 @@ export const insertEmailOtpSchema = createInsertSchema(emailOtp).omit({
   createdAt: true,
 });
 
+export const insertSessionTokenSchema = createInsertSchema(sessionTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertEmailOtp = z.infer<typeof insertEmailOtpSchema>;
 export type EmailOtp = typeof emailOtp.$inferSelect;
+export type InsertSessionToken = z.infer<typeof insertSessionTokenSchema>;
+export type SessionToken = typeof sessionTokens.$inferSelect;
 
 // TABLE: fitnessAssessments
 // Stores fitness test results from both onboarding and retakes

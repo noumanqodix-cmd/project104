@@ -3,7 +3,7 @@ import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
 import { db } from "./db";
-import { users, emailOtp } from "@shared/schema";
+import { users, emailOtp, sessionTokens } from "@shared/schema";
 import { sendEmail } from "./email";
 import multer from "multer";
 
@@ -317,7 +317,6 @@ export const registerAppRoutes = (app: Express) => {
 // ==========================================
 
 export const onBoardingRoutes = (app: Express) => {
-
   app.post(
     "/api/onboarding",
     upload.none(),
@@ -328,12 +327,7 @@ export const onBoardingRoutes = (app: Express) => {
         const data = req.body;
         console.log("[ONBOARDING] Body:", data);
 
-        const {
-          userId,
-          height,
-          weight,
-          dateOfBirth
-        } = req.body;
+        const { userId, height, weight, dateOfBirth } = req.body;
 
         // Validate required userId
         if (!userId) {
@@ -349,7 +343,9 @@ export const onBoardingRoutes = (app: Express) => {
         if (dateOfBirth !== undefined) {
           const parsedDate = new Date(dateOfBirth);
           if (Number.isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ error: "Invalid dateOfBirth format." });
+            return res
+              .status(400)
+              .json({ error: "Invalid dateOfBirth format." });
           }
           updatePayload.dateOfBirth = parsedDate;
         }
@@ -379,12 +375,13 @@ export const onBoardingRoutes = (app: Express) => {
       }
     }
   );
-
 };
 
 // ===========================================
 // CUSTOM LOGIN ROUTES
 // ============================================
+// description : login user and create token for session management and
+// session in database for management of user login sessions
 
 export const loginAppRoutes = (app: Express) => {
   // POST /api/auth/login - Authenticate user with email and password
@@ -457,24 +454,51 @@ export const loginAppRoutes = (app: Express) => {
           `[LOGIN] Password verification successful for user: ${user.id}`
         );
 
-        // Generate JWT token for session management and save session in database
+        // Generate JWT token and session
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) {
           throw new Error("JWT_SECRET is not defined in environment variables");
         }
         const token = jwt.sign({ userId: user.id }, jwtSecret, {
-          expiresIn: "1d", // Token valid for 1 day
+          expiresIn: "1d",
         });
         console.log(`[LOGIN] JWT token generated for user: ${user.id}`);
 
-        // Remove password from response
+        // Calculate expiration date (1 day from now)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 1);
+
+        // Store/Update token in session_tokens table (upsert - update existing or create new)
+        await db
+          .insert(sessionTokens)
+          .values({
+            token,
+            isTokenExpired: 0, // false - new active token
+            expiresAt,
+            userId: user.id,
+            email: user.email!,
+          })
+          .onConflictDoUpdate({
+            target: sessionTokens.userId, // Conflict on userId (one session per user)
+            set: {
+              token, // Update with new token
+              isTokenExpired: 0, // Reset to active
+              expiresAt, // Update expiration
+              email: user.email!, // Update email if changed
+              updatedAt: new Date(), // Update timestamp
+            },
+          });
+        console.log(
+          `[LOGIN] Token stored/updated in session_tokens table for user: ${user.id}`
+        );
+
+        // Remove password from user data
         const { password: _, ...userWithoutPassword } = user;
         res.status(200).json({
           message: "Login successful",
           token,
-          userData: userWithoutPassword,
+          user: userWithoutPassword,
         });
-      
       } catch (error) {
         console.error("[LOGIN] Error logging in:", error);
         res.status(500).json({ error: "Failed to log in. Please try again." });
@@ -500,7 +524,11 @@ export const getUserSessionData = (app: Express) => {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
 
-      const decoded = jwt.verify(token, jwtSecret) as { userId: string };
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
       const userId = decoded.userId;
 
       // Fetch user data from database
@@ -514,16 +542,235 @@ export const getUserSessionData = (app: Express) => {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Remove password from user data
-      const { password: _, ...userWithoutPassword } = user[0];
+      // Check if token exists in database (handles logout/deletion)
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+
+      if (tokenRecord.length === 0) {
+        // Token was deleted (logout) or never existed
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const dbToken = tokenRecord[0];
+
+      // Check if token was manually expired in database
+      if (dbToken.isTokenExpired) {
+        return res.status(401).json({ error: "Session has expired" });
+      }
+
+      // isExpired Boolean (JWT expiration check)
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+
+      // Update token status in database if JWT expired
+      if (isExpired) {
+        await db
+          .update(sessionTokens)
+          .set({
+            isTokenExpired: 1, // 1 = true
+            updatedAt: new Date(),
+          })
+          .where(eq(sessionTokens.token, token));
+        return res.status(401).json({ error: "Session has expired" });
+      }
+
+      // Return a minimal public user shape (do NOT expose full user record)
+      const dbUser = user[0];
+      const responseUser = {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        verificationStatus: dbUser.verificationStatus,
+        // Normalize DB stored flag (0/1) to boolean for the client
+        isTokenExpired: !!dbToken.isTokenExpired,
+      };
 
       res.status(200).json({
         message: "Session data retrieved successfully",
-        user: userWithoutPassword,
+        user: responseUser,
       });
     } catch (error) {
       console.error("[SESSION] Error retrieving session data:", error);
       res.status(500).json({ error: "Failed to retrieve session data." });
+    }
+  });
+};
+
+// ==========================================
+// LOGOUT ROUTE
+// ==========================================
+
+export const logoutAppRoutes = (app: Express) => {
+  app.post("/api/auth/logout", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Update token to expired in database (soft delete)
+      const updateResult = await db
+        .update(sessionTokens)
+        .set({
+          isTokenExpired: 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionTokens.token, token));
+
+      if (updateResult.rowCount === 0) {
+        console.log("[LOGOUT] Token not found in database");
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      console.log("[LOGOUT] Token successfully expired in database");
+      res.status(200).json({ message: "Logout successful" });
+    } catch (error) {
+      console.error("[LOGOUT] Error logging out:", error);
+      res.status(500).json({ error: "Failed to log out. Please try again." });
+    }
+  });
+};
+
+// ===========================================
+// DELETE ACCOUNT ROUTE
+// ===========================================
+
+export const deleteAccountRoutes = (app: Express) => {
+  app.delete("/api/auth/delete-account", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET is not defined in environment variables");
+      }
+
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
+      const userId = decoded.userId;
+
+      // Check if token is expired
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+      if (isExpired) {
+        return res.status(401).json({ error: "Session has expired" });
+      }
+
+      // Check if token exists and is not already expired in database
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+
+      if (tokenRecord.length === 0) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const dbToken = tokenRecord[0];
+      if (dbToken.isTokenExpired) {
+        return res.status(401).json({ error: "Session has expired" });
+      }
+
+      // Check if user exists and is not already deleted
+      const userRecord = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (userRecord.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = userRecord[0];
+      if (user.verificationStatus === "deleted") {
+        return res.status(400).json({ error: "Account already deleted" });
+      }
+
+      // Start transaction-like operations (expire all user sessions)
+      await db
+        .update(sessionTokens)
+        .set({
+          isTokenExpired: 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionTokens.userId, userId));
+
+      // Mark user account as deleted
+      const updateResult = await db
+        .update(users)
+        .set({
+          verificationStatus: "deleted",
+          email: null,
+          password: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      if (updateResult.rowCount === 0) {
+        console.log("[DELETE-ACCOUNT] Failed to mark user as deleted");
+        return res.status(500).json({ error: "Failed to delete account" });
+      }
+
+      console.log("[DELETE-ACCOUNT] User account marked as deleted and all sessions expired");
+      res.status(200).json({ message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("[DELETE-ACCOUNT] Error deleting account:", error);
+      res.status(500).json({ error: "Failed to delete account." });
+    }
+  });
+};
+
+// ===========================================
+// GET PROFILE
+// ===========================================
+
+export const getProfileRoutes = (app: Express) => {
+  app.get("/api/profile", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      console.log("[PROFILE] Received profile request");
+
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET is not defined in environment variables");
+      }
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
+      const userId = decoded.userId;
+      console.log(`[PROFILE] Decoded userId: ${userId}`);
+
+      // Fetch user data from database
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log(`[PROFILE] User found: ${user[0].id}`);
+      res.status(200).json({ user: user[0] });
+    } catch (error) {
+      console.error("[PROFILE] Error fetching profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile." });
     }
   });
 };

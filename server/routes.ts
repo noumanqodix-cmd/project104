@@ -74,7 +74,7 @@ import {
   calculateCaloriesBurned,
   poundsToKg,
 } from "./calorie-calculator";
-import { registerAppRoutes, onBoardingRoutes, loginAppRoutes, getUserSessionData } from "./app-routes";
+import { registerAppRoutes, onBoardingRoutes, loginAppRoutes, getUserSessionData, logoutAppRoutes, deleteAccountRoutes } from "./app-routes";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import {
@@ -296,6 +296,8 @@ export async function registerRoutes(
   loginAppRoutes(app);
   onBoardingRoutes(app);
   getUserSessionData(app);
+  logoutAppRoutes(app);
+  deleteAccountRoutes(app);
 
   // POST /api/auth/login - authenticate a user
   // app.post("/api/auth/login", async (req: Request, res: Response) => {
@@ -588,17 +590,7 @@ export async function registerRoutes(
     }
   });
 
-  // POST /api/auth/logout - Sign out
-  app.post("/api/auth/logout", async (req: Request, res: Response) => {
-    try {
-      // Mock logout
-      console.log("Mock logout");
-      res.json({ message: "Logged out successfully" });
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.status(500).json({ error: "Failed to log out" });
-    }
-  });
+
 
 
   // GET /api/auth/me - Get current user

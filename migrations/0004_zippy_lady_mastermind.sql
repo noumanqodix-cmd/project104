@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "session_tokens_user_id_unique" ON "session_tokens" USING btree ("user_id");

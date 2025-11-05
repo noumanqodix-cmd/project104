@@ -61,16 +61,16 @@ app.use(async (req: Request & { user?: any }, res: Response, next: NextFunction)
       const parts = token.split('.');
       if (parts.length === 3) {
         const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-        console.log('[AUTH-MIDDLEWARE] 🔓 JWT decoded:', { sub: payload.sub, email: payload.email });
+        console.log('[AUTH-MIDDLEWARE] 🔓 JWT decoded:', { userId: payload.userId, email: payload.email });
         console.log('[AUTH-MIDDLEWARE] 📋 Full payload:', JSON.stringify(payload, null, 2));
         
-        if (payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
+        if (payload.userId && payload.exp && payload.exp * 1000 > Date.now()) {
           req.user = { 
-            id: payload.sub, 
+            id: payload.userId, 
             email: payload.email,
             role: payload.role 
           };
-          console.log('[AUTH-MIDDLEWARE] ✅ User authenticated from JWT:', payload.sub);
+          console.log('[AUTH-MIDDLEWARE] ✅ User authenticated from JWT:', payload.userId);
         } else if (payload.exp && payload.exp * 1000 <= Date.now()) {
           console.log('[AUTH-MIDDLEWARE] ⚠️ Token expired');
         }
