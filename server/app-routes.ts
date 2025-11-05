@@ -4,6 +4,10 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users, emailOtp } from "@shared/schema";
 import { sendEmail } from "./email";
+import multer from "multer";
+
+// Configure multer for form-data parsing
+const upload = multer();
 
 // ==========================================
 // CUSTOM AUTHENTICATION ROUTES
@@ -15,16 +19,18 @@ const SALT_ROUNDS = 10;
 export const registerAppRoutes = (app: Express) => {
   // POST /api/auth/register - initiate user registration with OTP
   // Requires: firstName, lastName, email, password
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", upload.none(), async (req: Request, res: Response) => {
     try {
       console.log("[REGISTER] Received registration request");
       const { firstName, lastName, email, password } = req.body;
-      console.log("[REGISTER] Body params:", {
-        firstName,
-        lastName,
-        email: email ? "present" : "missing",
-        password: password ? "present" : "missing",
-      });
+      const data = req.body;
+      console.log("[REGISTER] Body:", data);
+      // console.log("[REGISTER] Body params:", {
+      //   firstName,
+      //   lastName,
+      //   email: email ? "present" : "missing",
+      //   password: password ? "present" : "missing",
+      // });
 
       // Validate required fields
       if (!firstName || !lastName || !email || !password) {
@@ -160,14 +166,14 @@ export const registerAppRoutes = (app: Express) => {
   });
 
   // POST /api/auth/verify-otp - Verify OTP and complete registration
-  app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
+  app.post("/api/auth/verify-otp", upload.none(), async (req: Request, res: Response) => {
     try {
       const { email, otp } = req.body;
 
-      console.log(`Email ${email} and OTP ${otp} are required`)
+      console.log(`Email ${email} and OTP ${otp} are required`);
 
       // Validate required fields
-      if (!email ) {
+      if (!email) {
         return res.status(400).json({
           error: `Email is required`,
         });
@@ -240,7 +246,6 @@ export const registerAppRoutes = (app: Express) => {
       const numericOtp = Number(otp);
       const numberDataOTP = Number(otpData.otp);
 
-
       // Verify OTP
       if (numberDataOTP !== numericOtp) {
         return res.status(400).json({
@@ -253,7 +258,7 @@ export const registerAppRoutes = (app: Express) => {
         .update(users)
         .set({ verificationStatus: "verified" })
         .where(eq(users.email, email.toLowerCase()))
-        .returning({ id: users.id });
+        .returning();
       console.log(
         `[OTP-VERIFY] Updated user verification status for ${email.toLowerCase()}`
       );
@@ -268,10 +273,27 @@ export const registerAppRoutes = (app: Express) => {
         .set({ isUsed: 1 })
         .where(eq(emailOtp.id, otpData.id));
 
+      // Remove password from response
+      const userData = updatedUsers[0];
+      const { password: _, ...userWithoutPassword } = userData;
+
+      // Export only specific fields
+      const exportedUser = {
+        id: userWithoutPassword.id,
+        email: userWithoutPassword.email,
+        firstName: userWithoutPassword.firstName,
+        lastName: userWithoutPassword.lastName,
+      };
+
+      console.log(exportedUser, "userData");
+
       res.status(201).json({
         message: "Registration completed successfully",
-        user: { email: email.toLowerCase(), verificationStatus: "verified" },
+        userData: exportedUser,
+        status: { verificationStatus: "verified" },
       });
+
+
     } catch (error) {
       console.error("OTP verification error:", error);
       res.status(500).json({
@@ -299,9 +321,7 @@ export const onBoardingRoutes = (app: Express) => {
       const userId = req.user?.id ?? bodyUserId;
       if (!userId) {
         console.log("[ONBOARDING] Unauthorized request - missing user id");
-        return res
-          .status(401)
-          .json({ error: "Unauthorized. Please log in." });
+        return res.status(401).json({ error: "Unauthorized. Please log in." });
       }
 
       const providedFields = Object.keys(req.body ?? {});
@@ -335,43 +355,47 @@ export const onBoardingRoutes = (app: Express) => {
         updatePayload.nutritionGoal = nutritionGoal;
       if (targetCalories !== undefined)
         updatePayload.targetCalories = targetCalories;
-      if (selectedDays !== undefined)
-        updatePayload.selectedDays = selectedDays;
+      if (selectedDays !== undefined) updatePayload.selectedDays = selectedDays;
       if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
 
       if (dateOfBirth !== undefined) {
         const parsedDate = new Date(dateOfBirth);
         if (Number.isNaN(parsedDate.getTime())) {
-          return res
-            .status(400)
-            .json({ error: "Invalid dateOfBirth format." });
+          return res.status(400).json({ error: "Invalid dateOfBirth format." });
         }
         updatePayload.dateOfBirth = parsedDate;
       }
 
       // Convert selectedDays strings to integers if provided
-      if (updatePayload.selectedDays && Array.isArray(updatePayload.selectedDays)) {
+      if (
+        updatePayload.selectedDays &&
+        Array.isArray(updatePayload.selectedDays)
+      ) {
         const dayMapping: Record<string, number> = {
-          'monday': 1,
-          'tuesday': 2,
-          'wednesday': 3,
-          'thursday': 4,
-          'friday': 5,
-          'saturday': 6,
-          'sunday': 7
+          monday: 1,
+          tuesday: 2,
+          wednesday: 3,
+          thursday: 4,
+          friday: 5,
+          saturday: 6,
+          sunday: 7,
         };
 
-        updatePayload.selectedDays = updatePayload.selectedDays.map((day: any) => {
-          if (typeof day === 'string') {
-            const lowerDay = day.toLowerCase();
-            const dayNumber = dayMapping[lowerDay];
-            if (!dayNumber) {
-              throw new Error(`Invalid day name: ${day}. Must be monday, tuesday, wednesday, thursday, friday, saturday, or sunday.`);
+        updatePayload.selectedDays = updatePayload.selectedDays.map(
+          (day: any) => {
+            if (typeof day === "string") {
+              const lowerDay = day.toLowerCase();
+              const dayNumber = dayMapping[lowerDay];
+              if (!dayNumber) {
+                throw new Error(
+                  `Invalid day name: ${day}. Must be monday, tuesday, wednesday, thursday, friday, saturday, or sunday.`
+                );
+              }
+              return dayNumber;
             }
-            return dayNumber;
+            return day; // Assume it's already a number
           }
-          return day; // Assume it's already a number
-        });
+        );
       }
 
       const updateFieldKeys = Object.keys(updatePayload);
@@ -422,7 +446,7 @@ export const onBoardingRoutes = (app: Express) => {
   // Support both legacy and new endpoint paths
   app.post("/api/onboarding", handleOnboarding);
   app.post("/api/auth/onboarding", handleOnboarding);
-  
+
   // Test endpoint to verify route is registered
   app.get("/api/onboarding/test", (_req, res) => {
     console.log("[ONBOARDING] Test endpoint hit");
