@@ -1262,8 +1262,8 @@ export const userRoutes = (app: Express) => {
           });
         }
 
-        // Generate a password reset token
-        const resetToken = randomBytes(32).toString("hex");
+        // Generate a 4-digit password reset OTP
+        const resetToken = Math.floor(1000 + Math.random() * 9000).toString();
         const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
         
         // Store the reset token in the email_otp table (upsert - replace any existing OTP for this email)
@@ -1452,6 +1452,18 @@ export const userRoutes = (app: Express) => {
         });
       }
 
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          status: {
+            remark: "validation_failed",
+            status: "error",
+            message: "Invalid email format.",
+          },
+        });
+      }
+
       // Validate password strength (minimum 6 characters)
       if (newPassword.length < 6) {
         return res.status(400).json({
@@ -1465,13 +1477,13 @@ export const userRoutes = (app: Express) => {
 
       // ================================================
 
-      // Fetch the email otp table by email and validate if otp is used or expired
+      // Fetch the email otp table by email and otp, validate if otp is used or expired
 
       const tokenRecord = await db
         .select()
         .from(emailOtp)
         .where(and(
-          eq(emailOtp.email , email),
+          eq(emailOtp.email, email.toLowerCase()),
           eq(emailOtp.isUsed, 0)
         ))
         .limit(1);
@@ -1481,7 +1493,7 @@ export const userRoutes = (app: Express) => {
           status: {
             remark: "invalid_token",
             status: "error",
-            message: "Invalid or already used reset token.",
+            message: "No valid reset token found. Please request a new password reset.",
           },
         });
       }
@@ -1525,7 +1537,7 @@ export const userRoutes = (app: Express) => {
         await db.update(emailOtp)
           .set({
             isUsed: 1,
-            updatedAt: new Date(),
+            // updatedAt: new Date(),
           })
           .where(eq(emailOtp.id, tokenData.id));
 
@@ -1551,7 +1563,6 @@ export const userRoutes = (app: Express) => {
       }
     });
 
-    
   };
   
 

@@ -58,7 +58,6 @@ export const emailOtp = pgTable("email_otp", {
   expiresAt: timestamp("expires_at").notNull(), // When OTP expires
   isUsed: integer("is_used").notNull().default(0), // 0 = unused, 1 = used
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("IDX_email_otp_expires_at").on(table.expiresAt),
 ]);
@@ -127,7 +126,6 @@ export const upsertUserSchema = createInsertSchema(users).pick({
 export const insertEmailOtpSchema = createInsertSchema(emailOtp).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 });
 
 export const insertSessionTokenSchema = createInsertSchema(sessionTokens).omit({
