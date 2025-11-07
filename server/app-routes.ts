@@ -220,7 +220,7 @@ export const authRoutes = (app: Express) => {
           },
           data: {
             email: email.toLowerCase(),
-            // otp,
+            otp,
           },
         });
       } catch (error) {
