@@ -220,7 +220,7 @@ export const authRoutes = (app: Express) => {
           },
           data: {
             email: email.toLowerCase(),
-            otp,
+            // otp,
           },
         });
       } catch (error) {
@@ -477,7 +477,7 @@ export const authRoutes = (app: Express) => {
             user: exportedUser,
             token,
             session: {
-              expiresAt: expiresAt.toISOString(),
+              expiresAt: expiresAt.getTime(),
               isTokenExpired: false,
             },
           },
@@ -568,9 +568,41 @@ export const authRoutes = (app: Express) => {
             },
           });
         }
+
         console.log(`[LOGIN] User found, verifying password`);
 
         const user = existingUser[0];
+
+        // Check verification status
+        if (user.verificationStatus === "pending") {
+          return res.status(403).json({
+            status: {
+              remark: "user_not_verified",
+              status: "error",
+              message: "User is not verified. Please verify your account.",
+            },
+            data: {
+              email: email.toLowerCase(),
+              verificationStatus: user.verificationStatus,
+            },
+          });
+        }
+
+        if (user.verificationStatus !== "verified") {
+          const status = user.verificationStatus as VerificationStatus;
+          const message = VERIFICATION_STATUS_MESSAGES[status] || "Account status is invalid.";
+          return res.status(403).json({
+            status: {
+              remark: "account_status_invalid",
+              status: "error",
+              message,
+            },
+            data: {
+              email: email.toLowerCase(),
+              verificationStatus: user.verificationStatus,
+            },
+          });
+        }
 
         // Verify password
         if (!user.password) {
@@ -583,6 +615,7 @@ export const authRoutes = (app: Express) => {
             },
           });
         }
+
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
           console.log(
@@ -648,7 +681,7 @@ export const authRoutes = (app: Express) => {
           data: {
             token,
             session: {
-              expiresAt: expiresAt.toISOString(),
+              expiresAt: expiresAt.getTime(),
               isTokenExpired: false,
             },
           },
@@ -679,11 +712,66 @@ export const onBoardingRoutes = (app: Express) => {
       try {
         console.log("[ONBOARDING] Request received", { path: req.path });
 
-        // const data = req.body;
-        // console.log("[ONBOARDING] Body:", data);
+        // Validate session token
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return res.status(401).json({
+            status: {
+              remark: "unauthorized",
+              status: "error",
+              message: "Unauthorized. Token is required.",
+            },
+          });
+        }
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
+        // Verify and decode JWT token
+        const decoded = jwt.verify(token, jwtSecret) as {
+          userId: string;
+          exp?: number;
+          iat?: number;
+        };
+        const userId = decoded.userId;
+
+        // Check JWT expiration
+        const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+        if (isExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "session_expired",
+              status: "error",
+              message: "Session has expired",
+            },
+          });
+        }
+
+        // Check database token status
+        const tokenRecord = await db
+          .select()
+          .from(sessionTokens)
+          .where(eq(sessionTokens.token, token))
+          .limit(1);
+
+        if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "invalid_session",
+              status: "error",
+              message: "Invalid or expired session",
+            },
+          });
+        }
+
+        console.log(
+          "[ONBOARDING] Processing onboarding for userId:",
+          userId
+        );
 
         const {
-          userId,
           height,
           weight,
           dateOfBirth,
@@ -693,25 +781,6 @@ export const onBoardingRoutes = (app: Express) => {
           selectedDays,
           daysPerWeek,
         } = req.body;
-
-        // Validate required userId
-        if (!userId || typeof userId !== "string" || userId.trim() === "") {
-          return res.status(400).json({
-            status: {
-              remark: "validation_failed",
-              status: "error",
-              message: "userId is required and must be a non-empty string.",
-            },
-            data: {
-              missingFields: ["userId"],
-            },
-          });
-        }
-
-        console.log(
-          "[ONBOARDING] Processing onboarding for userId:",
-          userId.trim()
-        );
 
         const updatePayload: Record<string, unknown> = {};
 
@@ -822,7 +891,7 @@ export const onBoardingRoutes = (app: Express) => {
         }
         if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
 
-        // Update user by userId (no authentication required since token comes after onboarding)
+        // Update user by userId from authenticated session token
         const updatedUsers = await db
           .update(users)
           .set(updatePayload)
@@ -837,14 +906,14 @@ export const onBoardingRoutes = (app: Express) => {
               message: "User not found.",
             },
             data: {
-              userId: userId.trim(),
+              userId,
               updatedUsers,
             },
           });
         }
 
         console.log("[ONBOARDING] User onboarding data updated successfully", {
-          userId: userId.trim(),
+          userId,
           fieldsUpdated: Object.keys(updatePayload),
         });
 
@@ -855,7 +924,7 @@ export const onBoardingRoutes = (app: Express) => {
             message: "Onboarding completed successfully",
           },
           data: {
-            userId: userId.trim(),
+            userId,
             fieldsUpdated: Object.keys(updatePayload),
           },
         });
@@ -1303,7 +1372,7 @@ export const userRoutes = (app: Express) => {
           data: {
             email: email.toLowerCase(),
             OTP: resetToken,
-            expiresAt: expiresAt.toISOString(),
+            expiresAt: expiresAt.getTime(),
           },
         });
 
