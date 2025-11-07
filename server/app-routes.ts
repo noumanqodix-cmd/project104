@@ -469,17 +469,17 @@ export const authRoutes = (app: Express) => {
 
         res.status(201).json({
           status: {
-            remark: "registration_completed",
+            remark: "user_verification_completed",
             status: "success",
-            message: "Registration completed successfully",
+            message: "User verification completed successfully",
           },
           data: {
-            user: exportedUser,
-            token,
-            session: {
-              expiresAt: expiresAt.getTime(),
-              isTokenExpired: false,
-            },
+            // user: exportedUser,
+            token
+            // session: {
+            //   expiresAt: expiresAt.getTime(),
+            //   isTokenExpired: false,
+            // },
           },
         });
       } catch (error) {
