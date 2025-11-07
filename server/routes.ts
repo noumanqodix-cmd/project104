@@ -74,7 +74,7 @@ import {
   calculateCaloriesBurned,
   poundsToKg,
 } from "./calorie-calculator";
-import { registerAppRoutes, onBoardingRoutes, loginAppRoutes, getUserSessionData, logoutAppRoutes, deleteAccountRoutes, getProfileRoutes } from "./app-routes";
+import { registerAppRoutes, onBoardingRoutes, loginAppRoutes, getUserSessionData, logoutAppRoutes, deleteAccountRoutes, getProfileRoutes, authRoutes } from "./app-routes";
 import { z } from "zod";
 import { calculateAge } from "@shared/utils";
 import {
@@ -292,8 +292,10 @@ export async function registerRoutes(
   // CUSTOM AUTHENTICATION ROUTES
   // ==========================================
 
-  registerAppRoutes(app);
-  loginAppRoutes(app);
+  authRoutes(app);
+  userRoutes(app);
+  // registerAppRoutes(app);
+  // loginAppRoutes(app);
   onBoardingRoutes(app);
   getUserSessionData(app);
   logoutAppRoutes(app);

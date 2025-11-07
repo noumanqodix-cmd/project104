@@ -1,0 +1,11 @@
+{
+  "data": {
+    "email": "awais@gmail.com",
+    "otp": "123456"
+  },
+  "status": {
+    "remark": "otp_sent",
+    "status": "success",
+    "message": "OTP sent to your email. Please verify to complete registration."
+  }
+}

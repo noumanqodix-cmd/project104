@@ -6,18 +6,32 @@ import { db } from "./db";
 import { users, emailOtp, sessionTokens } from "@shared/schema";
 import { sendEmail } from "./email";
 import multer from "multer";
+import { randomBytes } from "crypto";
 
 // Configure multer for form-data parsing
-const upload = multer();
 
-// ==========================================
-// CUSTOM AUTHENTICATION ROUTES
-// ==========================================
+// =========================================
+// VARIABLES DECLARATION
+// =========================================
+
+const upload = multer();
 
 const SALT_ROUNDS = 10;
 
-// Registers authentication routes (currently register + verify OTP flow)
-export const registerAppRoutes = (app: Express) => {
+const VERIFICATION_STATUS_MESSAGES = {
+  verified: "User is already verified. Please log in.",
+  pending: "User verification is pending. Please check your email for OTP.",
+  restricted: "User account is restricted. Please contact support.",
+  deleted: "User account has been deleted.",
+};
+
+type VerificationStatus = keyof typeof VERIFICATION_STATUS_MESSAGES;
+
+// ==========================================
+// CUSTOM AUTH ROUTES
+// ==========================================
+
+export const authRoutes = (app: Express) => {
   // POST /api/auth/register - initiate user registration with OTP
   // Requires: firstName, lastName, email, password
   app.post(
@@ -25,49 +39,72 @@ export const registerAppRoutes = (app: Express) => {
     upload.none(),
     async (req: Request, res: Response) => {
       try {
-        console.log("[REGISTER] Received registration request");
         const { firstName, lastName, email, password } = req.body;
-        const data = req.body;
-        console.log("[REGISTER] Body:", data);
-        // console.log("[REGISTER] Body params:", {
-        //   firstName,
-        //   lastName,
-        //   email: email ? "present" : "missing",
-        //   password: password ? "present" : "missing",
-        // });
 
         // Validate required fields
-        if (!firstName || !lastName || !email || !password) {
+        const missingFields: string[] = [];
+        if (!firstName) missingFields.push("firstName");
+        if (!lastName) missingFields.push("lastName");
+        if (!email) missingFields.push("email");
+        if (!password) missingFields.push("password");
+
+        if (missingFields.length > 0) {
           console.log("[REGISTER] Validation failed: Missing required fields");
+
           return res.status(400).json({
-            error:
-              "Missing required fields. Please provide firstName, lastName, email, and password",
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Please fill all required fields",
+            },
+            data: {
+              receivedFields: req.body,
+              missingFields,
+            },
           });
         }
+
         console.log("[REGISTER] Validation passed: Required fields present");
 
-        // Validate email format
+        // =================== Validate email format ================================
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
           console.log("[REGISTER] Validation failed: Invalid email format");
           return res.status(400).json({
-            error: "Invalid email format",
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format",
+            },
+            data: {
+              email: email,
+              invalidFormat: ["email"],
+            },
           });
         }
+
         console.log("[REGISTER] Validation passed: Email format is valid");
 
         // Validate password strength (minimum 6 characters)
         if (password.length < 6) {
           console.log("[REGISTER] Validation failed: Password too short");
           return res.status(400).json({
-            error: "Password must be at least 6 characters long",
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Password must be at least 6 characters long",
+            },
+            data: {
+              password: password,
+              invalidFields: ["password"],
+            },
           });
         }
         console.log(
           "[REGISTER] Validation passed: Password length is sufficient"
         );
 
-        // Check if user already exists
+        // =================== Check if user already exists ================================
         console.log(
           `[REGISTER] Checking for existing user with email: ${email.toLowerCase()}`
         );
@@ -81,16 +118,26 @@ export const registerAppRoutes = (app: Express) => {
           const user = existingUser[0];
           if (
             user.verificationStatus === "verified" ||
-            user.verificationStatus === "restricted"
+            user.verificationStatus === "pending"
           ) {
             console.log(
               `[REGISTER] Conflict: Existing user status is ${user.verificationStatus}`
             );
+            const status = user.verificationStatus as VerificationStatus;
             const message =
-              user.verificationStatus === "verified"
-                ? "User is already verified. Please log in."
-                : "User account is restricted. Please contact support.";
-            return res.status(409).json({ error: message });
+              VERIFICATION_STATUS_MESSAGES[status] ||
+              "verificationStatus is not detectable.";
+            return res.status(409).json({
+              status: {
+                remark: "user_already_exists",
+                status: "error",
+                message,
+              },
+              data: {
+                email: email.toLowerCase(),
+                verificationStatus: user.verificationStatus,
+              },
+            });
           }
           // If pending, continue to resend OTP
           console.log(
@@ -112,7 +159,8 @@ export const registerAppRoutes = (app: Express) => {
           );
         }
 
-        // Generate 4-digit OTP
+        // ======================== Generate 4-digit OTP ==========================
+
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
         console.log(`[REGISTER] Generated OTP: ${otp}`);
 
@@ -141,7 +189,8 @@ export const registerAppRoutes = (app: Express) => {
           });
         console.log("[REGISTER] OTP stored successfully in the database");
 
-        // Send OTP email
+        // ========================== Send OTP email =============================
+
         try {
           await sendEmail({
             to: email.toLowerCase(),
@@ -152,21 +201,36 @@ export const registerAppRoutes = (app: Express) => {
         } catch (emailError) {
           console.error("[REGISTER] Failed to send OTP email:", emailError);
           return res.status(500).json({
-            error: "Failed to send verification email. Please try again.",
+            status: {
+              remark: "otp_send_failed",
+              status: "error",
+              message: "Failed to send OTP to email. Please try again.",
+            },
           });
         }
 
         console.log("[REGISTER] Sending success response");
 
         res.status(200).json({
-          message:
-            "OTP sent to your email. Please verify to complete registration.",
-          email: email.toLowerCase(),
+          status: {
+            remark: "otp_sent",
+            status: "success",
+            message:
+              "OTP sent to your email. Please verify to complete registration.",
+          },
+          data: {
+            email: email.toLowerCase(),
+            otp,
+          },
         });
       } catch (error) {
         console.error("[REGISTER] Registration initiation error:", error);
         res.status(500).json({
-          error: "Failed to initiate registration. Please try again.",
+          status: {
+            remark: "registration_failed",
+            status: "error",
+            message: "Failed to initiate registration. Please try again.",
+          },
         });
       }
     }
@@ -185,11 +249,25 @@ export const registerAppRoutes = (app: Express) => {
         // Validate required fields
         if (!email) {
           return res.status(400).json({
-            error: `Email is required`,
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email is required",
+            },
+            data: {
+              missingFields: ["email"],
+            },
           });
         } else if (!otp) {
           return res.status(400).json({
-            error: `OTP is required`,
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "OTP is required",
+            },
+            data: {
+              missingFields: ["otp"],
+            },
           });
         }
 
@@ -197,7 +275,14 @@ export const registerAppRoutes = (app: Express) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
           return res.status(400).json({
-            error: "Invalid email format",
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format",
+            },
+            data: {
+              invalidFormat: ["email"],
+            },
           });
         }
 
@@ -210,17 +295,34 @@ export const registerAppRoutes = (app: Express) => {
 
         if (existingUser.length === 0) {
           return res.status(400).json({
-            error: "User not found. Please register first.",
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found. Please register first.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
           });
         }
 
         const user = existingUser[0];
         if (user.verificationStatus !== "pending") {
+          const status = user.verificationStatus as VerificationStatus;
           const message =
-            user.verificationStatus === "verified"
-              ? "User is already verified. Please log in."
-              : "User account is restricted. Please contact support.";
-          return res.status(400).json({ error: message });
+            VERIFICATION_STATUS_MESSAGES[status] ||
+            "Unknown verification status.";
+          return res.status(400).json({
+            status: {
+              remark: "invalid_verification_status",
+              status: "error",
+              message,
+            },
+            data: {
+              email: email.toLowerCase(),
+              verificationStatus: user.verificationStatus,
+            },
+          });
         }
 
         // Find the OTP record
@@ -232,7 +334,14 @@ export const registerAppRoutes = (app: Express) => {
 
         if (otpRecord.length === 0) {
           return res.status(400).json({
-            error: "No OTP found for this email. Please request a new one.",
+            status: {
+              remark: "otp_not_found",
+              status: "error",
+              message: "No OTP found for this email. Please request a new one.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
           });
         }
 
@@ -241,14 +350,28 @@ export const registerAppRoutes = (app: Express) => {
         // Check if OTP is expired (10 minutes)
         if (new Date() > new Date(otpData.expiresAt)) {
           return res.status(400).json({
-            error: "OTP has expired. Please request a new one.",
+            status: {
+              remark: "otp_expired",
+              status: "error",
+              message: "OTP has expired. Please request a new one.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
           });
         }
 
         // Check if OTP has already been used
         if (otpData.isUsed) {
           return res.status(400).json({
-            error: "OTP has already been used. Please request a new one.",
+            status: {
+              remark: "otp_used",
+              status: "error",
+              message: "OTP has already been used. Please request a new one.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
           });
         }
 
@@ -259,7 +382,14 @@ export const registerAppRoutes = (app: Express) => {
         // Verify OTP
         if (numberDataOTP !== numericOtp) {
           return res.status(400).json({
-            error: "Invalid OTP. Please check and try again.",
+            status: {
+              remark: "invalid_otp",
+              status: "error",
+              message: "Invalid OTP. Please check and try again.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
           });
         }
 
@@ -283,6 +413,46 @@ export const registerAppRoutes = (app: Express) => {
           .set({ isUsed: 1 })
           .where(eq(emailOtp.id, otpData.id));
 
+        // Generate JWT token and session for the newly verified user
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+        const token = jwt.sign({ userId: updatedUsers[0].id }, jwtSecret, {
+          expiresIn: "1d",
+        });
+        console.log(
+          `[OTP-VERIFY] JWT token generated for user: ${updatedUsers[0].id}`
+        );
+
+        // Calculate expiration date (1 day from now)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 1);
+
+        // Store/Update token in session_tokens table (upsert - update existing or create new)
+        await db
+          .insert(sessionTokens)
+          .values({
+            token,
+            isTokenExpired: 0, // false - new active token
+            expiresAt,
+            userId: updatedUsers[0].id,
+            email: updatedUsers[0].email!,
+          })
+          .onConflictDoUpdate({
+            target: sessionTokens.userId, // Conflict on userId (one session per user)
+            set: {
+              token, // Update with new token
+              isTokenExpired: 0, // Reset to active
+              expiresAt, // Update expiration
+              email: updatedUsers[0].email!, // Update email if changed
+              updatedAt: new Date(), // Update timestamp
+            },
+          });
+        console.log(
+          `[OTP-VERIFY] Token stored/updated in session_tokens table for user: ${updatedUsers[0].id}`
+        );
+
         // Remove password from response
         const userData = updatedUsers[0];
         const { password: _, ...userWithoutPassword } = userData;
@@ -298,97 +468,33 @@ export const registerAppRoutes = (app: Express) => {
         console.log(exportedUser, "userData");
 
         res.status(201).json({
-          message: "Registration completed successfully",
-          userData: exportedUser,
-          status: { verificationStatus: "verified" },
+          status: {
+            remark: "registration_completed",
+            status: "success",
+            message: "Registration completed successfully",
+          },
+          data: {
+            user: exportedUser,
+            token,
+            session: {
+              expiresAt: expiresAt.toISOString(),
+              isTokenExpired: false,
+            },
+          },
         });
       } catch (error) {
         console.error("OTP verification error:", error);
         res.status(500).json({
-          error: "Failed to verify OTP. Please try again.",
+          status: {
+            remark: "verification_failed",
+            status: "error",
+            message: "Failed to verify OTP. Please try again.",
+          },
         });
       }
     }
   );
-};
 
-// ==========================================
-// CUSTOM ONBOARDING ROUTES
-// ==========================================
-
-export const onBoardingRoutes = (app: Express) => {
-  app.post(
-    "/api/onboarding",
-    upload.none(),
-    async (req: Request, res: Response) => {
-      try {
-        console.log("[ONBOARDING] Request received", { path: req.path });
-
-        // const data = req.body;
-        // console.log("[ONBOARDING] Body:", data);
-
-        // const { userId, height, weight, dateOfBirth , gender , nutritionGoal , targetCalories , selectedDays , daysPerWeek } = req.body;
-
-        // // Validate required userId
-        // if (!userId) {
-        //   return res.status(400).json({ error: "userId is required." });
-        // }
-
-        // console.log("[ONBOARDING] Processing onboarding for userId:", userId);
-
-        // const updatePayload: Record<string, unknown> = {};
-
-        // if (height !== undefined) updatePayload.height = height;
-        // if (weight !== undefined) updatePayload.weight = weight;
-        // if (dateOfBirth !== undefined) {
-        //   const parsedDate = new Date(dateOfBirth);
-        //   if (Number.isNaN(parsedDate.getTime())) {
-        //     return res
-        //       .status(400)
-        //       .json({ error: "Invalid dateOfBirth format." });
-        //   }
-        //   updatePayload.dateOfBirth = parsedDate;
-        // }
-        // if (gender !== undefined) updatePayload.gender = gender;
-        // if (nutritionGoal !== undefined) updatePayload.nutritionGoal = nutritionGoal;
-        // if (targetCalories !== undefined) updatePayload.targetCalories = targetCalories;
-        // if (selectedDays !== undefined) updatePayload.selectedDates = selectedDays;
-        // if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
-
-        // // Update user by userId (no authentication required since token comes after onboarding)
-        // const updatedUsers = await db
-        //   .update(users)
-        //   .set(updatePayload)
-        //   .where(eq(users.id, userId))
-        //   .returning({ id: users.id });
-
-        // if (updatedUsers.length === 0) {
-        //   return res.status(404).json({ error: "User not found." });
-        // }
-
-        // console.log("[ONBOARDING] User onboarding data updated successfully", {
-        //   userId,
-        //   fieldsUpdated: Object.keys(updatePayload),
-        // });
-
-        res.status(200).json({ message: "Onboarding completed successfully" });
-      } catch (error) {
-        console.error("[ONBOARDING] Error completing onboarding:", error);
-        res.status(500).json({
-          error: "Failed to complete onboarding. Please try again.",
-        });
-      }
-    }
-  );
-};
-
-// ===========================================
-// CUSTOM LOGIN ROUTES
-// ============================================
-// description : login user and create token for session management and
-// session in database for management of user login sessions
-
-export const loginAppRoutes = (app: Express) => {
   // POST /api/auth/login - Authenticate user with email and password
   app.post(
     "/api/auth/login",
@@ -405,9 +511,18 @@ export const loginAppRoutes = (app: Express) => {
         // Validate required fields
         if (!email || !password) {
           console.log("[LOGIN] Validation failed: Missing required fields");
-          return res
-            .status(400)
-            .json({ error: "Email and password are required." });
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email and password are required.",
+            },
+            data: {
+              missingFields: ["email", "password"].filter(
+                (field) => !req.body[field]
+              ),
+            },
+          });
         }
 
         console.log("[LOGIN] Validation passed: Required fields present");
@@ -416,7 +531,16 @@ export const loginAppRoutes = (app: Express) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
           console.log("[LOGIN] Validation failed: Invalid email format");
-          return res.status(400).json({ error: "Invalid email format." });
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format.",
+            },
+            data: {
+              invalidFormat: ["email"],
+            },
+          });
         }
 
         console.log("[LOGIN] Validation passed: Email format is valid");
@@ -436,7 +560,13 @@ export const loginAppRoutes = (app: Express) => {
           console.log(
             `[LOGIN] User not found with email: ${email.toLowerCase()}`
           );
-          return res.status(401).json({ error: "Invalid email or password." });
+          return res.status(401).json({
+            status: {
+              remark: "invalid_credentials",
+              status: "error",
+              message: "Invalid email or password.",
+            },
+          });
         }
         console.log(`[LOGIN] User found, verifying password`);
 
@@ -445,14 +575,26 @@ export const loginAppRoutes = (app: Express) => {
         // Verify password
         if (!user.password) {
           console.log(`[LOGIN] User password is null for user: ${user.id}`);
-          return res.status(401).json({ error: "Invalid email or password." });
+          return res.status(401).json({
+            status: {
+              remark: "invalid_credentials",
+              status: "error",
+              message: "Invalid email or password.",
+            },
+          });
         }
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
           console.log(
             `[LOGIN] Password verification failed for user: ${user.id}`
           );
-          return res.status(401).json({ error: "Invalid email or password." });
+          return res.status(401).json({
+            status: {
+              remark: "invalid_credentials",
+              status: "error",
+              message: "Invalid email or password.",
+            },
+          });
         }
 
         console.log(
@@ -497,25 +639,925 @@ export const loginAppRoutes = (app: Express) => {
           `[LOGIN] Token stored/updated in session_tokens table for user: ${user.id}`
         );
 
-        // Remove password from user data
-        const { password: _, ...userWithoutPassword } = user;
         res.status(200).json({
-          message: "Login successful",
-          token,
-          user: userWithoutPassword,
+          status: {
+            remark: "login_successful",
+            status: "success",
+            message: "Login successful",
+          },
+          data: {
+            token,
+            session: {
+              expiresAt: expiresAt.toISOString(),
+              isTokenExpired: false,
+            },
+          },
         });
       } catch (error) {
         console.error("[LOGIN] Error logging in:", error);
-        res.status(500).json({ error: "Failed to log in. Please try again." });
+        res.status(500).json({
+          status: {
+            remark: "login_failed",
+            status: "error",
+            message: "Failed to log in. Please try again.",
+          },
+        });
       }
     }
   );
 };
 
 // ==========================================
-// GET USER SESSION DATA ROUTE
+// CUSTOM ONBOARDING ROUTES
 // ==========================================
 
+export const onBoardingRoutes = (app: Express) => {
+  app.post(
+    "/api/onboarding",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        console.log("[ONBOARDING] Request received", { path: req.path });
+
+        // const data = req.body;
+        // console.log("[ONBOARDING] Body:", data);
+
+        const {
+          userId,
+          height,
+          weight,
+          dateOfBirth,
+          gender,
+          nutritionGoal,
+          targetCalories,
+          selectedDays,
+          daysPerWeek,
+        } = req.body;
+
+        // Validate required userId
+        if (!userId || typeof userId !== "string" || userId.trim() === "") {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "userId is required and must be a non-empty string.",
+            },
+            data: {
+              missingFields: ["userId"],
+            },
+          });
+        }
+
+        console.log(
+          "[ONBOARDING] Processing onboarding for userId:",
+          userId.trim()
+        );
+
+        const updatePayload: Record<string, unknown> = {};
+
+        // Validate and set height
+        if (height !== undefined) {
+          const numHeight = Number(height);
+          if (isNaN(numHeight) || numHeight <= 0) {
+            return res.status(400).json({
+              status: {
+                remark: "validation_failed",
+                status: "error",
+                message: "Height must be a positive number.",
+              },
+              data: {
+                invalidFields: ["height"],
+              },
+            });
+          }
+          updatePayload.height = numHeight;
+        }
+
+        // Validate and set weight
+        if (weight !== undefined) {
+          const numWeight = Number(weight);
+          if (isNaN(numWeight) || numWeight <= 0) {
+            return res.status(400).json({
+              status: {
+                remark: "validation_failed",
+                status: "error",
+                message: "Weight must be a positive number.",
+              },
+              data: {
+                invalidFields: ["weight"],
+              },
+            });
+          }
+          updatePayload.weight = numWeight;
+        }
+
+        if (dateOfBirth !== undefined) {
+          const parsedDate = new Date(dateOfBirth);
+          if (Number.isNaN(parsedDate.getTime())) {
+            return res.status(400).json({
+              status: {
+                remark: "validation_failed",
+                status: "error",
+                message: "Invalid dateOfBirth format.",
+              },
+              data: {
+                invalidFields: ["dateOfBirth"],
+              },
+            });
+          }
+          updatePayload.dateOfBirth = parsedDate;
+        }
+        if (gender !== undefined) updatePayload.gender = gender;
+        if (nutritionGoal !== undefined)
+          updatePayload.nutritionGoal = nutritionGoal;
+        if (targetCalories !== undefined)
+          updatePayload.targetCalories = targetCalories;
+        if (selectedDays !== undefined) {
+          let parsedSelectedDays: number[] = [];
+
+          if (Array.isArray(selectedDays)) {
+            parsedSelectedDays = selectedDays;
+          } else if (typeof selectedDays === "string") {
+            // Try to parse as JSON array first
+            try {
+              const parsed = JSON.parse(selectedDays);
+              if (Array.isArray(parsed)) {
+                parsedSelectedDays = parsed;
+              } else {
+                // If not JSON array, try comma-separated string
+                parsedSelectedDays = selectedDays
+                  .split(",")
+                  .map((s) => parseInt(s.trim()))
+                  .filter((n) => !isNaN(n));
+              }
+            } catch {
+              // If JSON parse fails, try comma-separated string
+              parsedSelectedDays = selectedDays
+                .split(",")
+                .map((s) => parseInt(s.trim()))
+                .filter((n) => !isNaN(n));
+            }
+          }
+
+          if (parsedSelectedDays.length > 0) {
+            // Convert numbers to strings since database expects text array
+            updatePayload.selectedDates = parsedSelectedDays.map((day) =>
+              day.toString()
+            );
+          } else {
+            return res.status(400).json({
+              status: {
+                remark: "validation_failed",
+                status: "error",
+                message:
+                  "selectedDays must be an array of numbers or a valid string representation.",
+              },
+              data: {
+                invalidFields: ["selectedDays"],
+                receivedValue: selectedDays,
+                receivedType: typeof selectedDays,
+              },
+            });
+          }
+        }
+        if (daysPerWeek !== undefined) updatePayload.daysPerWeek = daysPerWeek;
+
+        // Update user by userId (no authentication required since token comes after onboarding)
+        const updatedUsers = await db
+          .update(users)
+          .set(updatePayload)
+          .where(eq(users.id, userId))
+          .returning({ id: users.id });
+
+        if (updatedUsers.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found.",
+            },
+            data: {
+              userId: userId.trim(),
+              updatedUsers,
+            },
+          });
+        }
+
+        console.log("[ONBOARDING] User onboarding data updated successfully", {
+          userId: userId.trim(),
+          fieldsUpdated: Object.keys(updatePayload),
+        });
+
+        res.status(200).json({
+          status: {
+            remark: "onboarding_completed",
+            status: "success",
+            message: "Onboarding completed successfully",
+          },
+          data: {
+            userId: userId.trim(),
+            fieldsUpdated: Object.keys(updatePayload),
+          },
+        });
+      } catch (error) {
+        console.error("[ONBOARDING] Error completing onboarding:", error);
+        res.status(500).json({
+          status: {
+            remark: "onboarding_failed",
+            status: "error",
+            message: "Failed to complete onboarding. Please try again.",
+          },
+        });
+      }
+    }
+  );
+};
+
+// ===========================================
+// USER ROUTES
+// ==========================================
+
+export const userRoutes = (app: Express) => {
+
+  // ==========================================
+  // LOGOUT ROUTE
+  // ==========================================
+  app.get("/api/logout", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({
+          status: {
+            remark: "unauthorized",
+            status: "error",
+            message: "Unauthorized",
+          },
+        });
+      }
+  
+      // Update token to expired in database (soft delete)
+      const updateResult = await db
+        .update(sessionTokens)
+        .set({
+          isTokenExpired: 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionTokens.token, token));
+  
+      if (updateResult.rowCount === 0) {
+        console.log("[LOGOUT] Token not found in database");
+        return res.status(404).json({
+          status: {
+            remark: "session_not_found",
+            status: "error",
+            message: "Session not found",
+          },
+        });
+      }
+  
+      console.log("[LOGOUT] Token successfully expired in database");
+      res.status(200).json({
+        status: {
+          remark: "logout_successful",
+          status: "success",
+          message: "Logout successful",
+        },
+      });
+    } catch (error) {
+      console.error("[LOGOUT] Error logging out:", error);
+      res.status(500).json({
+        status: {
+          remark: "logout_failed",
+          status: "error",
+          message: "Failed to log out. Please try again.",
+        },
+      });
+    }
+  });
+
+  // ===========================================
+  // DELETE ACCOUNT ROUTE
+  // ===========================================
+  app.delete("/api/delete-account", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({
+          status: {
+            remark: "unauthorized",
+            status: "error",
+            message: "Unauthorized",
+          },
+        });
+      }
+  
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET is not defined in environment variables");
+      }
+  
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
+      const userId = decoded.userId;
+  
+      // Check if token is expired
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+      if (isExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "auth_token_expired",
+            status: "error",
+            message: "Auth Token has expired",
+          },
+        });
+      }
+  
+      // Check if token exists and is not already expired in database
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+  
+      if (tokenRecord.length === 0) {
+        return res.status(401).json({
+          status: {
+            remark: "invalid_session",
+            status: "error",
+            message: "Invalid session",
+          },
+        });
+      }
+  
+      const dbToken = tokenRecord[0];
+      if (dbToken.isTokenExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "auth_token_expired",
+            status: "error",
+            message: "Auth Token has expired",
+          },
+        });
+      }
+  
+      // Check if user exists and is not already deleted
+      const userRecord = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+  
+      if (userRecord.length === 0) {
+        return res.status(404).json({
+          status: {
+            remark: "user_not_found",
+            status: "error",
+            message: "User not found",
+          },
+        });
+      }
+  
+      const user = userRecord[0];
+      if (user.verificationStatus === "deleted") {
+        return res.status(400).json({
+          status: {
+            remark: "account_already_deleted",
+            status: "error",
+            message: "Account already deleted",
+          },
+        });
+      }
+  
+      // Start transaction-like operations (expire all user sessions)
+      await db
+        .update(sessionTokens)
+        .set({
+          isTokenExpired: 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionTokens.userId, userId));
+  
+      // Mark user account as deleted and email to userid_delete_email ( userid + delete as prefix )
+      const updateResult = await db
+        .update(users)
+        .set({
+          verificationStatus: "deleted",
+          email: `${userId}_delete_${user.email}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+  
+      if (updateResult.rowCount === 0) {
+        console.log("[DELETE-ACCOUNT] Failed to mark user as deleted");
+        return res.status(500).json({
+          status: {
+            remark: "delete_failed",
+            status: "error",
+            message: "Failed to delete account",
+          },
+        });
+      }
+  
+      console.log(
+        "[DELETE-ACCOUNT] User account marked as deleted and all sessions expired"
+      );
+      res.status(200).json({
+        status: {
+          remark: "account_deleted",
+          status: "success",
+          message: "Account deleted successfully",
+        },
+        data: {
+          updateResult,
+        },
+      });
+    } catch (error) {
+      console.error("[DELETE-ACCOUNT] Error deleting account:", error);
+      res.status(500).json({
+        status: {
+          remark: "delete_account_failed",
+          status: "error",
+          message: "Failed to delete account.",
+        },
+      });
+    }
+  });
+
+  // ===========================================
+  // GET PROFILE
+  // ===========================================
+  app.get("/api/profile", async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({
+          status: {
+            remark: "unauthorized",
+            status: "error",
+            message: "Unauthorized",
+          },
+        });
+      }
+      console.log("[PROFILE] Received profile request");
+  
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET is not defined in environment variables");
+      }
+  
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
+      const userId = decoded.userId;
+      console.log(`[PROFILE] Decoded userId: ${userId}`);
+  
+      // Check JWT expiration
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+      if (isExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "session_expired",
+            status: "error",
+            message: "Session has expired",
+          },
+        });
+      }
+  
+      // Check database token status
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+  
+      if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "invalid_session",
+            status: "error",
+            message: "Invalid session",
+          },
+        });
+      }
+  
+      // Fetch user data from database
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+  
+      if (user.length === 0) {
+        return res.status(404).json({
+          status: {
+            remark: "user_not_found",
+            status: "error",
+            message: "User not found",
+          },
+        });
+      }
+  
+      const dbUser = user[0];
+      console.log(`[PROFILE] User found: ${dbUser.id}`);
+  
+      // Return safe profile data only (exclude sensitive information)
+      const profileData = {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        verificationStatus: dbUser.verificationStatus,
+        height: dbUser.height,
+        weight: dbUser.weight,
+        dateOfBirth: dbUser.dateOfBirth,
+        unitPreference: dbUser.unitPreference,
+        equipment: dbUser.equipment,
+        subscriptionTier: dbUser.subscriptionTier,
+        nutritionGoal: dbUser.nutritionGoal,
+        fitnessLevel: dbUser.fitnessLevel,
+        daysPerWeek: dbUser.daysPerWeek,
+        targetCalories: dbUser.targetCalories,
+        bmr: dbUser.bmr,
+        selectedDates: dbUser.selectedDates,
+        createdAt: dbUser.createdAt,
+        updatedAt: dbUser.updatedAt,
+      };
+  
+      res.status(200).json({
+        status: {
+          remark: "profile_retrieved",
+          status: "success",
+          message: "Profile retrieved successfully",
+        },
+        data: {
+          profile: profileData,
+        },
+      });
+    } catch (error) {
+      console.error("[PROFILE] Error fetching profile:", error);
+      res.status(500).json({
+        status: {
+          remark: "profile_fetch_failed",
+          status: "error",
+          message: "Failed to fetch profile.",
+        },
+      });
+    }
+  });
+
+  // ==========================================
+  // FOTGET PASSWORD
+  // =========================================
+  app.post(
+    "/api/auth/forgot-password",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        
+        const { email } = req.body;
+
+        console.log(`Email ${email} is required`);
+        // Validate required fields
+        if (!email) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email is required",
+            }
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format",
+            }
+          });
+        }
+
+        // Check if user exists
+        const existingUser = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase()))
+          .limit(1);
+
+        if (existingUser.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found with the provided email.",
+            }
+          });
+        }
+
+        // Generate a password reset token
+        const resetToken = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+        
+        // Store the reset token in the email_otp table (upsert - replace any existing OTP for this email)
+        await db
+          .insert(emailOtp)
+          .values({
+            email: email.toLowerCase(),
+            otp: resetToken,
+            expiresAt,
+          })
+          .onConflictDoUpdate({
+            target: emailOtp.email,
+            set: {
+              otp: resetToken,
+              expiresAt,
+              isUsed: 0, // Reset to unused
+              createdAt: new Date(),
+            },
+          });
+
+        // Send password reset email
+        await sendEmail({
+          to: email,
+          subject: "Password Reset",
+          text: `Your Password Reset Token is: ${resetToken}. It will expire in 1 hour.`,
+          html: `<b>Your Password Reset Token is: ${resetToken}</b><br>It will expire in 1 hour.`,
+        });
+
+        console.log(`[FORGOT-PASSWORD] Password reset token sent to: ${email.toLowerCase()}`);
+
+        res.status(200).json({
+          status: {
+            remark: "password_reset_email_sent",
+            status: "success",
+            message: "Password reset email sent successfully.",
+          },
+          data: {
+            email: email.toLowerCase(),
+            OTP: resetToken,
+            expiresAt: expiresAt.toISOString(),
+          },
+        });
+
+
+      } catch (error) {
+        console.error("[FORGOT-PASSWORD] Error processing request:", error);
+        res.status(500).json({
+          status: {
+            remark: "forgot_password_failed",
+            status: "error",
+            message: "Failed to process forgot password request.",
+          },
+        });
+      }
+    }
+  );
+
+  // ===========================================
+  // VERIFY OTP FOR PASSWORD RESET
+  // ==========================================
+
+  app.post(
+    "/api/verify-reset-otp",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const { email, otp } = req.body;
+        console.log("[VERIFY-RESET-OTP] Received OTP verification request");
+
+        // Validate required fields
+        if (!email || !otp) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email and OTP are required.",
+            },
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format.",
+            },
+          });
+        }
+
+        // Fetch the password reset token record
+        const tokenRecord = await db
+          .select()
+          .from(emailOtp)
+          .where(and(
+            eq(emailOtp.email, email.toLowerCase()),
+            eq(emailOtp.otp, otp),
+            eq(emailOtp.isUsed, 0)
+          ))
+          .limit(1);
+
+        if (tokenRecord.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "token_not_found",
+              status: "error",
+              message: "Invalid or expired reset token.",
+            },
+          });
+        }
+
+        const resetToken = tokenRecord[0];
+
+        // Check if token is expired
+        if (new Date() > new Date(resetToken.expiresAt)) {
+          return res.status(400).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Reset token has expired. Please request a new one.",
+            },
+          });
+        }
+
+        // Verify that the user exists with this email
+        const userRecord = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase()))
+          .limit(1);
+
+        if (userRecord.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found.",
+            },
+          });
+        }
+
+        // Token is valid, proceed with password reset permission
+        res.status(200).json({
+          status: {
+            remark: "reset_token_verified",
+            status: "success",
+            message: "OTP verified successfully. You can now set a new password.",
+          },
+          data: {
+            email: email.toLowerCase(),
+            tokenValid: true,
+          },
+        });
+      } catch (error) {
+        console.error("[VERIFY-RESET-OTP] Error processing request:", error);
+        res.status(500).json({
+          status: {
+            remark: "verify_reset_token_failed",
+            status: "error",
+            message: "Failed to process OTP verification request.",
+          },
+        });
+      }
+    }
+  );
+
+  // ==========================================
+  // RESET PASSWORD
+  // =========================================
+
+  app.post("/api/reset-password", upload.none(), async (req: Request, res: Response) => {
+    try {
+      const { email, newPassword } = req.body;
+      console.log("[RESET-PASSWORD] Received password reset request");
+
+      // Validate required fields
+      if (!email || !newPassword) {
+        return res.status(400).json({
+          status: {
+            remark: "validation_failed",
+            status: "error",
+            message: "Email and new password are required.",
+          },
+        });
+      }
+
+      // Validate password strength (minimum 6 characters)
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          status: {
+            remark: "validation_failed",
+            status: "error",
+            message: "Password must be at least 6 characters long.",
+          },
+        });
+      }
+
+      // ================================================
+
+      // Fetch the email otp table by email and validate if otp is used or expired
+
+      const tokenRecord = await db
+        .select()
+        .from(emailOtp)
+        .where(and(
+          eq(emailOtp.email , email),
+          eq(emailOtp.isUsed, 0)
+        ))
+        .limit(1);
+
+      if (tokenRecord.length === 0) {
+        return res.status(404).json({
+          status: {
+            remark: "invalid_token",
+            status: "error",
+            message: "Invalid or already used reset token.",
+          },
+        });
+      }
+
+      const tokenData = tokenRecord[0];
+
+      // Check if token is expired
+      if (new Date() > new Date(tokenData.expiresAt)) {
+        return res.status(400).json({
+          status: {
+            remark: "token_expired",
+            status: "error",
+            message: "Reset token has expired. Please request a new password reset.",
+          },
+        });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      // Update user's password in the database
+      const updateResult = await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.email, tokenData.email));
+
+        // ✅ First check if user update succeeded
+        if (updateResult.rowCount === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found.",
+            },
+          });
+        }
+
+        // ✅ Only mark OTP as used if password update succeeded
+        await db.update(emailOtp)
+          .set({
+            isUsed: 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(emailOtp.id, tokenData.id));
+
+        // Send success response
+        return res.status(200).json({
+          status: {
+            remark: "password_reset_successful",
+            status: "success",
+            message: "Password has been reset successfully.",
+          },
+        });
+
+
+      } catch (error) {
+        console.error("[RESET-PASSWORD] Error processing request:", error);
+        res.status(500).json({
+          status: {
+            remark: "reset_password_failed",
+            status: "error",
+            message: "Failed to process password reset request.",
+          },
+        });
+      }
+    });
+
+    
+  };
+  
+
+// ==========================================
+// GET USER SESSION DATA ROUTE
+// ==========================================
 export const getUserSessionData = (app: Express) => {
   app.get("/api/auth/session", async (req: Request, res: Response) => {
     try {
@@ -600,228 +1642,6 @@ export const getUserSessionData = (app: Express) => {
     } catch (error) {
       console.error("[SESSION] Error retrieving session data:", error);
       res.status(500).json({ error: "Failed to retrieve session data." });
-    }
-  });
-};
-
-// ==========================================
-// LOGOUT ROUTE
-// ==========================================
-
-export const logoutAppRoutes = (app: Express) => {
-  app.get("/api/auth/logout", async (req: Request, res: Response) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      // Update token to expired in database (soft delete)
-      const updateResult = await db
-        .update(sessionTokens)
-        .set({
-          isTokenExpired: 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(sessionTokens.token, token));
-
-      if (updateResult.rowCount === 0) {
-        console.log("[LOGOUT] Token not found in database");
-        return res.status(404).json({ error: "Session not found" });
-      }
-
-      console.log("[LOGOUT] Token successfully expired in database");
-      res.status(200).json({ message: "Logout successful" });
-    } catch (error) {
-      console.error("[LOGOUT] Error logging out:", error);
-      res.status(500).json({ error: "Failed to log out. Please try again." });
-    }
-  });
-};
-
-// ===========================================
-// DELETE ACCOUNT ROUTE
-// ===========================================
-
-export const deleteAccountRoutes = (app: Express) => {
-  app.get("/api/auth/delete-account", async (req: Request, res: Response) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new Error("JWT_SECRET is not defined in environment variables");
-      }
-
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
-      const userId = decoded.userId;
-
-      // Check if token is expired
-      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
-      if (isExpired) {
-        return res.status(401).json({ error: "Session has expired" });
-      }
-
-      // Check if token exists and is not already expired in database
-      const tokenRecord = await db
-        .select()
-        .from(sessionTokens)
-        .where(eq(sessionTokens.token, token))
-        .limit(1);
-
-      if (tokenRecord.length === 0) {
-        return res.status(401).json({ error: "Invalid session" });
-      }
-
-      const dbToken = tokenRecord[0];
-      if (dbToken.isTokenExpired) {
-        return res.status(401).json({ error: "Session has expired" });
-      }
-
-      // Check if user exists and is not already deleted
-      const userRecord = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (userRecord.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const user = userRecord[0];
-      if (user.verificationStatus === "deleted") {
-        return res.status(400).json({ error: "Account already deleted" });
-      }
-
-      // Start transaction-like operations (expire all user sessions)
-      await db
-        .update(sessionTokens)
-        .set({
-          isTokenExpired: 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(sessionTokens.userId, userId));
-
-      // Mark user account as deleted
-      const updateResult = await db
-        .update(users)
-        .set({
-          verificationStatus: "deleted",
-          email: null,
-          password: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
-
-      if (updateResult.rowCount === 0) {
-        console.log("[DELETE-ACCOUNT] Failed to mark user as deleted");
-        return res.status(500).json({ error: "Failed to delete account" });
-      }
-
-      console.log("[DELETE-ACCOUNT] User account marked as deleted and all sessions expired");
-      res.status(200).json({ message: "Account deleted successfully" });
-    } catch (error) {
-      console.error("[DELETE-ACCOUNT] Error deleting account:", error);
-      res.status(500).json({ error: "Failed to delete account." });
-    }
-  });
-};
-
-// ===========================================
-// GET PROFILE
-// ===========================================
-
-export const getProfileRoutes = (app: Express) => {
-  app.get("/api/profile", async (req: Request, res: Response) => {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-      console.log("[PROFILE] Received profile request");
-
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new Error("JWT_SECRET is not defined in environment variables");
-      }
-
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
-      const userId = decoded.userId;
-      console.log(`[PROFILE] Decoded userId: ${userId}`);
-
-      // Check JWT expiration
-      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
-      if (isExpired) {
-        return res.status(401).json({ error: "Session has expired" });
-      }
-
-      // Check database token status
-      const tokenRecord = await db
-        .select()
-        .from(sessionTokens)
-        .where(eq(sessionTokens.token, token))
-        .limit(1);
-
-      if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
-        return res.status(401).json({ error: "Invalid session" });
-      }
-
-      // Fetch user data from database
-      const user = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (user.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const dbUser = user[0];
-      console.log(`[PROFILE] User found: ${dbUser.id}`);
-
-      // Return safe profile data only (exclude sensitive information)
-      const profileData = {
-        id: dbUser.id,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-        verificationStatus: dbUser.verificationStatus,
-        height: dbUser.height,
-        weight: dbUser.weight,
-        dateOfBirth: dbUser.dateOfBirth,
-        unitPreference: dbUser.unitPreference,
-        equipment: dbUser.equipment,
-        subscriptionTier: dbUser.subscriptionTier,
-        nutritionGoal: dbUser.nutritionGoal,
-        fitnessLevel: dbUser.fitnessLevel,
-        daysPerWeek: dbUser.daysPerWeek,
-        targetCalories: dbUser.targetCalories,
-        bmr: dbUser.bmr,
-        selectedDates: dbUser.selectedDates,
-        createdAt: dbUser.createdAt,
-        updatedAt: dbUser.updatedAt,
-      };
-
-      res.status(200).json({
-        message: "Profile retrieved successfully",
-        profile: profileData
-      });
-    } catch (error) {
-      console.error("[PROFILE] Error fetching profile:", error);
-      res.status(500).json({ error: "Failed to fetch profile." });
     }
   });
 };
