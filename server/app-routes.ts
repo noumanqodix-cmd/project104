@@ -701,6 +701,148 @@ export const authRoutes = (app: Express) => {
 };
 
 // ==========================================
+// OTP VERIFICATION
+// =========================================
+
+export const otpRoutes = (app: Express) => {
+  // POST /api/otp/resend - Resend OTP to email
+  app.post(
+    "/api/otp/resend",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const { email } = req.body;
+        console.log("[OTP-RESEND] Received resend OTP request for email:", email);
+        // Validate email
+        if (!email) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email is required.",
+            },
+            data: {
+              missingFields: ["email"],
+            },
+          });
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format.",
+            },
+            data: {
+              invalidFormat: ["email"],
+            },
+          });
+        }
+        // Check if user exists and is pending verification
+        const existingUser = await db
+
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase()))
+          .limit(1);
+        if (existingUser.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found. Please register first.",
+            },
+            data: {
+              email: email.toLowerCase(),
+            },
+          });
+        }
+        const user = existingUser[0];
+        if (user.verificationStatus !== "pending") {
+          return res.status(400).json({
+            status: {
+              remark: "invalid_verification_status",
+              status: "error",
+              message: "User is already verified",
+            },
+            data: {
+              email: email.toLowerCase(),
+              verificationStatus: user.verificationStatus,
+            },
+          });
+        }
+        // Generate new 4 digit OTP
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        console.log(`[OTP-RESEND] Generated new OTP: ${otp}`);
+        // Set OTP expiry (10 minutes from now)
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+        console.log(`[OTP-RESEND] OTP expires at: ${expiresAt.toISOString()}`);
+        // Upsert OTP in database
+        await db
+
+          .insert(emailOtp)
+          .values({
+            email: email.toLowerCase(),
+            otp,
+            expiresAt,
+          })
+          .onConflictDoUpdate({
+            target: emailOtp.email,
+            set: {
+              otp,
+              expiresAt,
+              isUsed: 0,
+              createdAt: new Date(),
+            },
+          });
+        console.log("[OTP-RESEND] OTP stored successfully in the database");
+        // Send OTP email
+        try {
+          await sendEmail({
+            to: email.toLowerCase(),
+            subject: "Your OTP Code ✔",
+            text: `Your OTP code is: ${otp}`,
+            html: `<b>Your OTP code is: ${otp}</b>`,
+          });
+        } catch (emailError) {
+          console.error("[OTP-RESEND] Failed to send OTP email:", emailError);
+          return res.status(500).json({
+            status: {
+              remark: "otp_send_failed",
+              status: "error",
+              message: "Failed to send OTP to email. Please try again.",
+            },
+          });
+        }
+        console.log("[OTP-RESEND] Sending success response");
+        res.status(200).json({
+          status: {
+            remark: "otp_resent",
+            status: "success",
+            message: "OTP resent to your email. Please verify to complete registration.",
+          },
+          data: {
+            email: email.toLowerCase(),
+            otp,
+          },
+        });
+      } catch (error) {
+        console.error("[OTP-RESEND] Error resending OTP:", error);
+        res.status(500).json({
+          status: {
+            remark: "otp_resend_failed",
+            status: "error",
+            message: "Failed to resend OTP. Please try again.",
+          },
+        });
+      }
+    }
+  );
+};
+
+// ==========================================
 // CUSTOM ONBOARDING ROUTES
 // ==========================================
 
