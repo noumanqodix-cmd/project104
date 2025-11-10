@@ -1492,97 +1492,73 @@ export const userRoutes = (app: Express) => {
   // ============================================
   // PUT USER - UPDATE USER DETAILS
   // ============================================
-  // app.put("/api/user", upload.none(), async (req: Request, res: Response) => {
-  //   try {
-  //     const token = req.headers.authorization?.split(" ")[1];
-  //     if (!token) {
-  //       return res.status(401).json({
-  //         status: {
-  //           remark: "unauthorized",
-  //           status: "error",
-  //           message: "Unauthorized",
-  //         },
-  //       });
-  //     }
-  //     console.log("[USER-UPDATE] Received user update request");
-  //     const jwtSecret = process.env.JWT_SECRET;
-  //     if (!jwtSecret) {
-  //       throw new Error("JWT_SECRET is not defined in environment variables");
-  //     }
-  //     const decoded = jwt.verify(token, jwtSecret) as {
-  //       userId: string;
-  //       exp?: number;
-  //       iat?: number;
-  //     };
-  //     const userId = decoded.userId;
-  //     console.log(`[USER-UPDATE] Decoded userId: ${userId}`);
-  //     // Check JWT expiration
-  //     const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
-  //     if (isExpired) {
-  //       return res.status(401).json({
-  //         status: {
-  //           remark: "session_expired",
-  //           status: "error",
-  //           message: "Session has expired",
-  //         },
-  //       });
-  //     }
-  //     // Check database token status
-  //     const tokenRecord = await db
-  //       .select()
-  //       .from(sessionTokens)
-  //       .where(eq(sessionTokens.token, token))
-  //       .limit(1);
-  //     if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
-  //       return res.status(401).json({
-  //         status: {
-  //           remark: "invalid_session",
-  //           status: "error",
-  //           message: "Invalid session",
-  //         },
-  //       });
-  //     }
-  //     console.log("[USER-UPDATE] Valid session confirmed");
-  //     const { firstName, lastName, unitPreference, equipment } = req.body;
+  app.put("/api/user", upload.none(), async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({
+          status: {
+            remark: "unauthorized",
+            status: "error",
+            message: "Unauthorized",
+          },
+        });
+      }
+      console.log("[USER-UPDATE] Received user update request");
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET is not defined in environment variables");
+      }
+      const decoded = jwt.verify(token, jwtSecret) as {
+        userId: string;
+        exp?: number;
+        iat?: number;
+      };
+      const userId = decoded.userId;
+      console.log(`[USER-UPDATE] Decoded userId: ${userId}`);
+      // Check JWT expiration
+      const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+      if (isExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "session_expired",
+            status: "error",
+            message: "Session has expired",
+          },
+        });
+      }
+      // Check database token status
+      const tokenRecord = await db
+        .select()
+        .from(sessionTokens)
+        .where(eq(sessionTokens.token, token))
+        .limit(1);
+      if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+        return res.status(401).json({
+          status: {
+            remark: "invalid_session",
+            status: "error",
+            message: "Invalid session",
+          },
+        });
+      }
+      console.log("[USER-UPDATE] Valid session confirmed");
+      const { firstName, lastName, profile_image_url } = req.body;
 
-  //     const userData = {
-  //       firstName: dbUser.firstName,
-  //       lastName: dbUser.lastName,
-  //       height: dbUser.height,
-  //       weight: dbUser.weight,
-  //       dateOfBirth: dbUser.dateOfBirth,
-  //       unitPreference: dbUser.unitPreference,
-  //       equipment: dbUser.equipment,
-  //       nutritionGoal: dbUser.nutritionGoal,
-  //       fitnessLevel: dbUser.fitnessLevel,
-  //       daysPerWeek: dbUser.daysPerWeek,
-  //       targetCalories: dbUser.targetCalories,
-  //       bmr: dbUser.bmr,
-  //       selectedDates: dbUser.selectedDates,
-  //       createdAt: dbUser.createdAt,
-  //       updatedAt: dbUser.updatedAt,
-  //     };
-
-  //     const updatePayload: Record<string, unknown> = {};
-  //     if (firstName !== undefined) updatePayload.firstName = firstName;
-  //     if (lastName !== undefined) updatePayload.lastName = lastName;
-  //     if (unitPreference !== undefined)
-  //       updatePayload.unitPreference = unitPreference;
-  //     if (equipment !== undefined) updatePayload.equipment = equipment;
-
+      
     
 
-  //   } catch (error) {
-  //     console.error("[USER-UPDATE] Error updating user:", error);
-  //     res.status(500).json({
-  //       status: {
-  //         remark: "user_update_failed",
-  //         status: "error",
-  //         message: "Failed to update user.",
-  //       },
-  //     });
-  //   }
-  // });
+    } catch (error) {
+      console.error("[USER-UPDATE] Error updating user:", error);
+      res.status(500).json({
+        status: {
+          remark: "user_update_failed",
+          status: "error",
+          message: "Failed to update user.",
+        },
+      });
+    }
+  });
 
   // ==========================================
   // FORGOT PASSWORD
@@ -1706,6 +1682,11 @@ export const userRoutes = (app: Express) => {
         const { email, otp } = req.body;
         console.log("[VERIFY-RESET-OTP] Received OTP verification request");
 
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
         // Validate required fields
         if (!email || !otp) {
           return res.status(400).json({
@@ -1782,6 +1763,14 @@ export const userRoutes = (app: Express) => {
           });
         }
 
+        // create token and send to user
+        console.log("[VERIFY-RESET-OTP] OTP verified successfully");
+
+        // Create password reset token and send to user
+        const passwordResetToken = jwt.sign({ email: email.toLowerCase() }, jwtSecret, {
+          expiresIn: "15m", // Token valid for 15 minutes
+        });
+
         // Token is valid, proceed with password reset permission
         res.status(200).json({
           status: {
@@ -1793,6 +1782,7 @@ export const userRoutes = (app: Express) => {
           data: {
             email: email.toLowerCase(),
             tokenValid: true,
+            resetToken: passwordResetToken,
           },
         });
       } catch (error) {
@@ -1817,16 +1807,33 @@ export const userRoutes = (app: Express) => {
     upload.none(),
     async (req: Request, res: Response) => {
       try {
-        const { token, newPassword } = req.body;
-        console.log("[RESET-PASSWORD] Received password reset request");
-
-        // Validate required fields
-        if (!token || !newPassword) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
           return res.status(400).json({
             status: {
               remark: "validation_failed",
               status: "error",
-              message: "Token and new password are required.",
+              message: "Reset token is required in Authorization header.",
+            },
+          });
+        }
+
+        const token = authHeader.substring(7);
+        const { newPassword } = req.body;
+        console.log("[RESET-PASSWORD] Received password reset request");
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
+        // Validate required fields
+        if (!newPassword) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "New password is required.",
             },
           });
         }
@@ -1842,11 +1849,36 @@ export const userRoutes = (app: Express) => {
           });
         }
 
-        // Fetch the password reset token record
+        // Verify the JWT token
+        let decoded: { email: string; exp?: number; iat?: number };
+        try {
+          decoded = jwt.verify(token, jwtSecret) as { email: string; exp?: number; iat?: number };
+        } catch (jwtError: any) {
+          if (jwtError.name === 'TokenExpiredError') {
+            return res.status(401).json({
+              status: {
+                remark: "token_expired",
+                status: "error",
+                message: "Reset token has expired. Please request a new one.",
+              },
+            });
+          }
+          return res.status(401).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid reset token.",
+            },
+          });
+        }
+
+        const email = decoded.email;
+
+        // Fetch the password reset OTP record for this email
         const tokenRecord = await db
           .select()
           .from(emailOtp)
-          .where(and(eq(emailOtp.otp, token), eq(emailOtp.isUsed, 0)))
+          .where(and(eq(emailOtp.email, email), eq(emailOtp.isUsed, 0)))
           .limit(1);
 
         if (tokenRecord.length === 0) {
@@ -1854,14 +1886,14 @@ export const userRoutes = (app: Express) => {
             status: {
               remark: "token_not_found",
               status: "error",
-              message: "Invalid or expired reset token.",
+              message: "No valid reset token found for this email.",
             },
           });
         }
 
         const resetToken = tokenRecord[0];
 
-        // Check if token is expired
+        // Check if OTP is expired (though JWT is also checked)
         if (new Date() > new Date(resetToken.expiresAt)) {
           return res.status(400).json({
             status: {
