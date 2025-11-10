@@ -1695,138 +1695,24 @@ export const userRoutes = (app: Express) => {
   );
 
   // ===========================================
-  // VERIFY OTP FOR PASSWORD RESET || DELETED
+  // VERIFY OTP FOR PASSWORD RESET
   // ==========================================
 
-  // app.post(
-  //   "/api/verify-reset-otp",
-  //   upload.none(),
-  //   async (req: Request, res: Response) => {
-  //     try {
-  //       const { email, otp } = req.body;
-  //       console.log("[VERIFY-RESET-OTP] Received OTP verification request");
-
-  //       // Validate required fields
-  //       if (!email || !otp) {
-  //         return res.status(400).json({
-  //           status: {
-  //             remark: "validation_failed",
-  //             status: "error",
-  //             message: "Email and OTP are required.",
-  //           },
-  //         });
-  //       }
-
-  //       // Validate email format
-  //       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  //       if (!emailRegex.test(email)) {
-  //         return res.status(400).json({
-  //           status: {
-  //             remark: "validation_failed",
-  //             status: "error",
-  //             message: "Invalid email format.",
-  //           },
-  //         });
-  //       }
-
-  //       // Fetch the password reset token record
-  //       const tokenRecord = await db
-  //         .select()
-  //         .from(emailOtp)
-  //         .where(
-  //           and(
-  //             eq(emailOtp.email, email.toLowerCase()),
-  //             eq(emailOtp.otp, otp),
-  //             eq(emailOtp.isUsed, 0)
-  //           )
-  //         )
-  //         .limit(1);
-
-  //       if (tokenRecord.length === 0) {
-  //         return res.status(404).json({
-  //           status: {
-  //             remark: "token_not_found",
-  //             status: "error",
-  //             message: "Invalid or expired reset token.",
-  //           },
-  //         });
-  //       }
-
-  //       const resetToken = tokenRecord[0];
-
-  //       // Check if token is expired
-  //       if (new Date() > new Date(resetToken.expiresAt)) {
-  //         return res.status(400).json({
-  //           status: {
-  //             remark: "token_expired",
-  //             status: "error",
-  //             message: "Reset token has expired. Please request a new one.",
-  //           },
-  //         });
-  //       }
-
-  //       // Verify that the user exists with this email
-  //       const userRecord = await db
-  //         .select()
-  //         .from(users)
-  //         .where(eq(users.email, email.toLowerCase()))
-  //         .limit(1);
-
-  //       if (userRecord.length === 0) {
-  //         return res.status(404).json({
-  //           status: {
-  //             remark: "user_not_found",
-  //             status: "error",
-  //             message: "User not found.",
-  //           },
-  //         });
-  //       }
-
-  //       // Token is valid, proceed with password reset permission
-  //       res.status(200).json({
-  //         status: {
-  //           remark: "reset_token_verified",
-  //           status: "success",
-  //           message:
-  //             "OTP verified successfully. You can now set a new password.",
-  //         },
-  //         data: {
-  //           email: email.toLowerCase(),
-  //           tokenValid: true,
-  //         },
-  //       });
-  //     } catch (error) {
-  //       console.error("[VERIFY-RESET-OTP] Error processing request:", error);
-  //       res.status(500).json({
-  //         status: {
-  //           remark: "verify_reset_token_failed",
-  //           status: "error",
-  //           message: "Failed to process OTP verification request.",
-  //         },
-  //       });
-  //     }
-  //   }
-  // );
-
-  // ==========================================
-  // RESET PASSWORD
-  // =========================================
-
-  app.put(
-    "/api/reset-password",
+  app.post(
+    "/api/verify-reset-otp",
     upload.none(),
     async (req: Request, res: Response) => {
       try {
-        const { email, newPassword } = req.body;
-        console.log("[RESET-PASSWORD] Received password reset request");
+        const { email, otp } = req.body;
+        console.log("[VERIFY-RESET-OTP] Received OTP verification request");
 
         // Validate required fields
-        if (!email || !newPassword) {
+        if (!email || !otp) {
           return res.status(400).json({
             status: {
               remark: "validation_failed",
               status: "error",
-              message: "Email and new password are required.",
+              message: "Email and OTP are required.",
             },
           });
         }
@@ -1843,6 +1729,108 @@ export const userRoutes = (app: Express) => {
           });
         }
 
+        // Fetch the password reset token record
+        const tokenRecord = await db
+          .select()
+          .from(emailOtp)
+          .where(
+            and(
+              eq(emailOtp.email, email.toLowerCase()),
+              eq(emailOtp.otp, otp),
+              eq(emailOtp.isUsed, 0)
+            )
+          )
+          .limit(1);
+
+        if (tokenRecord.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "token_not_found",
+              status: "error",
+              message: "Invalid or expired reset token.",
+            },
+          });
+        }
+
+        const resetToken = tokenRecord[0];
+
+        // Check if token is expired
+        if (new Date() > new Date(resetToken.expiresAt)) {
+          return res.status(400).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Reset token has expired. Please request a new one.",
+            },
+          });
+        }
+
+        // Verify that the user exists with this email
+        const userRecord = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase()))
+          .limit(1);
+
+        if (userRecord.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found.",
+            },
+          });
+        }
+
+        // Token is valid, proceed with password reset permission
+        res.status(200).json({
+          status: {
+            remark: "reset_token_verified",
+            status: "success",
+            message:
+              "OTP verified successfully. You can now set a new password.",
+          },
+          data: {
+            email: email.toLowerCase(),
+            tokenValid: true,
+          },
+        });
+      } catch (error) {
+        console.error("[VERIFY-RESET-OTP] Error processing request:", error);
+        res.status(500).json({
+          status: {
+            remark: "verify_reset_token_failed",
+            status: "error",
+            message: "Failed to process OTP verification request.",
+          },
+        });
+      }
+    }
+  );
+
+  // ==========================================
+  // RESET PASSWORD
+  // =========================================
+
+  app.put(
+    "/api/reset-password",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const { token, newPassword } = req.body;
+        console.log("[RESET-PASSWORD] Received password reset request");
+
+        // Validate required fields
+        if (!token || !newPassword) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Token and new password are required.",
+            },
+          });
+        }
+
         // Validate password strength (minimum 6 characters)
         if (newPassword.length < 6) {
           return res.status(400).json({
@@ -1854,45 +1842,39 @@ export const userRoutes = (app: Express) => {
           });
         }
 
-        // ================================================
-
-        // Fetch the email otp table by email and otp, validate if otp is used or expired
-
+        // Fetch the password reset token record
         const tokenRecord = await db
           .select()
           .from(emailOtp)
-          .where(
-            and(eq(emailOtp.email, email.toLowerCase()), eq(emailOtp.isUsed, 0))
-          )
+          .where(and(eq(emailOtp.otp, token), eq(emailOtp.isUsed, 0)))
           .limit(1);
 
         if (tokenRecord.length === 0) {
           return res.status(404).json({
             status: {
-              remark: "invalid_token",
+              remark: "token_not_found",
               status: "error",
-              message:
-                "No valid reset token found. Please request a new password reset.",
+              message: "Invalid or expired reset token.",
             },
           });
         }
 
-        const tokenData = tokenRecord[0];
+        const resetToken = tokenRecord[0];
 
         // Check if token is expired
-        if (new Date() > new Date(tokenData.expiresAt)) {
+        if (new Date() > new Date(resetToken.expiresAt)) {
           return res.status(400).json({
             status: {
               remark: "token_expired",
               status: "error",
-              message:
-                "Reset token has expired. Please request a new password reset.",
+              message: "Reset token has expired. Please request a new one.",
             },
           });
         }
 
         // Hash the new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
+
         // Update user's password in the database
         const updateResult = await db
           .update(users)
@@ -1900,27 +1882,29 @@ export const userRoutes = (app: Express) => {
             password: hashedPassword,
             updatedAt: new Date(),
           })
-          .where(eq(users.email, tokenData.email));
+          .where(eq(users.email, resetToken.email));
 
-        // ✅ First check if user update succeeded
         if (updateResult.rowCount === 0) {
-          return res.status(404).json({
+          return res.status(500).json({
             status: {
-              remark: "user_not_found",
+              remark: "password_update_failed",
               status: "error",
-              message: "User not found.",
+              message: "Failed to update password. Please try again.",
             },
           });
         }
 
-        // ✅ Only mark OTP as used if password update succeeded
+        // Mark the reset token as used
         await db
           .update(emailOtp)
           .set({
             isUsed: 1,
-            // updatedAt: new Date(),
           })
-          .where(eq(emailOtp.id, tokenData.id));
+          .where(eq(emailOtp.id, resetToken.id));
+
+        console.log(
+          `[RESET-PASSWORD] Password reset successfully for email: ${resetToken.email}`
+        );
 
         // Send success response
         return res.status(200).json({
