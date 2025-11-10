@@ -475,7 +475,7 @@ export const authRoutes = (app: Express) => {
           },
           data: {
             // user: exportedUser,
-            token
+            token,
             // session: {
             //   expiresAt: expiresAt.getTime(),
             //   isTokenExpired: false,
@@ -590,7 +590,9 @@ export const authRoutes = (app: Express) => {
 
         if (user.verificationStatus !== "verified") {
           const status = user.verificationStatus as VerificationStatus;
-          const message = VERIFICATION_STATUS_MESSAGES[status] || "Account status is invalid.";
+          const message =
+            VERIFICATION_STATUS_MESSAGES[status] ||
+            "Account status is invalid.";
           return res.status(403).json({
             status: {
               remark: "account_status_invalid",
@@ -712,7 +714,10 @@ export const otpRoutes = (app: Express) => {
     async (req: Request, res: Response) => {
       try {
         const { email } = req.body;
-        console.log("[OTP-RESEND] Received resend OTP request for email:", email);
+        console.log(
+          "[OTP-RESEND] Received resend OTP request for email:",
+          email
+        );
         // Validate email
         if (!email) {
           return res.status(400).json({
@@ -821,7 +826,8 @@ export const otpRoutes = (app: Express) => {
           status: {
             remark: "otp_resent",
             status: "success",
-            message: "OTP resent to your email. Please verify to complete registration.",
+            message:
+              "OTP resent to your email. Please verify to complete registration.",
           },
           data: {
             email: email.toLowerCase(),
@@ -908,10 +914,7 @@ export const onBoardingRoutes = (app: Express) => {
           });
         }
 
-        console.log(
-          "[ONBOARDING] Processing onboarding for userId:",
-          userId
-        );
+        console.log("[ONBOARDING] Processing onboarding for userId:", userId);
 
         const {
           height,
@@ -1089,7 +1092,6 @@ export const onBoardingRoutes = (app: Express) => {
 // ==========================================
 
 export const userRoutes = (app: Express) => {
-
   // ==========================================
   // LOGOUT ROUTE
   // ==========================================
@@ -1105,7 +1107,7 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       // Update token to expired in database (soft delete)
       const updateResult = await db
         .update(sessionTokens)
@@ -1114,7 +1116,7 @@ export const userRoutes = (app: Express) => {
           updatedAt: new Date(),
         })
         .where(eq(sessionTokens.token, token));
-  
+
       if (updateResult.rowCount === 0) {
         console.log("[LOGOUT] Token not found in database");
         return res.status(404).json({
@@ -1125,7 +1127,7 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       console.log("[LOGOUT] Token successfully expired in database");
       res.status(200).json({
         status: {
@@ -1147,9 +1149,9 @@ export const userRoutes = (app: Express) => {
   });
 
   // ===========================================
-  // DELETE ACCOUNT ROUTE
+  // DELETE USER ROUTE
   // ===========================================
-  app.delete("/api/delete-account", async (req: Request, res: Response) => {
+  app.delete("/api/user", async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -1161,19 +1163,19 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       const jwtSecret = process.env.JWT_SECRET;
       if (!jwtSecret) {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
-  
+
       const decoded = jwt.verify(token, jwtSecret) as {
         userId: string;
         exp?: number;
         iat?: number;
       };
       const userId = decoded.userId;
-  
+
       // Check if token is expired
       const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
       if (isExpired) {
@@ -1185,14 +1187,14 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       // Check if token exists and is not already expired in database
       const tokenRecord = await db
         .select()
         .from(sessionTokens)
         .where(eq(sessionTokens.token, token))
         .limit(1);
-  
+
       if (tokenRecord.length === 0) {
         return res.status(401).json({
           status: {
@@ -1202,7 +1204,7 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       const dbToken = tokenRecord[0];
       if (dbToken.isTokenExpired) {
         return res.status(401).json({
@@ -1213,14 +1215,14 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       // Check if user exists and is not already deleted
       const userRecord = await db
         .select()
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
-  
+
       if (userRecord.length === 0) {
         return res.status(404).json({
           status: {
@@ -1230,18 +1232,18 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       const user = userRecord[0];
       if (user.verificationStatus === "deleted") {
         return res.status(400).json({
           status: {
-            remark: "account_already_deleted",
+            remark: "user_already_deleted",
             status: "error",
-            message: "Account already deleted",
+            message: "User already deleted",
           },
         });
       }
-  
+
       // Start transaction-like operations (expire all user sessions)
       await db
         .update(sessionTokens)
@@ -1250,7 +1252,7 @@ export const userRoutes = (app: Express) => {
           updatedAt: new Date(),
         })
         .where(eq(sessionTokens.userId, userId));
-  
+
       // Mark user account as deleted and email to userid_delete_email ( userid + delete as prefix )
       const updateResult = await db
         .update(users)
@@ -1260,47 +1262,47 @@ export const userRoutes = (app: Express) => {
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
-  
+
       if (updateResult.rowCount === 0) {
-        console.log("[DELETE-ACCOUNT] Failed to mark user as deleted");
+        console.log("[DELETE-USER] Failed to mark user as deleted");
         return res.status(500).json({
           status: {
             remark: "delete_failed",
             status: "error",
-            message: "Failed to delete account",
+            message: "Failed to delete user",
           },
         });
       }
-  
+
       console.log(
-        "[DELETE-ACCOUNT] User account marked as deleted and all sessions expired"
+        "[DELETE-USER] User marked as deleted and all sessions expired"
       );
       res.status(200).json({
         status: {
-          remark: "account_deleted",
+          remark: "user_deleted",
           status: "success",
-          message: "Account deleted successfully",
+          message: "User deleted successfully",
         },
         data: {
           updateResult,
         },
       });
     } catch (error) {
-      console.error("[DELETE-ACCOUNT] Error deleting account:", error);
+      console.error("[DELETE-USER] Error deleting user:", error);
       res.status(500).json({
         status: {
-          remark: "delete_account_failed",
+          remark: "delete_user_failed",
           status: "error",
-          message: "Failed to delete account.",
+          message: "Failed to delete user.",
         },
       });
     }
   });
 
   // ===========================================
-  // GET PROFILE
+  // GET USER
   // ===========================================
-  app.get("/api/profile", async (req: Request, res: Response) => {
+  app.get("/api/user", async (req: Request, res: Response) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -1312,21 +1314,21 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-      console.log("[PROFILE] Received profile request");
-  
+      console.log("[USER] Received user request");
+
       const jwtSecret = process.env.JWT_SECRET;
       if (!jwtSecret) {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
-  
+
       const decoded = jwt.verify(token, jwtSecret) as {
         userId: string;
         exp?: number;
         iat?: number;
       };
       const userId = decoded.userId;
-      console.log(`[PROFILE] Decoded userId: ${userId}`);
-  
+      console.log(`[USER] Decoded userId: ${userId}`);
+
       // Check JWT expiration
       const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
       if (isExpired) {
@@ -1338,14 +1340,14 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       // Check database token status
       const tokenRecord = await db
         .select()
         .from(sessionTokens)
         .where(eq(sessionTokens.token, token))
         .limit(1);
-  
+
       if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
         return res.status(401).json({
           status: {
@@ -1355,14 +1357,14 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       // Fetch user data from database
       const user = await db
         .select()
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
-  
+
       if (user.length === 0) {
         return res.status(404).json({
           status: {
@@ -1372,12 +1374,12 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-  
+
       const dbUser = user[0];
-      console.log(`[PROFILE] User found: ${dbUser.id}`);
-  
-      // Return safe profile data only (exclude sensitive information)
-      const profileData = {
+      console.log(`[USER] User found: ${dbUser.id}`);
+
+      // Return safe user data only (exclude sensitive information)
+      const userData = {
         id: dbUser.id,
         email: dbUser.email,
         firstName: dbUser.firstName,
@@ -1398,38 +1400,132 @@ export const userRoutes = (app: Express) => {
         createdAt: dbUser.createdAt,
         updatedAt: dbUser.updatedAt,
       };
-  
+
       res.status(200).json({
         status: {
-          remark: "profile_retrieved",
+          remark: "user_retrieved",
           status: "success",
-          message: "Profile retrieved successfully",
+          message: "User retrieved successfully",
         },
         data: {
-          profile: profileData,
+          user: userData,
         },
       });
     } catch (error) {
-      console.error("[PROFILE] Error fetching profile:", error);
+      console.error("[USER] Error fetching user:", error);
       res.status(500).json({
         status: {
-          remark: "profile_fetch_failed",
+          remark: "user_fetch_failed",
           status: "error",
-          message: "Failed to fetch profile.",
+          message: "Failed to fetch user.",
         },
       });
     }
   });
 
+  // ============================================
+  // PUT USER - UPDATE USER DETAILS
+  // ============================================
+  // app.put("/api/user", upload.none(), async (req: Request, res: Response) => {
+  //   try {
+  //     const token = req.headers.authorization?.split(" ")[1];
+  //     if (!token) {
+  //       return res.status(401).json({
+  //         status: {
+  //           remark: "unauthorized",
+  //           status: "error",
+  //           message: "Unauthorized",
+  //         },
+  //       });
+  //     }
+  //     console.log("[USER-UPDATE] Received user update request");
+  //     const jwtSecret = process.env.JWT_SECRET;
+  //     if (!jwtSecret) {
+  //       throw new Error("JWT_SECRET is not defined in environment variables");
+  //     }
+  //     const decoded = jwt.verify(token, jwtSecret) as {
+  //       userId: string;
+  //       exp?: number;
+  //       iat?: number;
+  //     };
+  //     const userId = decoded.userId;
+  //     console.log(`[USER-UPDATE] Decoded userId: ${userId}`);
+  //     // Check JWT expiration
+  //     const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+  //     if (isExpired) {
+  //       return res.status(401).json({
+  //         status: {
+  //           remark: "session_expired",
+  //           status: "error",
+  //           message: "Session has expired",
+  //         },
+  //       });
+  //     }
+  //     // Check database token status
+  //     const tokenRecord = await db
+  //       .select()
+  //       .from(sessionTokens)
+  //       .where(eq(sessionTokens.token, token))
+  //       .limit(1);
+  //     if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+  //       return res.status(401).json({
+  //         status: {
+  //           remark: "invalid_session",
+  //           status: "error",
+  //           message: "Invalid session",
+  //         },
+  //       });
+  //     }
+  //     console.log("[USER-UPDATE] Valid session confirmed");
+  //     const { firstName, lastName, unitPreference, equipment } = req.body;
+
+  //     const userData = {
+  //       firstName: dbUser.firstName,
+  //       lastName: dbUser.lastName,
+  //       height: dbUser.height,
+  //       weight: dbUser.weight,
+  //       dateOfBirth: dbUser.dateOfBirth,
+  //       unitPreference: dbUser.unitPreference,
+  //       equipment: dbUser.equipment,
+  //       nutritionGoal: dbUser.nutritionGoal,
+  //       fitnessLevel: dbUser.fitnessLevel,
+  //       daysPerWeek: dbUser.daysPerWeek,
+  //       targetCalories: dbUser.targetCalories,
+  //       bmr: dbUser.bmr,
+  //       selectedDates: dbUser.selectedDates,
+  //       createdAt: dbUser.createdAt,
+  //       updatedAt: dbUser.updatedAt,
+  //     };
+
+  //     const updatePayload: Record<string, unknown> = {};
+  //     if (firstName !== undefined) updatePayload.firstName = firstName;
+  //     if (lastName !== undefined) updatePayload.lastName = lastName;
+  //     if (unitPreference !== undefined)
+  //       updatePayload.unitPreference = unitPreference;
+  //     if (equipment !== undefined) updatePayload.equipment = equipment;
+
+    
+
+  //   } catch (error) {
+  //     console.error("[USER-UPDATE] Error updating user:", error);
+  //     res.status(500).json({
+  //       status: {
+  //         remark: "user_update_failed",
+  //         status: "error",
+  //         message: "Failed to update user.",
+  //       },
+  //     });
+  //   }
+  // });
+
   // ==========================================
-  // FOTGET PASSWORD
+  // FORGOT PASSWORD
   // =========================================
   app.post(
     "/api/auth/forgot-password",
     upload.none(),
     async (req: Request, res: Response) => {
       try {
-        
         const { email } = req.body;
 
         console.log(`Email ${email} is required`);
@@ -1440,7 +1536,7 @@ export const userRoutes = (app: Express) => {
               remark: "validation_failed",
               status: "error",
               message: "Email is required",
-            }
+            },
           });
         }
 
@@ -1452,7 +1548,7 @@ export const userRoutes = (app: Express) => {
               remark: "validation_failed",
               status: "error",
               message: "Invalid email format",
-            }
+            },
           });
         }
 
@@ -1469,14 +1565,14 @@ export const userRoutes = (app: Express) => {
               remark: "user_not_found",
               status: "error",
               message: "User not found with the provided email.",
-            }
+            },
           });
         }
 
         // Generate a 4-digit password reset OTP
         const resetToken = Math.floor(1000 + Math.random() * 9000).toString();
         const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
-        
+
         // Store the reset token in the email_otp table (upsert - replace any existing OTP for this email)
         await db
           .insert(emailOtp)
@@ -1503,7 +1599,9 @@ export const userRoutes = (app: Express) => {
           html: `<b>Your Password Reset Token is: ${resetToken}</b><br>It will expire in 1 hour.`,
         });
 
-        console.log(`[FORGOT-PASSWORD] Password reset token sent to: ${email.toLowerCase()}`);
+        console.log(
+          `[FORGOT-PASSWORD] Password reset token sent to: ${email.toLowerCase()}`
+        );
 
         res.status(200).json({
           status: {
@@ -1517,8 +1615,6 @@ export const userRoutes = (app: Express) => {
             expiresAt: expiresAt.getTime(),
           },
         });
-
-
       } catch (error) {
         console.error("[FORGOT-PASSWORD] Error processing request:", error);
         res.status(500).json({
@@ -1571,11 +1667,13 @@ export const userRoutes = (app: Express) => {
         const tokenRecord = await db
           .select()
           .from(emailOtp)
-          .where(and(
-            eq(emailOtp.email, email.toLowerCase()),
-            eq(emailOtp.otp, otp),
-            eq(emailOtp.isUsed, 0)
-          ))
+          .where(
+            and(
+              eq(emailOtp.email, email.toLowerCase()),
+              eq(emailOtp.otp, otp),
+              eq(emailOtp.isUsed, 0)
+            )
+          )
           .limit(1);
 
         if (tokenRecord.length === 0) {
@@ -1623,7 +1721,8 @@ export const userRoutes = (app: Express) => {
           status: {
             remark: "reset_token_verified",
             status: "success",
-            message: "OTP verified successfully. You can now set a new password.",
+            message:
+              "OTP verified successfully. You can now set a new password.",
           },
           data: {
             email: email.toLowerCase(),
@@ -1647,91 +1746,95 @@ export const userRoutes = (app: Express) => {
   // RESET PASSWORD
   // =========================================
 
-  app.post("/api/reset-password", upload.none(), async (req: Request, res: Response) => {
-    try {
-      const { email, newPassword } = req.body;
-      console.log("[RESET-PASSWORD] Received password reset request");
+  app.post(
+    "/api/reset-password",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const { email, newPassword } = req.body;
+        console.log("[RESET-PASSWORD] Received password reset request");
 
-      // Validate required fields
-      if (!email || !newPassword) {
-        return res.status(400).json({
-          status: {
-            remark: "validation_failed",
-            status: "error",
-            message: "Email and new password are required.",
-          },
-        });
-      }
+        // Validate required fields
+        if (!email || !newPassword) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Email and new password are required.",
+            },
+          });
+        }
 
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          status: {
-            remark: "validation_failed",
-            status: "error",
-            message: "Invalid email format.",
-          },
-        });
-      }
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Invalid email format.",
+            },
+          });
+        }
 
-      // Validate password strength (minimum 6 characters)
-      if (newPassword.length < 6) {
-        return res.status(400).json({
-          status: {
-            remark: "validation_failed",
-            status: "error",
-            message: "Password must be at least 6 characters long.",
-          },
-        });
-      }
+        // Validate password strength (minimum 6 characters)
+        if (newPassword.length < 6) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Password must be at least 6 characters long.",
+            },
+          });
+        }
 
-      // ================================================
+        // ================================================
 
-      // Fetch the email otp table by email and otp, validate if otp is used or expired
+        // Fetch the email otp table by email and otp, validate if otp is used or expired
 
-      const tokenRecord = await db
-        .select()
-        .from(emailOtp)
-        .where(and(
-          eq(emailOtp.email, email.toLowerCase()),
-          eq(emailOtp.isUsed, 0)
-        ))
-        .limit(1);
+        const tokenRecord = await db
+          .select()
+          .from(emailOtp)
+          .where(
+            and(eq(emailOtp.email, email.toLowerCase()), eq(emailOtp.isUsed, 0))
+          )
+          .limit(1);
 
-      if (tokenRecord.length === 0) {
-        return res.status(404).json({
-          status: {
-            remark: "invalid_token",
-            status: "error",
-            message: "No valid reset token found. Please request a new password reset.",
-          },
-        });
-      }
+        if (tokenRecord.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message:
+                "No valid reset token found. Please request a new password reset.",
+            },
+          });
+        }
 
-      const tokenData = tokenRecord[0];
+        const tokenData = tokenRecord[0];
 
-      // Check if token is expired
-      if (new Date() > new Date(tokenData.expiresAt)) {
-        return res.status(400).json({
-          status: {
-            remark: "token_expired",
-            status: "error",
-            message: "Reset token has expired. Please request a new password reset.",
-          },
-        });
-      }
+        // Check if token is expired
+        if (new Date() > new Date(tokenData.expiresAt)) {
+          return res.status(400).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message:
+                "Reset token has expired. Please request a new password reset.",
+            },
+          });
+        }
 
-      // Hash the new password
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      // Update user's password in the database
-      const updateResult = await db
-        .update(users)
-        .set({
-          password: hashedPassword,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.email, tokenData.email));
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        // Update user's password in the database
+        const updateResult = await db
+          .update(users)
+          .set({
+            password: hashedPassword,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.email, tokenData.email));
 
         // ✅ First check if user update succeeded
         if (updateResult.rowCount === 0) {
@@ -1745,7 +1848,8 @@ export const userRoutes = (app: Express) => {
         }
 
         // ✅ Only mark OTP as used if password update succeeded
-        await db.update(emailOtp)
+        await db
+          .update(emailOtp)
           .set({
             isUsed: 1,
             // updatedAt: new Date(),
@@ -1760,8 +1864,6 @@ export const userRoutes = (app: Express) => {
             message: "Password has been reset successfully.",
           },
         });
-
-
       } catch (error) {
         console.error("[RESET-PASSWORD] Error processing request:", error);
         res.status(500).json({
@@ -1772,10 +1874,9 @@ export const userRoutes = (app: Express) => {
           },
         });
       }
-    });
-
-  };
-  
+    }
+  );
+};
 
 // ==========================================
 // GET USER SESSION DATA ROUTE
