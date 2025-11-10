@@ -7,6 +7,8 @@ import { users, emailOtp, sessionTokens } from "@shared/schema";
 import { sendEmail } from "./email";
 import multer from "multer";
 import { randomBytes } from "crypto";
+import path from "path";
+import fs from "fs";
 
 // Configure multer for form-data parsing
 
@@ -14,7 +16,22 @@ import { randomBytes } from "crypto";
 // VARIABLES DECLARATION
 // =========================================
 
-const upload = multer();
+// Configure multer for disk storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'public', 'profile-images');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `temp-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 const SALT_ROUNDS = 10;
 
@@ -886,7 +903,7 @@ export const onBoardingRoutes = (app: Express) => {
             iat?: number;
           };
         } catch (jwtError: any) {
-          if (jwtError.name === 'TokenExpiredError') {
+          if (jwtError.name === "TokenExpiredError") {
             return res.status(401).json({
               status: {
                 remark: "token_expired",
@@ -1199,7 +1216,7 @@ export const userRoutes = (app: Express) => {
           iat?: number;
         };
       } catch (jwtError: any) {
-        if (jwtError.name === 'TokenExpiredError') {
+        if (jwtError.name === "TokenExpiredError") {
           return res.status(401).json({
             status: {
               remark: "token_expired",
@@ -1373,7 +1390,7 @@ export const userRoutes = (app: Express) => {
           iat?: number;
         };
       } catch (jwtError: any) {
-        if (jwtError.name === 'TokenExpiredError') {
+        if (jwtError.name === "TokenExpiredError") {
           return res.status(401).json({
             status: {
               remark: "token_expired",
@@ -1444,9 +1461,23 @@ export const userRoutes = (app: Express) => {
       const dbUser = user[0];
       console.log(`[USER] User found: ${dbUser.id}`);
 
+      // Check if profile image exists and construct proper URL
+      let profileImageUrl = null;
+      if (dbUser.profileImageUrl) {
+        // Extract filename from the stored URL (e.g., "/profile-images/profile-123.jpg" -> "profile-123.jpg")
+        const filename = path.basename(dbUser.profileImageUrl);
+        const imagePath = path.join(process.cwd(), 'public', 'profile-images', filename);
+        if (fs.existsSync(imagePath)) {
+          profileImageUrl = dbUser.profileImageUrl;
+        } else {
+          console.log(`[USER] Profile image not found at path: ${imagePath}`);
+        }
+      }
+
       // Return safe user data only (exclude sensitive information)
       const userData = {
         id: dbUser.id,
+        profileImageUrl,
         email: dbUser.email,
         firstName: dbUser.firstName,
         lastName: dbUser.lastName,
@@ -1489,8 +1520,9 @@ export const userRoutes = (app: Express) => {
     }
   });
 
+  
   // ============================================
-  // PUT USER - UPDATE USER DETAILS
+  // POST USER - UPDATE USER DETAILS 
   // ============================================
   app.put("/api/user", upload.none(), async (req: Request, res: Response) => {
     try {
@@ -1509,11 +1541,32 @@ export const userRoutes = (app: Express) => {
       if (!jwtSecret) {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
+      let decoded: { userId: string; exp?: number; iat?: number };
+      try {
+        decoded = jwt.verify(token, jwtSecret) as {
+          userId: string;
+          exp?: number;
+          iat?: number;
+        };
+      } catch (jwtError: any) {
+        if (jwtError.name === 'TokenExpiredError') {
+          return res.status(401).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Your session has expired. Please log in again.",
+            },
+          });
+        }
+        // For other JWT errors (invalid signature, malformed token, etc.)
+        return res.status(401).json({
+          status: {
+            remark: "invalid_token",
+            status: "error",
+            message: "Invalid authentication token.",
+          },
+        });
+      }
       const userId = decoded.userId;
       console.log(`[USER-UPDATE] Decoded userId: ${userId}`);
       // Check JWT expiration
@@ -1545,9 +1598,64 @@ export const userRoutes = (app: Express) => {
       console.log("[USER-UPDATE] Valid session confirmed");
       const { firstName, lastName, profile_image_url } = req.body;
 
-      
-    
-
+      if (!firstName || !lastName) {
+        return res.status(400).json({
+          status: {
+            remark: "validation_failed",
+            status: "error",
+            message: "First name and last name are required.",
+          },
+          data: {
+            missingFields:
+              !firstName && !lastName
+                ? ["firstName", "lastName"]
+                : !firstName
+                ? ["firstName"]
+                : ["lastName"],
+          },
+        });
+      }
+      // Update user details in database
+      const updatedUsers = await db
+        .update(users)
+        .set({
+          firstName,
+          lastName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        });
+      if (updatedUsers.length === 0) {
+        return res.status(404).json({
+          status: {
+            remark: "user_not_found",
+            status: "error",
+            message: "User not found.",
+          },
+          data: {
+            userId,
+            updatedUsers,
+          },
+        });
+      }
+      console.log("[USER-UPDATE] User details updated successfully", {
+        userId,
+        updatedUsers,
+      });
+      res.status(200).json({
+        status: {
+          remark: "user_updated",
+          status: "success",
+          message: "User updated successfully",
+        },
+        data: {
+          user: updatedUsers[0],
+        },
+      });
     } catch (error) {
       console.error("[USER-UPDATE] Error updating user:", error);
       res.status(500).json({
@@ -1559,6 +1667,145 @@ export const userRoutes = (app: Express) => {
       });
     }
   });
+
+  // ============================================
+  // POST IMAGE
+  // ===========================================
+  app.post(
+    "/api/user/upload-profile-image",
+    upload.single("profileImage"),
+    async (req: Request, res: Response) => {
+      try {
+        console.log("[UPLOAD-IMAGE] Received profile image upload request");
+
+        // Check authentication
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return res.status(401).json({
+            status: {
+              remark: "unauthorized",
+              status: "error",
+              message: "Unauthorized",
+            },
+          });
+        }
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
+        let decoded: { userId: string; exp?: number; iat?: number };
+        try {
+          decoded = jwt.verify(token, jwtSecret) as {
+            userId: string;
+            exp?: number;
+            iat?: number;
+          };
+        } catch (jwtError: any) {
+          if (jwtError.name === 'TokenExpiredError') {
+            return res.status(401).json({
+              status: {
+                remark: "token_expired",
+                status: "error",
+                message: "Your session has expired. Please log in again.",
+              },
+            });
+          }
+          return res.status(401).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid authentication token.",
+            },
+          });
+        }
+
+        const userId = decoded.userId;
+
+        const file = req.file;
+        if (!file) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "Profile image file is required.",
+            },
+          });
+        }
+
+        // Rename file to include userId
+        const oldPath = file.path;
+        const extension = path.extname(file.originalname);
+        const newFilename = `profile-${userId}${extension}`;
+        const newPath = path.join(path.dirname(oldPath), newFilename);
+
+        try {
+          fs.renameSync(oldPath, newPath);
+        } catch (renameError) {
+          console.error("[UPLOAD-IMAGE] Error renaming file:", renameError);
+          return res.status(500).json({
+            status: {
+              remark: "file_rename_failed",
+              status: "error",
+              message: "Failed to save profile image.",
+            },
+          });
+        }
+
+        // Create the public URL for the image
+        const imageUrl = `/profile-images/${newFilename}`;
+        console.log(`[UPLOAD-IMAGE] Profile image saved at URL: ${imageUrl}`);
+
+        // Update user's profile_image_url in database
+        const updatedUsers = await db
+          .update(users)
+          .set({
+            profileImageUrl: imageUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId))
+          .returning({
+            id: users.id,
+            profileImageUrl: users.profileImageUrl,
+          });
+
+        if (updatedUsers.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found.",
+            },
+          });
+        }
+
+        console.log(`[UPLOAD-IMAGE] Profile image URL updated for user: ${userId}`);
+
+        res.status(200).json({
+          status: {
+            remark: "image_upload_successful",
+            status: "success",
+            message: "Profile image uploaded successfully.",
+          },
+          data: {
+            imageUrl,
+            user: updatedUsers[0],
+          },
+        });
+      } catch (error) {
+        console.error("[UPLOAD-IMAGE] Error uploading profile image:", error);
+        res.status(500).json({
+          status: {
+            remark: "image_upload_failed",
+            status: "error",
+            message: "Failed to upload profile image.",
+          },
+        });
+      }
+    }
+  );
+
 
   // ==========================================
   // FORGOT PASSWORD
@@ -1767,9 +2014,13 @@ export const userRoutes = (app: Express) => {
         console.log("[VERIFY-RESET-OTP] OTP verified successfully");
 
         // Create password reset token and send to user
-        const passwordResetToken = jwt.sign({ email: email.toLowerCase() }, jwtSecret, {
-          expiresIn: "15m", // Token valid for 15 minutes
-        });
+        const passwordResetToken = jwt.sign(
+          { email: email.toLowerCase() },
+          jwtSecret,
+          {
+            expiresIn: "15m", // Token valid for 15 minutes
+          }
+        );
 
         // Token is valid, proceed with password reset permission
         res.status(200).json({
@@ -1808,7 +2059,7 @@ export const userRoutes = (app: Express) => {
     async (req: Request, res: Response) => {
       try {
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
           return res.status(400).json({
             status: {
               remark: "validation_failed",
@@ -1852,9 +2103,13 @@ export const userRoutes = (app: Express) => {
         // Verify the JWT token
         let decoded: { email: string; exp?: number; iat?: number };
         try {
-          decoded = jwt.verify(token, jwtSecret) as { email: string; exp?: number; iat?: number };
+          decoded = jwt.verify(token, jwtSecret) as {
+            email: string;
+            exp?: number;
+            iat?: number;
+          };
         } catch (jwtError: any) {
-          if (jwtError.name === 'TokenExpiredError') {
+          if (jwtError.name === "TokenExpiredError") {
             return res.status(401).json({
               status: {
                 remark: "token_expired",
@@ -1984,7 +2239,7 @@ export const getUserSessionData = (app: Express) => {
           iat?: number;
         };
       } catch (jwtError: any) {
-        if (jwtError.name === 'TokenExpiredError') {
+        if (jwtError.name === "TokenExpiredError") {
           return res.status(401).json({
             status: {
               remark: "token_expired",
