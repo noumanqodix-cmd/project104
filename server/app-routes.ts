@@ -878,11 +878,33 @@ export const onBoardingRoutes = (app: Express) => {
         }
 
         // Verify and decode JWT token
-        const decoded = jwt.verify(token, jwtSecret) as {
-          userId: string;
-          exp?: number;
-          iat?: number;
-        };
+        let decoded: { userId: string; exp?: number; iat?: number };
+        try {
+          decoded = jwt.verify(token, jwtSecret) as {
+            userId: string;
+            exp?: number;
+            iat?: number;
+          };
+        } catch (jwtError: any) {
+          if (jwtError.name === 'TokenExpiredError') {
+            return res.status(401).json({
+              status: {
+                remark: "token_expired",
+                status: "error",
+                message: "Your session has expired. Please log in again.",
+              },
+            });
+          }
+          // For other JWT errors (invalid signature, malformed token, etc.)
+          return res.status(401).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid authentication token.",
+            },
+          });
+        }
+
         const userId = decoded.userId;
 
         // Check JWT expiration
@@ -1169,11 +1191,33 @@ export const userRoutes = (app: Express) => {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
 
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
+      let decoded: { userId: string; exp?: number; iat?: number };
+      try {
+        decoded = jwt.verify(token, jwtSecret) as {
+          userId: string;
+          exp?: number;
+          iat?: number;
+        };
+      } catch (jwtError: any) {
+        if (jwtError.name === 'TokenExpiredError') {
+          return res.status(401).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Your session has expired. Please log in again.",
+            },
+          });
+        }
+        // For other JWT errors (invalid signature, malformed token, etc.)
+        return res.status(401).json({
+          status: {
+            remark: "invalid_token",
+            status: "error",
+            message: "Invalid authentication token.",
+          },
+        });
+      }
+
       const userId = decoded.userId;
 
       // Check if token is expired
@@ -1321,11 +1365,33 @@ export const userRoutes = (app: Express) => {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
 
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
+      let decoded: { userId: string; exp?: number; iat?: number };
+      try {
+        decoded = jwt.verify(token, jwtSecret) as {
+          userId: string;
+          exp?: number;
+          iat?: number;
+        };
+      } catch (jwtError: any) {
+        if (jwtError.name === 'TokenExpiredError') {
+          return res.status(401).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Your session has expired. Please log in again.",
+            },
+          });
+        }
+        // For other JWT errors (invalid signature, malformed token, etc.)
+        return res.status(401).json({
+          status: {
+            remark: "invalid_token",
+            status: "error",
+            message: "Invalid authentication token.",
+          },
+        });
+      }
+
       const userId = decoded.userId;
       console.log(`[USER] Decoded userId: ${userId}`);
 
@@ -1894,11 +1960,33 @@ export const getUserSessionData = (app: Express) => {
         throw new Error("JWT_SECRET is not defined in environment variables");
       }
 
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        exp?: number;
-        iat?: number;
-      };
+      let decoded: { userId: string; exp?: number; iat?: number };
+      try {
+        decoded = jwt.verify(token, jwtSecret) as {
+          userId: string;
+          exp?: number;
+          iat?: number;
+        };
+      } catch (jwtError: any) {
+        if (jwtError.name === 'TokenExpiredError') {
+          return res.status(401).json({
+            status: {
+              remark: "token_expired",
+              status: "error",
+              message: "Your session has expired. Please log in again.",
+            },
+          });
+        }
+        // For other JWT errors (invalid signature, malformed token, etc.)
+        return res.status(401).json({
+          status: {
+            remark: "invalid_token",
+            status: "error",
+            message: "Invalid authentication token.",
+          },
+        });
+      }
+
       const userId = decoded.userId;
 
       // Fetch user data from database
