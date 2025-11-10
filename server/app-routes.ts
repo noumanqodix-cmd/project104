@@ -1776,12 +1776,12 @@ export const userRoutes = (app: Express) => {
           status: {
             remark: "reset_token_verified",
             status: "success",
+            tokenValid: true,
             message:
               "OTP verified successfully. You can now set a new password.",
           },
           data: {
             email: email.toLowerCase(),
-            tokenValid: true,
             resetToken: passwordResetToken,
           },
         });
