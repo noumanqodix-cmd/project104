@@ -1588,7 +1588,7 @@ export const userRoutes = (app: Express) => {
   // FORGOT PASSWORD
   // =========================================
   app.post(
-    "/api/auth/forgot-password",
+    "/api/request-otp",
     upload.none(),
     async (req: Request, res: Response) => {
       try {
@@ -1695,124 +1695,124 @@ export const userRoutes = (app: Express) => {
   );
 
   // ===========================================
-  // VERIFY OTP FOR PASSWORD RESET
+  // VERIFY OTP FOR PASSWORD RESET || DELETED
   // ==========================================
 
-  app.post(
-    "/api/verify-reset-otp",
-    upload.none(),
-    async (req: Request, res: Response) => {
-      try {
-        const { email, otp } = req.body;
-        console.log("[VERIFY-RESET-OTP] Received OTP verification request");
+  // app.post(
+  //   "/api/verify-reset-otp",
+  //   upload.none(),
+  //   async (req: Request, res: Response) => {
+  //     try {
+  //       const { email, otp } = req.body;
+  //       console.log("[VERIFY-RESET-OTP] Received OTP verification request");
 
-        // Validate required fields
-        if (!email || !otp) {
-          return res.status(400).json({
-            status: {
-              remark: "validation_failed",
-              status: "error",
-              message: "Email and OTP are required.",
-            },
-          });
-        }
+  //       // Validate required fields
+  //       if (!email || !otp) {
+  //         return res.status(400).json({
+  //           status: {
+  //             remark: "validation_failed",
+  //             status: "error",
+  //             message: "Email and OTP are required.",
+  //           },
+  //         });
+  //       }
 
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          return res.status(400).json({
-            status: {
-              remark: "validation_failed",
-              status: "error",
-              message: "Invalid email format.",
-            },
-          });
-        }
+  //       // Validate email format
+  //       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //       if (!emailRegex.test(email)) {
+  //         return res.status(400).json({
+  //           status: {
+  //             remark: "validation_failed",
+  //             status: "error",
+  //             message: "Invalid email format.",
+  //           },
+  //         });
+  //       }
 
-        // Fetch the password reset token record
-        const tokenRecord = await db
-          .select()
-          .from(emailOtp)
-          .where(
-            and(
-              eq(emailOtp.email, email.toLowerCase()),
-              eq(emailOtp.otp, otp),
-              eq(emailOtp.isUsed, 0)
-            )
-          )
-          .limit(1);
+  //       // Fetch the password reset token record
+  //       const tokenRecord = await db
+  //         .select()
+  //         .from(emailOtp)
+  //         .where(
+  //           and(
+  //             eq(emailOtp.email, email.toLowerCase()),
+  //             eq(emailOtp.otp, otp),
+  //             eq(emailOtp.isUsed, 0)
+  //           )
+  //         )
+  //         .limit(1);
 
-        if (tokenRecord.length === 0) {
-          return res.status(404).json({
-            status: {
-              remark: "token_not_found",
-              status: "error",
-              message: "Invalid or expired reset token.",
-            },
-          });
-        }
+  //       if (tokenRecord.length === 0) {
+  //         return res.status(404).json({
+  //           status: {
+  //             remark: "token_not_found",
+  //             status: "error",
+  //             message: "Invalid or expired reset token.",
+  //           },
+  //         });
+  //       }
 
-        const resetToken = tokenRecord[0];
+  //       const resetToken = tokenRecord[0];
 
-        // Check if token is expired
-        if (new Date() > new Date(resetToken.expiresAt)) {
-          return res.status(400).json({
-            status: {
-              remark: "token_expired",
-              status: "error",
-              message: "Reset token has expired. Please request a new one.",
-            },
-          });
-        }
+  //       // Check if token is expired
+  //       if (new Date() > new Date(resetToken.expiresAt)) {
+  //         return res.status(400).json({
+  //           status: {
+  //             remark: "token_expired",
+  //             status: "error",
+  //             message: "Reset token has expired. Please request a new one.",
+  //           },
+  //         });
+  //       }
 
-        // Verify that the user exists with this email
-        const userRecord = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email.toLowerCase()))
-          .limit(1);
+  //       // Verify that the user exists with this email
+  //       const userRecord = await db
+  //         .select()
+  //         .from(users)
+  //         .where(eq(users.email, email.toLowerCase()))
+  //         .limit(1);
 
-        if (userRecord.length === 0) {
-          return res.status(404).json({
-            status: {
-              remark: "user_not_found",
-              status: "error",
-              message: "User not found.",
-            },
-          });
-        }
+  //       if (userRecord.length === 0) {
+  //         return res.status(404).json({
+  //           status: {
+  //             remark: "user_not_found",
+  //             status: "error",
+  //             message: "User not found.",
+  //           },
+  //         });
+  //       }
 
-        // Token is valid, proceed with password reset permission
-        res.status(200).json({
-          status: {
-            remark: "reset_token_verified",
-            status: "success",
-            message:
-              "OTP verified successfully. You can now set a new password.",
-          },
-          data: {
-            email: email.toLowerCase(),
-            tokenValid: true,
-          },
-        });
-      } catch (error) {
-        console.error("[VERIFY-RESET-OTP] Error processing request:", error);
-        res.status(500).json({
-          status: {
-            remark: "verify_reset_token_failed",
-            status: "error",
-            message: "Failed to process OTP verification request.",
-          },
-        });
-      }
-    }
-  );
+  //       // Token is valid, proceed with password reset permission
+  //       res.status(200).json({
+  //         status: {
+  //           remark: "reset_token_verified",
+  //           status: "success",
+  //           message:
+  //             "OTP verified successfully. You can now set a new password.",
+  //         },
+  //         data: {
+  //           email: email.toLowerCase(),
+  //           tokenValid: true,
+  //         },
+  //       });
+  //     } catch (error) {
+  //       console.error("[VERIFY-RESET-OTP] Error processing request:", error);
+  //       res.status(500).json({
+  //         status: {
+  //           remark: "verify_reset_token_failed",
+  //           status: "error",
+  //           message: "Failed to process OTP verification request.",
+  //         },
+  //       });
+  //     }
+  //   }
+  // );
 
   // ==========================================
   // RESET PASSWORD
   // =========================================
 
-  app.post(
+  app.put(
     "/api/reset-password",
     upload.none(),
     async (req: Request, res: Response) => {
