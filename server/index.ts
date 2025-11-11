@@ -140,7 +140,7 @@ app.get('/favicon.ico', (req, res) => {
   // doesn't interfere with the other routes
 if (process.env.NODE_ENV === "production") {
   // Serve static files from the 'public' directory
-  app.use('/public', express.static(path.join(__dirname, '../public')));
+  app.use('/public', express.static(path.join(__dirname, '../../public')));
 
   // Serve static frontend files in production
   const buildPath = path.join(__dirname, "../dist/public");
