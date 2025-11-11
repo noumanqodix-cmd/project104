@@ -148,7 +148,13 @@ if (process.env.NODE_ENV === "production") {
 
   // SPA catch-all for any other requests
   app.get("*", (req, res) => {
-    res.sendFile(path.join(buildPath, "index.html"));
+    // If the request is not for an API route or a known static file, serve the app
+    if (!req.path.startsWith('/api/') && !req.path.startsWith('/public/')) {
+      res.sendFile(path.join(buildPath, "index.html"));
+    } else {
+      // For unhandled API or static file routes, send a 404
+      res.status(404).send('Not Found');
+    }
   });
 } else {
   // Development: use Vite dev server
