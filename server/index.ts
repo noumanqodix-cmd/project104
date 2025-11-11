@@ -139,22 +139,25 @@ app.get('/favicon.ico', (req, res) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
 if (process.env.NODE_ENV === "production") {
-  // Serve static files from the 'public' directory, which is one level above 'dist'
-  app.use('/public', express.static(path.join(__dirname, '../public')));
+  // 1. Serve user-uploaded files from the root 'public' directory FIRST
+  // This must come before other static middleware to have priority
+  const userUploadsPath = path.join(__dirname, '..', 'public');
+  console.log('[STATIC] Serving /public from:', userUploadsPath);
+  app.use('/public', express.static(userUploadsPath));
 
-  // Serve static frontend files from 'dist/public'
+  // 2. Serve the built application files (JS, CSS, index.html)
   const buildPath = path.join(__dirname, "public");
+  console.log('[STATIC] Serving app from:', buildPath);
   app.use(express.static(buildPath));
 
-  // SPA catch-all for any other requests
+  // 3. SPA catch-all - only for routes that look like app routes (not files)
   app.get("*", (req, res) => {
-    // If the request is not for an API route or a known static file, serve the app
-    if (!req.path.startsWith('/api/') && !req.path.startsWith('/public/')) {
-      res.sendFile(path.join(buildPath, "index.html"));
-    } else {
-      // For unhandled API or static file routes, send a 404
-      res.status(404).send('Not Found');
+    // Don't intercept requests that are explicitly for files
+    if (req.path.includes('.')) {
+      return res.status(404).send('File not found');
     }
+    // Send the index.html for all other routes (client-side routing)
+    res.sendFile(path.join(buildPath, "index.html"));
   });
 } else {
   // Development: use Vite dev server
