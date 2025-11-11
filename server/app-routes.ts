@@ -9,6 +9,10 @@ import multer from "multer";
 import { randomBytes } from "crypto";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configure multer for form-data parsing
 
@@ -1501,17 +1505,9 @@ export const userRoutes = (app: Express) => {
       if (dbUser.profileImageUrl) {
         // Extract filename from the stored URL (e.g., "/profile-images/profile-123.jpg" -> "profile-123.jpg")
         const filename = path.basename(dbUser.profileImageUrl);
-        const imagePath = path.join(
-          process.cwd(),
-          "public",
-          "profile-images",
-          filename
-        );
-        if (fs.existsSync(imagePath)) {
-          profileImageUrl = dbUser.profileImageUrl;
-        } else {
-          console.log(`[USER] Profile image not found at path: ${imagePath}`);
-        }
+        // Create full URL for external access - use environment variable for production
+        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        profileImageUrl = `${baseUrl}/api/images/profile/${filename}`;
       }
 
       // Return safe user data only (exclude sensitive information)
@@ -2253,6 +2249,44 @@ export const userRoutes = (app: Express) => {
       }
     }
   );
+
+  // GET /api/images/profile/:filename - Serve profile images
+  app.get("/api/images/profile/:filename", async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const imagePath = path.join(__dirname, "../public/profile-images", filename);
+
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+
+      // Set appropriate headers for image serving
+      const ext = path.extname(filename).toLowerCase();
+      const contentType = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+      }[ext] || 'application/octet-stream';
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+      // Stream the file
+      const fileStream = fs.createReadStream(imagePath);
+      fileStream.pipe(res);
+
+      fileStream.on('error', (error) => {
+        console.error('Error streaming image:', error);
+        res.status(500).json({ error: 'Failed to serve image' });
+      });
+    } catch (error) {
+      console.error('Image serving error:', error);
+      res.status(500).json({ error: 'Failed to serve image' });
+    }
+  });
 };
 
 // ==========================================
