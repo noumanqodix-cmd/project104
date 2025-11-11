@@ -92,6 +92,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  googleId: varchar("google_id"), // Google OAuth ID for social login
   subscriptionTier: text("subscription_tier").notNull().default("free"),
   height: real("height"),
   weight: real("weight"),
