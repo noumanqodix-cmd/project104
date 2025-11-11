@@ -121,6 +121,9 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
+// Serve static files from public folder (for uploaded images, etc.)
+app.use('/public', express.static(path.join(__dirname, '../public')));
+
 (async () => {
   // Initialize email transporter
   await initializeEmailTransporter();
@@ -138,28 +141,21 @@ app.get('/favicon.ico', (req, res) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-if (process.env.NODE_ENV === "production") {
-  // 1. Serve user-uploaded files from the root 'public' directory FIRST
-  // In production, __dirname points to the project root (not dist) due to esbuild bundling
-  const userUploadsPath = path.join(__dirname, 'public');
-  console.log('[STATIC] Serving /public from:', userUploadsPath);
-  app.use('/public', express.static(userUploadsPath));
+  if (process.env.NODE_ENV === "production") {
+    // Serve static files from dist/public (includes app files AND public folder contents)
+    const buildPath = path.join(__dirname, "dist", "public");
+    app.use(express.static(buildPath));
 
-  // 2. Serve the built application files (JS, CSS, index.html)
-  const buildPath = path.join(__dirname, "dist", "public");
-  console.log('[STATIC] Serving app from:', buildPath);
-  app.use(express.static(buildPath));
-
-  // 3. SPA catch-all - only for routes that look like app routes (not files)
-  app.get("*", (req, res) => {
-    // Don't intercept requests that are explicitly for files
-    if (req.path.includes('.')) {
-      return res.status(404).send('File not found');
-    }
-    // Send the index.html for all other routes (client-side routing)
-    res.sendFile(path.join(buildPath, "index.html"));
-  });
-} else {
+    // SPA catch-all - only for non-file routes
+    app.get("*", (req, res) => {
+      // Don't intercept file requests
+      if (req.path.includes('.')) {
+        return res.status(404).send('File not found');
+      }
+      // Send index.html for all other routes (client-side routing)
+      res.sendFile(path.join(buildPath, "index.html"));
+    });
+  } else {
   // Development: use Vite dev server
   await setupVite(app, server);
 }
