@@ -19,16 +19,16 @@ import fs from "fs";
 // Configure multer for disk storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'public', 'profile-images');
+    const uploadDir = path.join(process.cwd(), "public", "profile-images");
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, `temp-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+  },
 });
 
 const upload = multer({ storage: storage });
@@ -712,6 +712,41 @@ export const authRoutes = (app: Express) => {
             remark: "login_failed",
             status: "error",
             message: "Failed to log in. Please try again.",
+          },
+        });
+      }
+    }
+  );
+
+  // POST /api/auth/social - Authenticate user via social login (Google, Apple with firebase token)
+  app.post(
+    "/api/auth/social",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        console.log("[SOCIAL-LOGIN] Social login route hit");
+
+        const data = req.body;
+        console.log("[SOCIAL-LOGIN] Request body:", data);
+
+        res.status(200).json({
+          status: {
+            remark: "social_login_received",
+            status: "success",
+            message: "Your Data has been received successfully, wait for API development to be completed.",
+          },
+          data: {
+            data,
+          },
+        });
+
+      } catch (error) {
+        console.error("[SOCIAL-LOGIN] Error in social login:", error);
+        res.status(500).json({
+          status: {
+            remark: "social_login_failed",
+            status: "error",
+            message: "Failed to log in via social account. Please try again.",
           },
         });
       }
@@ -1466,7 +1501,12 @@ export const userRoutes = (app: Express) => {
       if (dbUser.profileImageUrl) {
         // Extract filename from the stored URL (e.g., "/profile-images/profile-123.jpg" -> "profile-123.jpg")
         const filename = path.basename(dbUser.profileImageUrl);
-        const imagePath = path.join(process.cwd(), 'public', 'profile-images', filename);
+        const imagePath = path.join(
+          process.cwd(),
+          "public",
+          "profile-images",
+          filename
+        );
         if (fs.existsSync(imagePath)) {
           profileImageUrl = dbUser.profileImageUrl;
         } else {
@@ -1520,9 +1560,8 @@ export const userRoutes = (app: Express) => {
     }
   });
 
-  
   // ============================================
-  // POST USER - UPDATE USER DETAILS 
+  // POST USER - UPDATE USER DETAILS
   // ============================================
   app.put("/api/user", upload.none(), async (req: Request, res: Response) => {
     try {
@@ -1549,7 +1588,7 @@ export const userRoutes = (app: Express) => {
           iat?: number;
         };
       } catch (jwtError: any) {
-        if (jwtError.name === 'TokenExpiredError') {
+        if (jwtError.name === "TokenExpiredError") {
           return res.status(401).json({
             status: {
               remark: "token_expired",
@@ -1703,7 +1742,7 @@ export const userRoutes = (app: Express) => {
             iat?: number;
           };
         } catch (jwtError: any) {
-          if (jwtError.name === 'TokenExpiredError') {
+          if (jwtError.name === "TokenExpiredError") {
             return res.status(401).json({
               status: {
                 remark: "token_expired",
@@ -1780,7 +1819,9 @@ export const userRoutes = (app: Express) => {
           });
         }
 
-        console.log(`[UPLOAD-IMAGE] Profile image URL updated for user: ${userId}`);
+        console.log(
+          `[UPLOAD-IMAGE] Profile image URL updated for user: ${userId}`
+        );
 
         res.status(200).json({
           status: {
@@ -1805,7 +1846,6 @@ export const userRoutes = (app: Express) => {
       }
     }
   );
-
 
   // ==========================================
   // FORGOT PASSWORD
