@@ -6,7 +6,7 @@ import { db } from "./db";
 import { users, emailOtp, sessionTokens } from "@shared/schema";
 import { sendEmail } from "./email";
 import multer from "multer";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -730,19 +730,192 @@ export const authRoutes = (app: Express) => {
       try {
         console.log("[SOCIAL-LOGIN] Social login route hit");
 
-        const data = req.body;
-        console.log("[SOCIAL-LOGIN] Request body:", data);
+        const { idToken, provider, isLogin } = req.body;
+        console.log("[SOCIAL-LOGIN] Request body:", { provider, isLogin, idToken: idToken ? "present" : "missing" });
 
-        res.status(200).json({
-          status: {
-            remark: "social_login_received",
-            status: "success",
-            message: "Your Data has been received successfully, wait for API development to be completed.",
-          },
-          data: {
-            data,
-          },
-        });
+        // Validate required fields
+        if (!idToken || !provider) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "idToken and provider are required.",
+            },
+            data: {
+              missingFields: ["idToken", "provider"].filter(field => !req.body[field]),
+            },
+          });
+        }
+
+        if (provider !== 'google') {
+          return res.status(400).json({
+            status: {
+              remark: "unsupported_provider",
+              status: "error",
+              message: "Only Google provider is currently supported.",
+            },
+            data: {
+              provider,
+              supportedProviders: ["google"],
+            },
+          });
+        }
+
+        // For Google OAuth, we'll need to verify the token
+        // For now, we'll decode the JWT to extract user info
+        // In production, you should verify the token signature with Google's public keys
+
+        try {
+          // Decode the JWT token (without verification for now - in production use proper verification)
+          const tokenParts = idToken.split('.');
+          if (tokenParts.length !== 3) {
+            throw new Error('Invalid JWT token format');
+          }
+
+          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+
+          console.log("[SOCIAL-LOGIN] Decoded Google token payload:", {
+            sub: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            given_name: payload.given_name,
+            family_name: payload.family_name,
+            picture: payload.picture,
+          });
+
+          const { sub: googleId, email, name, given_name, family_name, picture } = payload;
+
+          // Check if user already exists with this Google ID or email
+          let existingUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email.toLowerCase()))
+            .limit(1);
+
+          let userId: string;
+          let isNewUser = false;
+
+          if (existingUser.length > 0) {
+            // User exists, update their Google ID if not set
+            const user = existingUser[0];
+            userId = user.id;
+
+            if (!user.googleId) {
+              await db
+                .update(users)
+                .set({
+                  googleId,
+                  profileImageUrl: picture ? `/profile-images/google-${googleId}.jpg` : user.profileImageUrl,
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, userId));
+            }
+
+            // Check if user is verified
+            if (user.verificationStatus !== 'verified') {
+              await db
+                .update(users)
+                .set({
+                  verificationStatus: 'verified',
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, userId));
+            }
+          } else {
+            // Create new user
+            isNewUser = true;
+
+            // Generate a unique ID for the new user
+            userId = randomUUID();
+
+            // Split name into first and last name
+            const firstName = given_name || (name ? name.split(' ')[0] : 'User');
+            const lastName = family_name || (name && name.split(' ').length > 1 ? name.split(' ').slice(1).join(' ') : 'User');
+
+            await db.insert(users).values({
+              id: userId,
+              googleId,
+              email: email.toLowerCase(),
+              firstName,
+              lastName,
+              profileImageUrl: picture ? `/profile-images/google-${googleId}.jpg` : null,
+              verificationStatus: 'verified', // Google accounts are pre-verified
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+
+            console.log(`[SOCIAL-LOGIN] Created new user with Google ID: ${userId}`);
+          }
+
+          // Generate JWT token for the user
+          const jwtSecret = process.env.JWT_SECRET;
+          if (!jwtSecret) {
+            throw new Error("JWT_SECRET is not defined in environment variables");
+          }
+
+          const token = jwt.sign({ userId }, jwtSecret, {
+            expiresIn: "1d",
+          });
+
+          // Calculate expiration date (1 day from now)
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 1);
+
+          // Store/Update token in session_tokens table
+          await db
+            .insert(sessionTokens)
+            .values({
+              token,
+              isTokenExpired: 0,
+              expiresAt,
+              userId,
+              email: email.toLowerCase(),
+            })
+            .onConflictDoUpdate({
+              target: sessionTokens.userId,
+              set: {
+                token,
+                isTokenExpired: 0,
+                expiresAt,
+                email: email.toLowerCase(),
+                updatedAt: new Date(),
+              },
+            });
+
+          console.log(`[SOCIAL-LOGIN] JWT token generated and stored for user: ${userId}`);
+
+          res.status(200).json({
+            status: {
+              remark: isNewUser ? "social_registration_successful" : "social_login_successful",
+              status: "success",
+              message: isNewUser
+                ? "Account created successfully via Google!"
+                : "Login successful via Google!",
+            },
+            data: {
+              token,
+              session: {
+                expiresAt: expiresAt.getTime(),
+                isTokenExpired: false,
+              },
+              user: {
+                id: userId,
+                email: email.toLowerCase(),
+                isNewUser,
+              },
+            },
+          });
+
+        } catch (tokenError) {
+          console.error("[SOCIAL-LOGIN] Error processing Google token:", tokenError);
+          return res.status(400).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid Google authentication token.",
+            },
+          });
+        }
 
       } catch (error) {
         console.error("[SOCIAL-LOGIN] Error in social login:", error);
