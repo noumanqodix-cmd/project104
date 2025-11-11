@@ -85,6 +85,8 @@ import {
   isAfterCalendarDay,
 } from "@shared/dateUtils";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import fs from "fs";
+import path from "path";
 
 // Guard against duplicate route registration (prevents errors during hot reload)
 let routesRegistered = false;
@@ -4219,6 +4221,44 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Similar exercises error:", error);
       res.status(500).json({ error: "Failed to fetch similar exercises" });
+    }
+  });
+
+  // GET /api/images/profile/:filename - Serve profile images
+  app.get("/api/images/profile/:filename", async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.params;
+      const imagePath = path.join(__dirname, "../public/profile-images", filename);
+
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+
+      // Set appropriate headers for image serving
+      const ext = path.extname(filename).toLowerCase();
+      const contentType = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+      }[ext] || 'application/octet-stream';
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+      // Stream the file
+      const fileStream = fs.createReadStream(imagePath);
+      fileStream.pipe(res);
+
+      fileStream.on('error', (error) => {
+        console.error('Error streaming image:', error);
+        res.status(500).json({ error: 'Failed to serve image' });
+      });
+    } catch (error) {
+      console.error('Image serving error:', error);
+      res.status(500).json({ error: 'Failed to serve image' });
     }
   });
 

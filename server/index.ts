@@ -51,9 +51,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Serve static files from public directory
-app.use('/public', express.static(path.join(__dirname, '../public')));
-
 // Authentication middleware
 app.use(async (req: Request & { user?: any }, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
