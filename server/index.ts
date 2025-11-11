@@ -140,13 +140,13 @@ app.get('/favicon.ico', (req, res) => {
   // doesn't interfere with the other routes
 if (process.env.NODE_ENV === "production") {
   // 1. Serve user-uploaded files from the root 'public' directory FIRST
-  // This must come before other static middleware to have priority
-  const userUploadsPath = path.join(__dirname, '..', 'public');
+  // In production, __dirname points to the project root (not dist) due to esbuild bundling
+  const userUploadsPath = path.join(__dirname, 'public');
   console.log('[STATIC] Serving /public from:', userUploadsPath);
   app.use('/public', express.static(userUploadsPath));
 
   // 2. Serve the built application files (JS, CSS, index.html)
-  const buildPath = path.join(__dirname, "public");
+  const buildPath = path.join(__dirname, "dist", "public");
   console.log('[STATIC] Serving app from:', buildPath);
   app.use(express.static(buildPath));
 
