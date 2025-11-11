@@ -148,7 +148,10 @@ if (process.env.NODE_ENV === "production") {
   app.use(express.static(buildPath));
 
   // SPA catch-all
-  app.get("*", (_req, res) => {
+  app.get("*", (req, res) => {
+    if (req.path.startsWith('/public')) {
+      return res.status(404).end();
+    }
     res.sendFile(path.join(buildPath, "index.html"));
   });
 } else {
