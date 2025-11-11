@@ -122,7 +122,11 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 // Serve static files from public folder (for uploaded images, etc.)
-app.use('/public', express.static(path.join(__dirname, '../public')));
+// Use process.cwd() which always points to the project root where the app is run
+const publicPath = path.join(process.cwd(), 'public');
+console.log('[STATIC-PUBLIC] process.cwd():', process.cwd());
+console.log('[STATIC-PUBLIC] Serving /public from:', publicPath);
+app.use('/public', express.static(publicPath));
 
 (async () => {
   // Initialize email transporter
@@ -143,7 +147,8 @@ app.use('/public', express.static(path.join(__dirname, '../public')));
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     // Serve static files from dist/public (includes app files AND public folder contents)
-    const buildPath = path.join(__dirname, "dist", "public");
+    const buildPath = path.join(process.cwd(), "dist", "public");
+    console.log('[STATIC-BUILD] Serving app from:', buildPath);
     app.use(express.static(buildPath));
 
     // SPA catch-all - only for non-file routes
