@@ -118,6 +118,11 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
+// Serve static files from the public directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/public', express.static(path.join(__dirname, '..', 'public')));
+
 (async () => {
   // Initialize email transporter
   await initializeEmailTransporter();
