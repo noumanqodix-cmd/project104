@@ -932,7 +932,7 @@ export const authRoutes = (app: Express) => {
 };
 
 // ==========================================
-// OTP VERIFICATION
+// OTP VERIFICATION - DELETE
 // =========================================
 
 export const otpRoutes = (app: Express) => {
@@ -1679,8 +1679,8 @@ export const userRoutes = (app: Express) => {
         // Extract filename from the stored URL (e.g., "/profile-images/profile-123.jpg" -> "profile-123.jpg")
         const filename = path.basename(dbUser.profileImageUrl);
         // Create full URL for external access - use environment variable for production
-        const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-        profileImageUrl = `${baseUrl}/api/images/profile/${filename}`;
+        // const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+        profileImageUrl = `https://morphit.rjautonomous.com/api/images/profile/${filename}`;
       }
 
       // Return safe user data only (exclude sensitive information)

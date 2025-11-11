@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon --exec tsx server/index.ts",
-    "build": "cross-env NODE_ENV=production vite build --mode production && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "VITE_SUPABASE_URL=\"https://guvpoifxhpypgrjrejjh.supabase.co\" VITE_SUPABASE_ANON_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1dnBvaWZ4aHB5cGdyanJlampoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MDIyODQsImV4cCI6MjA3NTk3ODI4NH0.oI1-jvU-Oioov3fWgxNPy83eSl7VoAbhzO3H5G5AoRo\" cross-env NODE_ENV=production vite build --mode production && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"
