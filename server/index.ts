@@ -139,14 +139,14 @@ app.get('/favicon.ico', (req, res) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
 if (process.env.NODE_ENV === "production") {
-  // Serve static files from the 'public' directory
-  app.use('/public', express.static(path.join(__dirname, '../../public')));
+  // Serve static files from the 'public' directory, which is one level above 'dist'
+  app.use('/public', express.static(path.join(__dirname, '../public')));
 
-  // Serve static frontend files in production
-  const buildPath = path.join(__dirname, "../dist/public");
+  // Serve static frontend files from 'dist/public'
+  const buildPath = path.join(__dirname, "public");
   app.use(express.static(buildPath));
 
-  // SPA catch-all
+  // SPA catch-all for any other requests
   app.get("*", (req, res) => {
     res.sendFile(path.join(buildPath, "index.html"));
   });
