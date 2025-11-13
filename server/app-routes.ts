@@ -1,9 +1,15 @@
 import type { Express, Request, Response } from "express";
 import * as bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "./db";
-import { users, emailOtp, sessionTokens } from "@shared/schema";
+import {
+  users,
+  emailOtp,
+  sessionTokens,
+  workoutPrograms,
+  fitnessAssessments,
+} from "@shared/schema";
 import { sendEmail } from "./email";
 import multer from "multer";
 import { randomBytes, randomUUID } from "crypto";
@@ -731,7 +737,11 @@ export const authRoutes = (app: Express) => {
         console.log("[SOCIAL-LOGIN] Social login route hit");
 
         const { idToken, provider, isLogin } = req.body;
-        console.log("[SOCIAL-LOGIN] Request body:", { provider, isLogin, idToken: idToken ? "present" : "missing" });
+        console.log("[SOCIAL-LOGIN] Request body:", {
+          provider,
+          isLogin,
+          idToken: idToken ? "present" : "missing",
+        });
 
         // Validate required fields
         if (!idToken || !provider) {
@@ -742,12 +752,14 @@ export const authRoutes = (app: Express) => {
               message: "idToken and provider are required.",
             },
             data: {
-              missingFields: ["idToken", "provider"].filter(field => !req.body[field]),
+              missingFields: ["idToken", "provider"].filter(
+                (field) => !req.body[field]
+              ),
             },
           });
         }
 
-        if (provider !== 'google') {
+        if (provider !== "google") {
           return res.status(400).json({
             status: {
               remark: "unsupported_provider",
@@ -767,12 +779,14 @@ export const authRoutes = (app: Express) => {
 
         try {
           // Decode the JWT token (without verification for now - in production use proper verification)
-          const tokenParts = idToken.split('.');
+          const tokenParts = idToken.split(".");
           if (tokenParts.length !== 3) {
-            throw new Error('Invalid JWT token format');
+            throw new Error("Invalid JWT token format");
           }
 
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          const payload = JSON.parse(
+            Buffer.from(tokenParts[1], "base64").toString()
+          );
 
           console.log("[SOCIAL-LOGIN] Decoded Google token payload:", {
             sub: payload.sub,
@@ -783,7 +797,14 @@ export const authRoutes = (app: Express) => {
             picture: payload.picture,
           });
 
-          const { sub: googleId, email, name, given_name, family_name, picture } = payload;
+          const {
+            sub: googleId,
+            email,
+            name,
+            given_name,
+            family_name,
+            picture,
+          } = payload;
 
           // Check if user already exists with this Google ID or email
           let existingUser = await db
@@ -805,18 +826,20 @@ export const authRoutes = (app: Express) => {
                 .update(users)
                 .set({
                   googleId,
-                  profileImageUrl: picture ? `/profile-images/google-${googleId}.jpg` : user.profileImageUrl,
+                  profileImageUrl: picture
+                    ? `/profile-images/google-${googleId}.jpg`
+                    : user.profileImageUrl,
                   updatedAt: new Date(),
                 })
                 .where(eq(users.id, userId));
             }
 
             // Check if user is verified
-            if (user.verificationStatus !== 'verified') {
+            if (user.verificationStatus !== "verified") {
               await db
                 .update(users)
                 .set({
-                  verificationStatus: 'verified',
+                  verificationStatus: "verified",
                   updatedAt: new Date(),
                 })
                 .where(eq(users.id, userId));
@@ -829,8 +852,13 @@ export const authRoutes = (app: Express) => {
             userId = randomUUID();
 
             // Split name into first and last name
-            const firstName = given_name || (name ? name.split(' ')[0] : 'User');
-            const lastName = family_name || (name && name.split(' ').length > 1 ? name.split(' ').slice(1).join(' ') : 'User');
+            const firstName =
+              given_name || (name ? name.split(" ")[0] : "User");
+            const lastName =
+              family_name ||
+              (name && name.split(" ").length > 1
+                ? name.split(" ").slice(1).join(" ")
+                : "User");
 
             await db.insert(users).values({
               id: userId,
@@ -838,19 +866,25 @@ export const authRoutes = (app: Express) => {
               email: email.toLowerCase(),
               firstName,
               lastName,
-              profileImageUrl: picture ? `/profile-images/google-${googleId}.jpg` : null,
-              verificationStatus: 'verified', // Google accounts are pre-verified
+              profileImageUrl: picture
+                ? `/profile-images/google-${googleId}.jpg`
+                : null,
+              verificationStatus: "verified", // Google accounts are pre-verified
               createdAt: new Date(),
               updatedAt: new Date(),
             });
 
-            console.log(`[SOCIAL-LOGIN] Created new user with Google ID: ${userId}`);
+            console.log(
+              `[SOCIAL-LOGIN] Created new user with Google ID: ${userId}`
+            );
           }
 
           // Generate JWT token for the user
           const jwtSecret = process.env.JWT_SECRET;
           if (!jwtSecret) {
-            throw new Error("JWT_SECRET is not defined in environment variables");
+            throw new Error(
+              "JWT_SECRET is not defined in environment variables"
+            );
           }
 
           const token = jwt.sign({ userId }, jwtSecret, {
@@ -882,11 +916,15 @@ export const authRoutes = (app: Express) => {
               },
             });
 
-          console.log(`[SOCIAL-LOGIN] JWT token generated and stored for user: ${userId}`);
+          console.log(
+            `[SOCIAL-LOGIN] JWT token generated and stored for user: ${userId}`
+          );
 
           res.status(200).json({
             status: {
-              remark: isNewUser ? "social_registration_successful" : "social_login_successful",
+              remark: isNewUser
+                ? "social_registration_successful"
+                : "social_login_successful",
               status: "success",
               message: isNewUser
                 ? "Account created successfully via Google!"
@@ -905,9 +943,11 @@ export const authRoutes = (app: Express) => {
               },
             },
           });
-
         } catch (tokenError) {
-          console.error("[SOCIAL-LOGIN] Error processing Google token:", tokenError);
+          console.error(
+            "[SOCIAL-LOGIN] Error processing Google token:",
+            tokenError
+          );
           return res.status(400).json({
             status: {
               remark: "invalid_token",
@@ -916,7 +956,6 @@ export const authRoutes = (app: Express) => {
             },
           });
         }
-
       } catch (error) {
         console.error("[SOCIAL-LOGIN] Error in social login:", error);
         res.status(500).json({
@@ -2424,42 +2463,381 @@ export const userRoutes = (app: Express) => {
   );
 
   // GET /api/images/profile/:filename - Serve profile images
-  app.get("/api/images/profile/:filename", async (req: Request, res: Response) => {
-    try {
-      const { filename } = req.params;
-      const imagePath = path.join(__dirname, "../public/profile-images", filename);
+  app.get(
+    "/api/images/profile/:filename",
+    async (req: Request, res: Response) => {
+      try {
+        const { filename } = req.params;
+        const imagePath = path.join(
+          __dirname,
+          "../public/profile-images",
+          filename
+        );
 
-      // Check if file exists
-      if (!fs.existsSync(imagePath)) {
-        return res.status(404).json({ error: "Image not found" });
+        // Check if file exists
+        if (!fs.existsSync(imagePath)) {
+          return res.status(404).json({ error: "Image not found" });
+        }
+
+        // Set appropriate headers for image serving
+        const ext = path.extname(filename).toLowerCase();
+        const contentType =
+          {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+          }[ext] || "application/octet-stream";
+
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+
+        // Stream the file
+        const fileStream = fs.createReadStream(imagePath);
+        fileStream.pipe(res);
+
+        fileStream.on("error", (error) => {
+          console.error("Error streaming image:", error);
+          res.status(500).json({ error: "Failed to serve image" });
+        });
+      } catch (error) {
+        console.error("Image serving error:", error);
+        res.status(500).json({ error: "Failed to serve image" });
       }
-
-      // Set appropriate headers for image serving
-      const ext = path.extname(filename).toLowerCase();
-      const contentType = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp'
-      }[ext] || 'application/octet-stream';
-
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-      // Stream the file
-      const fileStream = fs.createReadStream(imagePath);
-      fileStream.pipe(res);
-
-      fileStream.on('error', (error) => {
-        console.error('Error streaming image:', error);
-        res.status(500).json({ error: 'Failed to serve image' });
-      });
-    } catch (error) {
-      console.error('Image serving error:', error);
-      res.status(500).json({ error: 'Failed to serve image' });
     }
-  });
+  );
+};
+
+// ==========================================
+// APP FEATURES
+// ==========================================
+
+export const getAppFeatures = (app: Express) => {
+  // ===========================================
+  // FITNESS TEST
+  // ===========================================
+
+  app.post(
+    "/api/fitness-test",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return res.status(401).json({
+            status: {
+              remark: "unauthorized",
+              status: "error",
+              message: "Unauthorized",
+            },
+          });
+        }
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+        let decoded: { userId: string; exp?: number; iat?: number };
+        try {
+          decoded = jwt.verify(token, jwtSecret) as {
+            userId: string;
+            exp?: number;
+            iat?: number;
+          };
+        } catch (jwtError: any) {
+          if (jwtError.name === "TokenExpiredError") {
+            return res.status(401).json({
+              status: {
+                remark: "token_expired",
+                status: "error",
+                message: "Your session has expired. Please log in again.",
+              },
+            });
+          }
+          return res.status(401).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid authentication token.",
+            },
+          });
+        }
+        const userId = decoded.userId;
+        console.log(
+          "[FITNESS-TEST] Received fitness test request for userId:",
+          userId
+        );
+
+        // Check JWT expiration
+        const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+        if (isExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "session_expired",
+              status: "error",
+              message: "Session has expired",
+            },
+          });
+        }
+        // Check database token status
+        const tokenRecord = await db
+
+          .select()
+          .from(sessionTokens)
+          .where(eq(sessionTokens.token, token))
+          .limit(1);
+        if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "invalid_session",
+              status: "error",
+              message: "Invalid session",
+            },
+          });
+        }
+        const { testType, testData } = req.body;
+
+        console.log("[FITNESS-TEST] Test data received:", {
+          testType,
+          testData,
+        });
+        // Validate required fields
+        if (!testType || !testData) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message: "testType and testData are required",
+            },
+            data: {
+              missingFields: [
+                !testType && "testType",
+                !testData && "testData",
+              ].filter(Boolean),
+            },
+          });
+        }
+
+        // send back to rtesposne
+        res.status(200).json({
+          status: {
+            remark: "fitness_test_success",
+            status: "success",
+            message: "Fitness test processed successfully.",
+          },
+          data: {
+            testType,
+            testData,
+          },
+        });
+        
+      } catch (error) {
+        console.error("Fitness test error:", error);
+        res.status(500).json({
+          data: {},
+          status: {
+            remark: "fitness_test_failed",
+            status: "error",
+            message: "Failed to process fitness test.",
+          },
+        });
+      }
+    }
+  );
+
+  // ===========================================
+  // GENERATE WORKOUT PROGRAM
+  // ==========================================
+  app.post(
+    "/api/generate-program",
+    upload.none(),
+    async (req: Request, res: Response) => {
+      try {
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+          return res.status(401).json({
+            status: {
+              remark: "unauthorized",
+              status: "error",
+              message: "Unauthorized",
+            },
+          });
+        }
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          throw new Error("JWT_SECRET is not defined in environment variables");
+        }
+
+        let decoded: { userId: string; exp?: number; iat?: number };
+        try {
+          decoded = jwt.verify(token, jwtSecret) as {
+            userId: string;
+            exp?: number;
+            iat?: number;
+          };
+        } catch (jwtError: any) {
+          if (jwtError.name === "TokenExpiredError") {
+            return res.status(401).json({
+              status: {
+                remark: "token_expired",
+                status: "error",
+                message: "Your session has expired. Please log in again.",
+              },
+            });
+          }
+          // For other JWT errors (invalid signature, malformed token, etc.)
+          return res.status(401).json({
+            status: {
+              remark: "invalid_token",
+              status: "error",
+              message: "Invalid authentication token.",
+            },
+          });
+        }
+
+        const userId = decoded.userId;
+
+        // Check JWT expiration
+        const isExpired = Date.now() >= (decoded.exp || 0) * 1000;
+        if (isExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "session_expired",
+              status: "error",
+              message: "Session has expired",
+            },
+          });
+        }
+
+        // Check database token status
+        const tokenRecord = await db
+          .select()
+          .from(sessionTokens)
+          .where(eq(sessionTokens.token, token))
+          .limit(1);
+
+        if (tokenRecord.length === 0 || tokenRecord[0].isTokenExpired) {
+          return res.status(401).json({
+            status: {
+              remark: "invalid_session",
+              status: "error",
+              message: "Invalid or expired session",
+            },
+          });
+        }
+
+        const { experienceLevel, unitPreference, equipment } = req.body;
+
+        console.log(
+          "[PROGRAM-GENERATION] Received program generation request:",
+          {
+            userId,
+            experienceLevel,
+            unitPreference,
+            equipment,
+          }
+        );
+
+        // Validate required fields
+        if (!experienceLevel || !unitPreference || !equipment) {
+          return res.status(400).json({
+            status: {
+              remark: "validation_failed",
+              status: "error",
+              message:
+                "experienceLevel, unitPreference, and equipment are required",
+            },
+            data: {
+              missingFields: [
+                !experienceLevel && "experienceLevel",
+                !unitPreference && "unitPreference",
+                !equipment && "equipment",
+              ].filter(Boolean),
+            },
+          });
+        }
+
+        // Update user preferences in the users table
+        const updatedUsers = await db
+          .update(users)
+          .set({
+            unitPreference,
+            equipment: Array.isArray(equipment) ? equipment : [equipment],
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId))
+          .returning({ id: users.id });
+
+        if (updatedUsers.length === 0) {
+          return res.status(404).json({
+            status: {
+              remark: "user_not_found",
+              status: "error",
+              message: "User not found",
+            },
+          });
+        }
+
+        // // Get the most recent fitness assessment for experience level
+        // const fitnessAssessment = await db
+        //   .select()
+        //   .from(fitnessAssessments)
+        //   .where(eq(fitnessAssessments.userId, userId))
+        //   .orderBy(fitnessAssessments.testDate, "desc")
+        //   .limit(1);
+
+        // const currentExperienceLevel = fitnessAssessment.length > 0
+        //   ? fitnessAssessment[0].experienceLevel || experienceLevel
+        //   : experienceLevel;
+
+        // // Create a new workout program
+        // const newProgram = await db
+        //   .insert(workoutPrograms)
+        //   .values({
+        //     userId,
+        //     programType: "custom", // Default program type
+        //     weeklyStructure: "3-day-split", // Default weekly structure
+        //     durationWeeks: 8, // Default 8-week program
+        //     intensityLevel: currentExperienceLevel === "Beginner" ? "light" :
+        //                    currentExperienceLevel === "Intermediate" ? "moderate" : "vigorous",
+        //     isActive: 1,
+        //   })
+        //   .returning();
+
+        // console.log("[PROGRAM-GENERATION] Program created successfully:", {
+        //   programId: newProgram[0].id,
+        //   userId,
+        //   experienceLevel: currentExperienceLevel,
+        //   unitPreference,
+        //   equipment,
+        // });
+
+        res.status(201).json({
+          status: {
+            remark: "program_generated",
+            status: "success",
+            message: "Program generated successfully",
+          },
+          data: {
+            programId: newProgram[0].id,
+            experienceLevel: currentExperienceLevel,
+            unitPreference,
+            equipment,
+          },
+        });
+      } catch (error) {
+        console.error("[PROGRAM-GENERATION] Error generating program:", error);
+        res.status(500).json({
+          status: {
+            remark: "program_generation_failed",
+            status: "error",
+            message: "Failed to generate program. Please try again.",
+          },
+        });
+      }
+    }
+  );
 };
 
 // ==========================================
