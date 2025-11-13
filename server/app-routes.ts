@@ -2595,42 +2595,113 @@ export const getAppFeatures = (app: Express) => {
             },
           });
         }
-        const { testType, testData } = req.body;
 
-        console.log("[FITNESS-TEST] Test data received:", {
+        const {
           testType,
-          testData,
+          pushups,
+          pullups,
+          squats,
+          mile_time,
+          squat_1rm,
+          deadlift_1rm,
+          bench_press_1rm,
+          overhead_press_1rm,
+          barbell_row_1rm,
+          walking_lunges,
+          single_leg_rdl,
+          plank_hold,
+          dumbbell_lunge_1rm,
+          farmers_carry_1rm,
+          pike_pushups,
+          horizontal_push_override,
+          vertical_push_override,
+          lower_body_override,
+          hinge_override,
+          core_override,
+          rotation_override,
+          carry_override,
+          cardio_override,
+          vertical_pull_override,
+          horizontal_pull_override,
+        } = req.body;
+
+        console.log("[FITNESS-TEST] Fitness test data:", {
+          testType,
+          pushups,
+          pullups,
+          squats,
+          mile_time,
+          squat_1rm,
+          deadlift_1rm,
+          bench_press_1rm,
+          overhead_press_1rm,
+          barbell_row_1rm,
+          walking_lunges,
+          single_leg_rdl,
+          plank_hold,
+          dumbbell_lunge_1rm,
+          farmers_carry_1rm,
+          pike_pushups,
+          horizontal_push_override,
+          vertical_push_override,
+          lower_body_override,
+          hinge_override,
+          core_override,
+          rotation_override,
+          carry_override,
+          cardio_override,
+          vertical_pull_override,
+          horizontal_pull_override,
         });
+
         // Validate required fields
-        if (!testType || !testData) {
+        if (!testType) {
           return res.status(400).json({
             status: {
               remark: "validation_failed",
               status: "error",
-              message: "testType and testData are required",
-            },
-            data: {
-              missingFields: [
-                !testType && "testType",
-                !testData && "testData",
-              ].filter(Boolean),
+              message: "testType is required",
             },
           });
         }
 
-        // send back to rtesposne
+        // send back 200 response
+
         res.status(200).json({
           status: {
-            remark: "fitness_test_success",
+            remark: "fitness_test_processed",
             status: "success",
             message: "Fitness test processed successfully.",
           },
           data: {
             testType,
-            testData,
+            pushups,
+            pullups,
+            squats,
+            mile_time,
+            squat_1rm,
+            deadlift_1rm,
+            bench_press_1rm,
+            overhead_press_1rm,
+            barbell_row_1rm,
+            walking_lunges,
+            single_leg_rdl,
+            plank_hold,
+            dumbbell_lunge_1rm,
+            farmers_carry_1rm,
+            pike_pushups,
+            horizontal_push_override,
+            vertical_push_override,
+            lower_body_override,
+            hinge_override,
+            core_override,
+            rotation_override,
+            carry_override,
+            cardio_override,
+            vertical_pull_override,
+            horizontal_pull_override,
           },
         });
-        
       } catch (error) {
         console.error("Fitness test error:", error);
         res.status(500).json({
