@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from '@supabase/supabase-js';
 import { initializeEmailTransporter } from "./email-config.ts";
+import { startDrizzleStudio } from './db-pm2-service.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -129,6 +130,25 @@ console.log('[STATIC-PUBLIC] Serving /public from:', publicPath);
 app.use('/public', express.static(publicPath));
 
 (async () => {
+  // Start Drizzle Studio (PUBLIC - NO AUTHENTICATION)
+  try {
+    console.log("\n⚠️  ========================================");
+    console.log("⚠️  WARNING: Starting Drizzle Studio");
+    console.log("⚠️  WITHOUT AUTHENTICATION!");
+    console.log("⚠️  Your database will be publicly accessible");
+    console.log("⚠️  ========================================\n");
+    
+    await startDrizzleStudio();
+    
+    console.log("\n✅ ========================================");
+    console.log("✅ Drizzle Studio is running");
+    console.log("✅ Local: http://localhost:4983");
+    console.log("✅ Public: http://YOUR-SERVER-IP:4983");
+    console.log("✅ ========================================\n");
+  } catch (error) {
+    console.error("❌ [DRIZZLE] Failed to start:", error);
+  }
+
   // Initialize email transporter
   await initializeEmailTransporter();
 

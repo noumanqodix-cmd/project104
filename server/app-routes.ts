@@ -2702,6 +2702,10 @@ export const getAppFeatures = (app: Express) => {
             horizontal_pull_override,
           },
         });
+
+
+
+        
       } catch (error) {
         console.error("Fitness test error:", error);
         res.status(500).json({
